@@ -9,6 +9,27 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
+export const workoutPlans = pgTable(
+  "workout_plans",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    name: text("name").notNull(),
+    weeks: integer("weeks").notNull(),
+    daysPerWeek: integer("days_per_week").notNull(),
+    workouts: text("workouts").array().notNull(),
+  },
+  (t) => ({
+    userCreatedAtIdx: index("workout_plans_user_created_at_idx").on(
+      t.userId,
+      t.createdAt
+    ),
+  })
+);
+
 export const workoutTemplates = pgTable(
   "workout_templates",
   {

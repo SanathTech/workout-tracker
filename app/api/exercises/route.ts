@@ -203,7 +203,7 @@ export async function POST(req: Request): Promise<NextResponse> {
   } catch (err) {
     console.error(err);
     return NextResponse.json(
-      { error: "Failed to save workout" },
+      { error: "Failed to save exercise" },
       { status: 500 }
     );
   }
