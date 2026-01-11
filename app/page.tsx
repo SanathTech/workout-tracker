@@ -5,3 +5,5 @@ export default async function Home() {
   const exercises = await getExercises();
   return <WorkoutForm exercises={exercises} />;
 }
+
+// Test
