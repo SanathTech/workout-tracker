@@ -24,6 +24,9 @@ export type WorkoutDraft = {
       rir?: number;
     }>;
   }>;
+  workoutPlanId?: string;
+  week?: number;
+  day?: number;
 };
 
 function toNum(v: string) {

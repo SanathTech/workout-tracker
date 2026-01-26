@@ -1,3 +1,4 @@
+import Navbar from "@/components/navbar";
 import WorkoutForm from "@/components/workout-form";
 import { getExercises } from "@/src/db/queries/exercises";
 import { getWorkoutForEdit } from "@/src/db/queries/workouts";
@@ -17,5 +18,10 @@ export default async function EditWorkoutPage({
 
   const exercises = await getExercises(workout.workoutName);
 
-  return <WorkoutForm exercises={exercises} initialWorkout={workout} />;
+  return (
+    <>
+      <Navbar url={`/workout-plans/${workout.workoutPlanId}`} />
+      <WorkoutForm exercises={exercises} initialWorkout={workout} />
+    </>
+  );
 }

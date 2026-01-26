@@ -59,6 +59,9 @@ export const workouts = pgTable(
       .defaultNow(),
     workoutName: text("workout_name"),
     notes: text("notes"),
+    workoutPlanId: uuid("workout_plan_id").references(() => workoutPlans.id),
+    week: integer("week"),
+    day: integer("day"),
   },
   (t) => ({
     userStartedAtIdx: index("workouts_user_started_at_idx").on(

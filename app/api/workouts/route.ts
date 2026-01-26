@@ -26,6 +26,9 @@ const WorkoutDraftSchema = z.object({
       })
     )
     .optional(),
+  workoutPlanId: z.string().uuid().optional(),
+  week: z.number().int().min(1).optional(),
+  day: z.number().int().min(1).optional(),
 });
 
 export async function POST(req: Request): Promise<NextResponse> {
@@ -54,7 +57,14 @@ export async function POST(req: Request): Promise<NextResponse> {
     parsed.data.exercises = exercises;
   }
 
-  const { workoutName, workoutNotes, exercises: exs } = parsed.data;
+  const {
+    workoutName,
+    workoutNotes,
+    exercises: exs,
+    workoutPlanId,
+    week,
+    day,
+  } = parsed.data;
 
   // TODO: replace with real auth
   const userId = "demo-user";
@@ -68,6 +78,9 @@ export async function POST(req: Request): Promise<NextResponse> {
           userId,
           workoutName: workoutName?.trim() || null,
           notes: workoutNotes?.trim() || null,
+          workoutPlanId: workoutPlanId || null,
+          week: week || null,
+          day: day || null,
         })
         .returning({ id: workouts.id });
 

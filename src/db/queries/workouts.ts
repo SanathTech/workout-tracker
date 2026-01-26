@@ -48,6 +48,9 @@ export async function getWorkoutForEdit(workoutId: string) {
           rir: s.rir?.toString() ?? "",
         })) ?? [],
     })),
+    workoutPlanId: workout.workoutPlanId ?? undefined,
+    week: workout.week ?? undefined,
+    day: workout.day ?? undefined,
   };
 }
 
@@ -60,5 +63,20 @@ export async function getAllWorkoutsSummary() {
     id: r.id,
     name: r.workoutName ?? "Unnamed Workout",
     startedAt: r.startedAt,
+  }));
+}
+
+export async function getWorkoutsForPlan(workoutPlanId: string) {
+  const rows = await db
+    .select()
+    .from(workouts)
+    .where(eq(workouts.workoutPlanId, workoutPlanId))
+    .orderBy(asc(workouts.startedAt));
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.workoutName ?? "Unnamed Workout",
+    workoutPlanId: r.workoutPlanId!,
+    week: r.week!,
+    day: r.day!,
   }));
 }
