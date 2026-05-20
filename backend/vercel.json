@@ -1,6 +1,5 @@
 {
   "version": 2,
-  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- .",
   "builds": [
     {
       "src": "src/index.js",
