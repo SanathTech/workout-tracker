@@ -3,7 +3,7 @@ const express = require('express');
 const cors = require('cors');
 
 const exercisesRouter = require('./routes/exercises');
-const plansRouter = require('./routes/plans');
+const programsRouter = require('./routes/programs');
 const workoutsRouter = require('./routes/workouts');
 const progressRouter = require('./routes/progress');
 
@@ -39,7 +39,7 @@ app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
 // API routes
 app.use('/api/exercises', exercisesRouter);
-app.use('/api/plans', plansRouter);
+app.use('/api/programs', programsRouter);
 app.use('/api/workouts', workoutsRouter);
 app.use('/api/progress', progressRouter);
 

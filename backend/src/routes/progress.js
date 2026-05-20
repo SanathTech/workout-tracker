@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 
-// GET /api/progress/exercise/:exerciseId — max weight over time for an exercise
+// GET /api/progress/exercise/:exerciseId — per-date max weight and volume
 router.get('/exercise/:exerciseId', async (req, res) => {
   const { weeks = 12 } = req.query;
   try {
@@ -14,8 +14,10 @@ router.get('/exercise/:exerciseId', async (req, res) => {
          SUM(ws.reps) AS total_reps,
          COUNT(*)::int AS set_count
        FROM workout_sets ws
-       JOIN workouts w ON w.id = ws.workout_id
-       WHERE ws.exercise_id = $1
+       JOIN workout_exercises we ON we.id = ws.workout_exercise_id
+       JOIN workouts w ON w.id = we.workout_id
+       WHERE we.exercise_id = $1
+         AND w.status = 'completed'
          AND w.date >= CURRENT_DATE - ($2 || ' weeks')::INTERVAL
        GROUP BY w.date
        ORDER BY w.date ASC`,
@@ -27,7 +29,7 @@ router.get('/exercise/:exerciseId', async (req, res) => {
   }
 });
 
-// GET /api/progress/volume — weekly total volume over time
+// GET /api/progress/volume — weekly total volume
 router.get('/volume', async (req, res) => {
   const { weeks = 12 } = req.query;
   try {
@@ -37,8 +39,10 @@ router.get('/volume', async (req, res) => {
          SUM(ws.weight_kg * ws.reps) AS total_volume,
          COUNT(DISTINCT w.id)::int AS workout_count
        FROM workout_sets ws
-       JOIN workouts w ON w.id = ws.workout_id
-       WHERE w.date >= CURRENT_DATE - ($1 || ' weeks')::INTERVAL
+       JOIN workout_exercises we ON we.id = ws.workout_exercise_id
+       JOIN workouts w ON w.id = we.workout_id
+       WHERE w.status = 'completed'
+         AND w.date >= CURRENT_DATE - ($1 || ' weeks')::INTERVAL
        GROUP BY week_start
        ORDER BY week_start ASC`,
       [weeks]
@@ -49,16 +53,28 @@ router.get('/volume', async (req, res) => {
   }
 });
 
-// GET /api/progress/stats — overall stats for dashboard
+// GET /api/progress/stats — dashboard counters
 router.get('/stats', async (req, res) => {
   try {
     const [workoutCount, totalVolume, totalSets, thisWeek] = await Promise.all([
-      db.query('SELECT COUNT(*)::int AS count FROM workouts'),
-      db.query('SELECT COALESCE(SUM(weight_kg * reps), 0) AS total FROM workout_sets'),
-      db.query('SELECT COUNT(*)::int AS count FROM workout_sets'),
+      db.query("SELECT COUNT(*)::int AS count FROM workouts WHERE status = 'completed'"),
+      db.query(
+        `SELECT COALESCE(SUM(ws.weight_kg * ws.reps), 0) AS total
+           FROM workout_sets ws
+           JOIN workout_exercises we ON we.id = ws.workout_exercise_id
+           JOIN workouts w ON w.id = we.workout_id
+          WHERE w.status = 'completed'`
+      ),
+      db.query(
+        `SELECT COUNT(*)::int AS count
+           FROM workout_sets ws
+           JOIN workout_exercises we ON we.id = ws.workout_exercise_id
+           JOIN workouts w ON w.id = we.workout_id
+          WHERE w.status = 'completed'`
+      ),
       db.query(
         `SELECT COUNT(DISTINCT id)::int AS count FROM workouts
-         WHERE date >= DATE_TRUNC('week', CURRENT_DATE)`
+          WHERE status = 'completed' AND date >= DATE_TRUNC('week', CURRENT_DATE)`
       ),
     ]);
 
@@ -73,18 +89,19 @@ router.get('/stats', async (req, res) => {
   }
 });
 
-// GET /api/progress/personal-bests — top lifts per exercise
+// GET /api/progress/personal-bests — heaviest set per exercise
 router.get('/personal-bests', async (req, res) => {
   try {
     const { rows } = await db.query(
-      `SELECT DISTINCT ON (ws.exercise_id)
-         ws.exercise_id, e.name AS exercise_name, e.muscle_group,
+      `SELECT DISTINCT ON (we.exercise_id)
+         we.exercise_id, e.name AS exercise_name, e.muscle_group,
          ws.weight_kg AS best_weight, ws.reps, w.date
        FROM workout_sets ws
-       JOIN exercises e ON e.id = ws.exercise_id
-       JOIN workouts w ON w.id = ws.workout_id
-       WHERE ws.weight_kg IS NOT NULL
-       ORDER BY ws.exercise_id, ws.weight_kg DESC, ws.reps DESC`
+       JOIN workout_exercises we ON we.id = ws.workout_exercise_id
+       JOIN workouts w ON w.id = we.workout_id
+       JOIN exercises e ON e.id = we.exercise_id
+       WHERE ws.weight_kg IS NOT NULL AND w.status = 'completed'
+       ORDER BY we.exercise_id, ws.weight_kg DESC, ws.reps DESC`
     );
     res.json(rows);
   } catch (err) {

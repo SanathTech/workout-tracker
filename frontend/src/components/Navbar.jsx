@@ -3,8 +3,7 @@ import { useEffect, useState } from 'react';
 
 const links = [
   { to: '/dashboard', label: 'Dashboard', icon: '📊' },
-  { to: '/log', label: 'Log Workout', icon: '💪' },
-  { to: '/plans', label: 'Plans', icon: '📋' },
+  { to: '/program', label: 'Program', icon: '📋' },
   { to: '/progress', label: 'Progress', icon: '📈' },
   { to: '/exercises', label: 'Exercises', icon: '🏋️' },
 ];

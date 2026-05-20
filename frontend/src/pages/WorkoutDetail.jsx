@@ -46,7 +46,7 @@ export default function WorkoutDetail() {
           <Link to="/dashboard" className="text-sm text-gray-400 hover:text-gray-600">
             ← Back
           </Link>
-          <h1 className="text-2xl font-bold mt-1">{workout.name}</h1>
+          <h1 className="text-2xl font-bold mt-1">{workout.routine_name || 'Workout'}</h1>
           <p className="text-gray-500 text-sm">
             {new Date(workout.date).toLocaleDateString('en-US', {
               weekday: 'long',
@@ -54,17 +54,23 @@ export default function WorkoutDetail() {
               month: 'long',
               day: 'numeric',
             })}
-            {workout.plan_name && ` · ${workout.plan_name}`}
+            {workout.program_name && ` · ${workout.program_name}`}
+            {workout.program_week && ` · Week ${workout.program_week}`}
           </p>
         </div>
-        <button
-          onClick={() => {
-            if (confirm('Delete this workout?')) remove();
-          }}
-          className="btn-danger text-sm"
-        >
-          Delete
-        </button>
+        <div className="flex flex-col gap-2 shrink-0">
+          {workout.status === 'in_progress' && (
+            <Link to={`/session/${id}`} className="btn-primary text-sm">Resume</Link>
+          )}
+          <button
+            onClick={() => {
+              if (confirm('Delete this workout?')) remove();
+            }}
+            className="btn-danger text-sm"
+          >
+            Delete
+          </button>
+        </div>
       </div>
 
       {/* Summary */}
