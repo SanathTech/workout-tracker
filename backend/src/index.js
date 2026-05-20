@@ -9,13 +9,23 @@ const progressRouter = require('./routes/progress');
 
 const app = express();
 
-// Allow all vercel.app preview URLs + localhost in dev
+const ALLOWED_HOSTS = ['workout.sanathtech.com'];
+
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (curl, mobile apps, same-origin)
     if (!origin) return callback(null, true);
-    // Allow any vercel.app subdomain and localhost
-    if (origin.endsWith('.vercel.app') || origin.startsWith('http://localhost')) {
+    let hostname;
+    try {
+      hostname = new URL(origin).hostname;
+    } catch {
+      return callback(new Error('Not allowed by CORS'));
+    }
+    if (
+      ALLOWED_HOSTS.includes(hostname) ||
+      hostname.endsWith('.vercel.app') ||
+      hostname === 'localhost'
+    ) {
       return callback(null, true);
     }
     callback(new Error('Not allowed by CORS'));
