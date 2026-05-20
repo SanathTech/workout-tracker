@@ -1,4 +1,15 @@
--- Workout Tracker Schema
+-- Workout Tracker Schema (Programs / Routines / Workouts)
+-- WARNING: This DROPS the old plans/workouts data. Run via `npm run db:init`.
+
+DROP TABLE IF EXISTS workout_sets CASCADE;
+DROP TABLE IF EXISTS workout_exercises CASCADE;
+DROP TABLE IF EXISTS workouts CASCADE;
+DROP TABLE IF EXISTS routine_exercise_subs CASCADE;
+DROP TABLE IF EXISTS routine_exercises CASCADE;
+DROP TABLE IF EXISTS routines CASCADE;
+DROP TABLE IF EXISTS programs CASCADE;
+DROP TABLE IF EXISTS plan_exercises CASCADE;
+DROP TABLE IF EXISTS workout_plans CASCADE;
 
 CREATE TABLE IF NOT EXISTS exercises (
   id SERIAL PRIMARY KEY,
@@ -8,43 +19,91 @@ CREATE TABLE IF NOT EXISTS exercises (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS workout_plans (
+CREATE TABLE programs (
   id SERIAL PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
   description TEXT,
+  total_weeks INTEGER NOT NULL DEFAULT 12,
+  status VARCHAR(20) NOT NULL DEFAULT 'draft',  -- draft | active | completed | archived
+  started_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS plan_exercises (
+-- Only one program can be 'active' at a time.
+CREATE UNIQUE INDEX programs_one_active ON programs(status) WHERE status = 'active';
+
+CREATE TABLE routines (
   id SERIAL PRIMARY KEY,
-  plan_id INTEGER REFERENCES workout_plans(id) ON DELETE CASCADE,
-  exercise_id INTEGER REFERENCES exercises(id) ON DELETE CASCADE,
+  program_id INTEGER NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
+  name VARCHAR(255) NOT NULL,
   sort_order INTEGER NOT NULL DEFAULT 0,
-  target_sets INTEGER,
-  target_reps INTEGER,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_routines_program ON routines(program_id);
+
+CREATE TABLE routine_exercises (
+  id SERIAL PRIMARY KEY,
+  routine_id INTEGER NOT NULL REFERENCES routines(id) ON DELETE CASCADE,
+  exercise_id INTEGER NOT NULL REFERENCES exercises(id) ON DELETE RESTRICT,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  target_sets INTEGER NOT NULL DEFAULT 3,
+  rep_range_low INTEGER,
+  rep_range_high INTEGER,
+  target_rir INTEGER,
+  rest_seconds INTEGER,
   notes TEXT
 );
 
-CREATE TABLE IF NOT EXISTS workouts (
+CREATE INDEX idx_routine_exercises_routine ON routine_exercises(routine_id);
+
+CREATE TABLE routine_exercise_subs (
   id SERIAL PRIMARY KEY,
-  name VARCHAR(255) NOT NULL,
+  routine_exercise_id INTEGER NOT NULL REFERENCES routine_exercises(id) ON DELETE CASCADE,
+  exercise_id INTEGER NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,
+  sort_order INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX idx_routine_exercise_subs_re ON routine_exercise_subs(routine_exercise_id);
+
+CREATE TABLE workouts (
+  id SERIAL PRIMARY KEY,
+  program_id INTEGER REFERENCES programs(id) ON DELETE SET NULL,
+  routine_id INTEGER REFERENCES routines(id) ON DELETE SET NULL,
+  routine_name VARCHAR(255),       -- snapshot at workout-start time
+  program_week INTEGER,            -- 1-indexed week within the program
   date DATE NOT NULL DEFAULT CURRENT_DATE,
   duration_minutes INTEGER,
   notes TEXT,
-  plan_id INTEGER REFERENCES workout_plans(id) ON DELETE SET NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'in_progress',  -- in_progress | completed
+  completed_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS workout_sets (
+CREATE INDEX idx_workouts_program ON workouts(program_id);
+CREATE INDEX idx_workouts_routine ON workouts(routine_id);
+CREATE INDEX idx_workouts_date ON workouts(date);
+CREATE INDEX idx_workouts_status ON workouts(status);
+
+CREATE TABLE workout_exercises (
   id SERIAL PRIMARY KEY,
-  workout_id INTEGER REFERENCES workouts(id) ON DELETE CASCADE,
-  exercise_id INTEGER REFERENCES exercises(id) ON DELETE CASCADE,
+  workout_id INTEGER NOT NULL REFERENCES workouts(id) ON DELETE CASCADE,
+  exercise_id INTEGER NOT NULL REFERENCES exercises(id) ON DELETE RESTRICT,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  notes TEXT
+);
+
+CREATE INDEX idx_workout_exercises_workout ON workout_exercises(workout_id);
+CREATE INDEX idx_workout_exercises_exercise ON workout_exercises(exercise_id);
+
+CREATE TABLE workout_sets (
+  id SERIAL PRIMARY KEY,
+  workout_exercise_id INTEGER NOT NULL REFERENCES workout_exercises(id) ON DELETE CASCADE,
   set_number INTEGER NOT NULL,
   reps INTEGER,
   weight_kg NUMERIC(6, 2),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_workout_sets_exercise ON workout_sets(exercise_id);
-CREATE INDEX IF NOT EXISTS idx_workout_sets_workout ON workout_sets(workout_id);
-CREATE INDEX IF NOT EXISTS idx_workouts_date ON workouts(date);
+CREATE INDEX idx_workout_sets_we ON workout_sets(workout_exercise_id);
