@@ -13,9 +13,9 @@ function groupByMuscle(exercises) {
 function SetRow({ set, previousSet, onChange, onRemove }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-sm text-gray-400 w-6 text-center">{set.set_number}</span>
+      <span className="text-xs text-neutral-500 dark:text-neutral-400 w-6 text-center">{set.set_number}</span>
       <div className="flex-1 grid grid-cols-2 gap-2">
-        <div className="relative">
+        <div>
           <input
             type="number" inputMode="decimal" min="0" step="0.5"
             placeholder="kg"
@@ -24,10 +24,10 @@ function SetRow({ set, previousSet, onChange, onRemove }) {
             className="input"
           />
           {previousSet?.weight_kg != null && (
-            <span className="absolute -bottom-4 left-1 text-[10px] text-gray-400">prev {previousSet.weight_kg}kg</span>
+            <span className="block text-[10px] text-neutral-500 dark:text-neutral-500 mt-0.5 pl-1">prev {previousSet.weight_kg}kg</span>
           )}
         </div>
-        <div className="relative">
+        <div>
           <input
             type="number" inputMode="numeric" min="0"
             placeholder="reps"
@@ -36,11 +36,11 @@ function SetRow({ set, previousSet, onChange, onRemove }) {
             className="input"
           />
           {previousSet?.reps != null && (
-            <span className="absolute -bottom-4 left-1 text-[10px] text-gray-400">prev {previousSet.reps} reps</span>
+            <span className="block text-[10px] text-neutral-500 dark:text-neutral-500 mt-0.5 pl-1">prev {previousSet.reps} reps</span>
           )}
         </div>
       </div>
-      <button onClick={onRemove} className="btn-ghost text-red-400 px-2">✕</button>
+      <button onClick={onRemove} className="btn-ghost px-2">×</button>
     </div>
   );
 }
@@ -76,7 +76,7 @@ function ExerciseBlock({ block, allExercises, workoutId, onChange, onRemove }) {
   });
 
   return (
-    <div className="card space-y-3">
+    <div className="card space-y-4">
       <div className="flex items-start gap-2">
         <div className="flex-1 min-w-0">
           {swapping ? (
@@ -99,23 +99,23 @@ function ExerciseBlock({ block, allExercises, workoutId, onChange, onRemove }) {
               ))}
             </select>
           ) : (
-            <h3 className="font-semibold">{block.exercise_name}</h3>
+            <h3 className="font-semibold text-neutral-900 dark:text-neutral-100">{block.exercise_name}</h3>
           )}
-          <p className="text-xs text-gray-500 mt-0.5">
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
             {target?.target_sets && `target ${target.target_sets} sets`}
             {repRange && ` · ${repRange} reps`}
             {target?.target_rir != null && ` · RIR ${target.target_rir}`}
             {target?.rest_seconds && ` · ${target.rest_seconds}s rest`}
           </p>
-          {block.notes && <p className="text-xs text-gray-400 italic mt-1">{block.notes}</p>}
+          {block.notes && <p className="text-xs text-neutral-500 italic mt-1">{block.notes}</p>}
         </div>
-        <div className="flex flex-col gap-1 shrink-0">
-          <button onClick={() => setSwapping((s) => !s)} className="btn-ghost text-xs">🔄 Sub</button>
-          <button onClick={onRemove} className="btn-ghost text-red-400 text-xs">🗑️</button>
+        <div className="flex gap-1 shrink-0">
+          <button onClick={() => setSwapping((s) => !s)} className="btn-ghost text-xs">Sub</button>
+          <button onClick={onRemove} className="btn-ghost text-xs">Remove</button>
         </div>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-4">
         {block.sets.map((s, i) => (
           <SetRow
             key={i}
@@ -125,7 +125,7 @@ function ExerciseBlock({ block, allExercises, workoutId, onChange, onRemove }) {
             onRemove={() => removeSet(i)}
           />
         ))}
-        <button onClick={addSet} className="btn-ghost text-sm text-blue-600 w-full justify-center">+ Add set</button>
+        <button onClick={addSet} className="btn-secondary w-full justify-center">Add set</button>
       </div>
     </div>
   );
@@ -177,7 +177,7 @@ export default function WorkoutSession() {
     },
   });
 
-  if (isLoading || !workout) return <p className="text-center text-gray-400 py-20">Loading…</p>;
+  if (isLoading || !workout) return <p className="text-center text-neutral-500 py-20">Loading…</p>;
   if (workout.status === 'completed') {
     navigate(`/workouts/${id}`, { replace: true });
     return null;
@@ -215,9 +215,9 @@ export default function WorkoutSession() {
   return (
     <div className="max-w-2xl mx-auto space-y-4">
       <div>
-        <button onClick={() => navigate(-1)} className="text-sm text-gray-400 hover:text-gray-600">← Back</button>
-        <h1 className="text-2xl font-bold mt-1">{workout.routine_name || 'Workout'}</h1>
-        <p className="text-sm text-gray-500">
+        <button onClick={() => navigate(-1)} className="text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100">← Back</button>
+        <h1 className="text-2xl font-semibold tracking-tight mt-1">{workout.routine_name || 'Workout'}</h1>
+        <p className="text-sm text-neutral-500 dark:text-neutral-400">
           {workout.program_name && `${workout.program_name} · `}
           {workout.program_week && `Week ${workout.program_week} · `}
           {new Date(workout.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
@@ -240,7 +240,7 @@ export default function WorkoutSession() {
       <div className="card space-y-2">
         <label className="label">Add ad-hoc exercise</label>
         <select className="input" value="" onChange={(e) => { addAdHocExercise(e.target.value); e.target.value = ''; }}>
-          <option value="">Pick an exercise to add…</option>
+          <option value="">Pick an exercise…</option>
           {Object.entries(groupByMuscle(allExercises)).map(([g, exs]) => (
             <optgroup key={g} label={g}>
               {exs.map((ex) => <option key={ex.id} value={ex.id}>{ex.name}</option>)}
@@ -262,13 +262,13 @@ export default function WorkoutSession() {
         </div>
       </div>
 
-      <div className="flex gap-2 sticky bottom-2 pt-2 bg-gradient-to-t from-gray-50 to-transparent dark:from-gray-950">
+      <div className="flex gap-2 sticky bottom-2 pt-2 bg-gradient-to-t from-white to-transparent dark:from-neutral-950">
         <button
           onClick={() => saveDraft.mutate(buildPayload())}
           disabled={saveDraft.isPending}
           className="btn-secondary flex-1 justify-center"
         >
-          {saveDraft.isPending ? 'Saving…' : '💾 Save draft'}
+          {saveDraft.isPending ? 'Saving…' : 'Save draft'}
         </button>
         <button
           onClick={() => {
@@ -277,7 +277,7 @@ export default function WorkoutSession() {
           disabled={finish.isPending}
           className="btn-primary flex-1 justify-center"
         >
-          {finish.isPending ? '…' : '✅ Finish workout'}
+          {finish.isPending ? '…' : 'Finish workout'}
         </button>
       </div>
     </div>
