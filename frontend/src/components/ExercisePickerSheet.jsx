@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getExercises } from '../api/client';
 
@@ -27,14 +27,11 @@ export default function ExercisePickerSheet({
   currentExerciseId = null,
 }) {
   const [query, setQuery] = useState('');
-  const searchRef = useRef(null);
   const { data: exercises = [] } = useQuery({ queryKey: ['exercises'], queryFn: getExercises });
 
   useEffect(() => {
     if (!open) return;
     setQuery('');
-    const id = setTimeout(() => searchRef.current?.focus(), 50);
-    return () => clearTimeout(id);
   }, [open]);
 
   useEffect(() => {
@@ -73,7 +70,7 @@ export default function ExercisePickerSheet({
       onClick={onClose}
     >
       <div
-        className="w-full md:max-w-md max-h-[90vh] md:max-h-[80vh] flex flex-col bg-white dark:bg-neutral-950 border-t md:border border-neutral-200 dark:border-neutral-800 rounded-t-xl md:rounded-xl shadow-xl animate-[slideUp_180ms_ease-out] md:animate-[fadeIn_120ms_ease-out]"
+        className="w-full md:max-w-md h-[85vh] h-[85dvh] md:h-auto md:max-h-[80vh] flex flex-col bg-white dark:bg-neutral-950 border-t md:border border-neutral-200 dark:border-neutral-800 rounded-t-xl md:rounded-xl shadow-xl animate-[slideUp_180ms_ease-out] md:animate-[fadeIn_120ms_ease-out]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
