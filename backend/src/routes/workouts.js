@@ -66,12 +66,35 @@ async function fetchWorkout(client, id) {
   let targetsByEx = {};
   if (wRes.rows[0].routine_id) {
     const tRes = await client.query(
-      `SELECT exercise_id, target_sets, rep_range_low, rep_range_high, target_rir, rest_seconds
+      `SELECT id, exercise_id, target_sets, rep_range_low, rep_range_high, target_rir, rest_seconds, notes
          FROM routine_exercises
         WHERE routine_id = $1`,
       [wRes.rows[0].routine_id]
     );
-    for (const t of tRes.rows) targetsByEx[t.exercise_id] = t;
+    for (const t of tRes.rows) targetsByEx[t.exercise_id] = { ...t, substitutes: [] };
+
+    const reIds = tRes.rows.map((r) => r.id);
+    if (reIds.length) {
+      const subRes = await client.query(
+        `SELECT s.routine_exercise_id, s.exercise_id, e.name AS exercise_name, e.muscle_group
+           FROM routine_exercise_subs s
+           JOIN exercises e ON e.id = s.exercise_id
+          WHERE s.routine_exercise_id = ANY($1::int[])
+          ORDER BY s.sort_order, s.id`,
+        [reIds]
+      );
+      const reIdToExId = Object.fromEntries(tRes.rows.map((r) => [r.id, r.exercise_id]));
+      for (const s of subRes.rows) {
+        const exId = reIdToExId[s.routine_exercise_id];
+        if (targetsByEx[exId]) {
+          targetsByEx[exId].substitutes.push({
+            exercise_id: s.exercise_id,
+            exercise_name: s.exercise_name,
+            muscle_group: s.muscle_group,
+          });
+        }
+      }
+    }
   }
 
   return {
