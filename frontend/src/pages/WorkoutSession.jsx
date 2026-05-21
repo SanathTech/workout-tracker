@@ -11,43 +11,72 @@ function groupByMuscle(exercises) {
   }, {});
 }
 
+function ChevronIcon({ open }) {
+  return (
+    <svg
+      viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2"
+      className={`transition-transform duration-150 ${open ? 'rotate-180' : ''}`}
+    >
+      <polyline points="6 9 12 15 18 9" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+      <line x1="6" y1="6" x2="18" y2="18" strokeLinecap="round" />
+      <line x1="6" y1="18" x2="18" y2="6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function TargetChip({ children }) {
+  return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 text-[10px] uppercase tracking-wide font-medium text-neutral-600 dark:text-neutral-400">
+      {children}
+    </span>
+  );
+}
+
 function SetRow({ set, previousSet, onChange, onRemove }) {
+  const prevLabel = previousSet?.weight_kg != null && previousSet?.reps != null
+    ? `${previousSet.weight_kg}×${previousSet.reps}`
+    : previousSet?.reps != null
+      ? `—×${previousSet.reps}`
+      : '—';
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xs text-neutral-500 dark:text-neutral-400 w-6 text-center">{set.set_number}</span>
-      <div className="flex-1 grid grid-cols-2 gap-2">
-        <div>
-          <input
-            type="number" inputMode="decimal" min="0" step="0.5"
-            placeholder="kg"
-            value={set.weight_kg ?? ''}
-            onChange={(e) => onChange({ ...set, weight_kg: e.target.value })}
-            className="input"
-          />
-          {previousSet?.weight_kg != null && (
-            <span className="block text-[10px] text-neutral-500 dark:text-neutral-500 mt-0.5 pl-1">prev {previousSet.weight_kg}kg</span>
-          )}
-        </div>
-        <div>
-          <input
-            type="number" inputMode="numeric" min="0"
-            placeholder="reps"
-            value={set.reps ?? ''}
-            onChange={(e) => onChange({ ...set, reps: e.target.value })}
-            className="input"
-          />
-          {previousSet?.reps != null && (
-            <span className="block text-[10px] text-neutral-500 dark:text-neutral-500 mt-0.5 pl-1">prev {previousSet.reps} reps</span>
-          )}
-        </div>
-      </div>
-      <button onClick={onRemove} className="btn-ghost px-2">×</button>
+      <span className="text-xs text-neutral-500 dark:text-neutral-500 w-5 text-center">{set.set_number}</span>
+      <span className="text-[11px] text-neutral-500 dark:text-neutral-500 w-16 truncate" title={prevLabel}>{prevLabel}</span>
+      <input
+        type="number" inputMode="decimal" min="0" step="0.5"
+        placeholder="kg"
+        value={set.weight_kg ?? ''}
+        onChange={(e) => onChange({ ...set, weight_kg: e.target.value })}
+        className="input flex-1 py-1.5"
+      />
+      <input
+        type="number" inputMode="numeric" min="0"
+        placeholder="reps"
+        value={set.reps ?? ''}
+        onChange={(e) => onChange({ ...set, reps: e.target.value })}
+        className="input flex-1 py-1.5"
+      />
+      <button
+        onClick={onRemove}
+        aria-label="Remove set"
+        className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 p-1"
+      >
+        <CloseIcon />
+      </button>
     </div>
   );
 }
 
-function ExerciseBlock({ block, allExercises, workoutId, onChange, onRemove }) {
-  const [swapping, setSwapping] = useState(false);
+function ExerciseBlock({ block, allExercises, workoutId, autoOpenPicker, onChange, onRemove }) {
+  const [pickerOpen, setPickerOpen] = useState(autoOpenPicker);
+  const [subsOpen, setSubsOpen] = useState(false);
   const grouped = useMemo(() => groupByMuscle(allExercises), [allExercises]);
 
   const { data: previous } = useQuery({
@@ -63,6 +92,7 @@ function ExerciseBlock({ block, allExercises, workoutId, onChange, onRemove }) {
   }, [previous]);
 
   const target = block.target;
+  const presetSubs = target?.substitutes || [];
   const repRange = target && (target.rep_range_low || target.rep_range_high)
     ? `${target.rep_range_low || '?'}–${target.rep_range_high || '?'}`
     : null;
@@ -77,23 +107,76 @@ function ExerciseBlock({ block, allExercises, workoutId, onChange, onRemove }) {
     sets: block.sets.filter((_, j) => j !== i).map((s, j) => ({ ...s, set_number: j + 1 })),
   });
 
+  const pickExercise = (exId) => {
+    const found = allExercises.find((x) => x.id === parseInt(exId));
+    if (!found) return;
+    onChange({ ...block, exercise_id: found.id, exercise_name: found.name, muscle_group: found.muscle_group });
+    setPickerOpen(false);
+    setSubsOpen(false);
+  };
+
   return (
-    <div className="card space-y-4">
-      <div className="flex items-start gap-2">
-        <div className="flex-1 min-w-0">
-          {swapping ? (
+    <div className="card space-y-3">
+      <div className="flex items-start justify-between gap-2">
+        <button
+          type="button"
+          onClick={() => setSubsOpen((v) => !v)}
+          className="flex items-center gap-1.5 text-left flex-1 min-w-0 -mx-1 px-1 py-0.5 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+        >
+          <span className="font-semibold text-neutral-900 dark:text-neutral-200 truncate">
+            {block.exercise_name || 'Pick an exercise'}
+          </span>
+          <span className="text-neutral-400 dark:text-neutral-500 shrink-0">
+            <ChevronIcon open={subsOpen} />
+          </span>
+        </button>
+        <button
+          onClick={onRemove}
+          aria-label="Remove exercise"
+          className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 p-1 shrink-0"
+        >
+          <CloseIcon />
+        </button>
+      </div>
+
+      {(target || block.notes) && (
+        <div className="flex flex-wrap gap-1.5">
+          {target?.target_sets && <TargetChip>{target.target_sets} sets</TargetChip>}
+          {repRange && <TargetChip>{repRange} reps</TargetChip>}
+          {target?.target_rir != null && <TargetChip>RIR {target.target_rir}</TargetChip>}
+          {target?.rest_seconds && <TargetChip>{target.rest_seconds}s rest</TargetChip>}
+        </div>
+      )}
+
+      {block.notes && (
+        <p className="text-xs text-neutral-500 dark:text-neutral-500 italic">{block.notes}</p>
+      )}
+
+      {subsOpen && (
+        <div className="space-y-2 py-1">
+          {presetSubs.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {presetSubs.map((s) => (
+                <button
+                  key={s.exercise_id}
+                  type="button"
+                  onClick={() => pickExercise(s.exercise_id)}
+                  className="inline-flex items-center px-2 py-1 rounded border border-neutral-200 dark:border-neutral-800 text-xs text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                >
+                  {s.exercise_name}
+                </button>
+              ))}
+            </div>
+          )}
+          {pickerOpen ? (
             <select
               autoFocus
               className="input"
-              value={block.exercise_id}
-              onChange={(e) => {
-                const newId = parseInt(e.target.value);
-                const found = allExercises.find((x) => x.id === newId);
-                onChange({ ...block, exercise_id: newId, exercise_name: found?.name, muscle_group: found?.muscle_group });
-                setSwapping(false);
-              }}
-              onBlur={() => setSwapping(false)}
+              value={block.exercise_id || ''}
+              onChange={(e) => pickExercise(e.target.value)}
+              onBlur={() => setPickerOpen(false)}
             >
+              <option value="">Pick an exercise…</option>
               {Object.entries(grouped).map(([g, exs]) => (
                 <optgroup key={g} label={g}>
                   {exs.map((ex) => <option key={ex.id} value={ex.id}>{ex.name}</option>)}
@@ -101,23 +184,18 @@ function ExerciseBlock({ block, allExercises, workoutId, onChange, onRemove }) {
               ))}
             </select>
           ) : (
-            <h3 className="font-semibold text-neutral-900 dark:text-neutral-100">{block.exercise_name}</h3>
+            <button
+              type="button"
+              onClick={() => setPickerOpen(true)}
+              className="text-xs text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200 underline-offset-2 hover:underline"
+            >
+              {presetSubs.length ? 'Pick from library instead' : 'Pick from library'}
+            </button>
           )}
-          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-            {target?.target_sets && `target ${target.target_sets} sets`}
-            {repRange && ` · ${repRange} reps`}
-            {target?.target_rir != null && ` · RIR ${target.target_rir}`}
-            {target?.rest_seconds && ` · ${target.rest_seconds}s rest`}
-          </p>
-          {block.notes && <p className="text-xs text-neutral-500 italic mt-1">{block.notes}</p>}
         </div>
-        <div className="flex gap-1 shrink-0">
-          <button onClick={() => setSwapping((s) => !s)} className="btn-ghost text-xs">Sub</button>
-          <button onClick={onRemove} className="btn-ghost text-xs">Remove</button>
-        </div>
-      </div>
+      )}
 
-      <div className="space-y-4">
+      <div className="space-y-2">
         {block.sets.map((s, i) => (
           <SetRow
             key={i}
@@ -127,7 +205,13 @@ function ExerciseBlock({ block, allExercises, workoutId, onChange, onRemove }) {
             onRemove={() => removeSet(i)}
           />
         ))}
-        <button onClick={addSet} className="btn-secondary w-full justify-center">Add set</button>
+        <button
+          type="button"
+          onClick={addSet}
+          className="w-full text-center py-2 text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200 border border-dashed border-neutral-200 dark:border-neutral-800 rounded hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
+        >
+          + Add set
+        </button>
       </div>
     </div>
   );
@@ -143,7 +227,7 @@ export default function WorkoutSession() {
 
   const [exercises, setExercises] = useState([]);
   const [notes, setNotes] = useState('');
-  const [duration, setDuration] = useState('');
+  const [adding, setAdding] = useState(false);
 
   useEffect(() => {
     if (workout) {
@@ -156,7 +240,6 @@ export default function WorkoutSession() {
         sets: e.sets.length ? e.sets : [{ set_number: 1, reps: null, weight_kg: null }],
       })));
       setNotes(workout.notes || '');
-      setDuration(workout.duration_minutes || '');
     }
   }, [workout]);
 
@@ -187,39 +270,27 @@ export default function WorkoutSession() {
 
   const buildPayload = () => ({
     notes: notes || null,
-    duration_minutes: duration ? parseInt(duration) : null,
-    exercises: exercises.map((ex) => ({
-      exercise_id: ex.exercise_id,
-      notes: ex.notes || null,
-      sets: ex.sets
-        .filter((s) => s.reps !== '' && s.reps != null)
-        .map((s) => ({
-          set_number: s.set_number,
-          reps: parseInt(s.reps),
-          weight_kg: s.weight_kg !== '' && s.weight_kg != null ? parseFloat(s.weight_kg) : null,
-        })),
-    })),
+    exercises: exercises
+      .filter((ex) => ex.exercise_id)
+      .map((ex) => ({
+        exercise_id: ex.exercise_id,
+        notes: ex.notes || null,
+        sets: ex.sets
+          .filter((s) => s.reps !== '' && s.reps != null)
+          .map((s) => ({
+            set_number: s.set_number,
+            reps: parseInt(s.reps),
+            weight_kg: s.weight_kg !== '' && s.weight_kg != null ? parseFloat(s.weight_kg) : null,
+          })),
+      })),
   });
-
-  const addAdHocExercise = (exerciseId) => {
-    const ex = allExercises.find((e) => e.id === parseInt(exerciseId));
-    if (!ex) return;
-    setExercises((prev) => [...prev, {
-      exercise_id: ex.id,
-      exercise_name: ex.name,
-      muscle_group: ex.muscle_group,
-      notes: '',
-      target: null,
-      sets: [{ set_number: 1, reps: null, weight_kg: null }],
-    }]);
-  };
 
   return (
     <div className="max-w-2xl mx-auto space-y-4">
       <div>
-        <button onClick={() => navigate(-1)} className="text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100">← Back</button>
+        <button onClick={() => navigate(-1)} className="text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200">← Back</button>
         <h1 className="text-2xl font-semibold tracking-tight mt-1">{workout.routine_name || 'Workout'}</h1>
-        <p className="text-sm text-neutral-500 dark:text-neutral-400">
+        <p className="text-sm text-neutral-500 dark:text-neutral-500">
           {workout.program_name && `${workout.program_name} · `}
           {workout.program_week && `Week ${workout.program_week} · `}
           {new Date(workout.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
@@ -233,54 +304,66 @@ export default function WorkoutSession() {
             block={ex}
             allExercises={allExercises}
             workoutId={id}
+            autoOpenPicker={!ex.exercise_id}
             onChange={(u) => setExercises(exercises.map((x, j) => j === i ? u : x))}
             onRemove={() => setExercises(exercises.filter((_, j) => j !== i))}
           />
         ))}
+
+        {adding ? (
+          <ExerciseBlock
+            block={{ exercise_id: null, exercise_name: '', notes: '', target: null, sets: [{ set_number: 1, reps: null, weight_kg: null }] }}
+            allExercises={allExercises}
+            workoutId={id}
+            autoOpenPicker
+            onChange={(u) => {
+              setExercises([...exercises, u]);
+              setAdding(false);
+            }}
+            onRemove={() => setAdding(false)}
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setAdding(true)}
+            className="w-full py-3 text-sm font-medium text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200 border border-dashed border-neutral-200 dark:border-neutral-800 rounded hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
+          >
+            + Add exercise
+          </button>
+        )}
       </div>
 
-      <div className="card space-y-2">
-        <label className="label">Add ad-hoc exercise</label>
-        <select className="input" value="" onChange={(e) => { addAdHocExercise(e.target.value); e.target.value = ''; }}>
-          <option value="">Pick an exercise…</option>
-          {Object.entries(groupByMuscle(allExercises)).map(([g, exs]) => (
-            <optgroup key={g} label={g}>
-              {exs.map((ex) => <option key={ex.id} value={ex.id}>{ex.name}</option>)}
-            </optgroup>
-          ))}
-        </select>
+      <div className="card">
+        <label className="label">Workout notes</label>
+        <textarea
+          className="input resize-none"
+          rows={2}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+        />
       </div>
 
-      <div className="card space-y-3">
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="label">Duration (min)</label>
-            <input type="number" min="0" className="input" value={duration} onChange={(e) => setDuration(e.target.value)} />
-          </div>
+      {/* Fixed action bar — takes the bottom-nav slot on mobile, sticks to viewport on desktop too */}
+      <div className="h-20" aria-hidden="true" />
+      <div className="fixed bottom-0 inset-x-0 z-20 bg-white dark:bg-neutral-950 border-t border-neutral-200 dark:border-neutral-900 pb-[env(safe-area-inset-bottom)]">
+        <div className="max-w-2xl mx-auto px-4 py-3 flex gap-2">
+          <button
+            onClick={() => saveDraft.mutate(buildPayload())}
+            disabled={saveDraft.isPending}
+            className="btn-secondary flex-1 justify-center"
+          >
+            {saveDraft.isPending ? 'Saving…' : 'Save draft'}
+          </button>
+          <button
+            onClick={() => {
+              if (confirm('Finish this workout?')) finish.mutate(buildPayload());
+            }}
+            disabled={finish.isPending}
+            className="btn-primary flex-1 justify-center"
+          >
+            {finish.isPending ? '…' : 'Finish workout'}
+          </button>
         </div>
-        <div>
-          <label className="label">Workout notes</label>
-          <textarea className="input resize-none" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
-        </div>
-      </div>
-
-      <div className="flex gap-2 sticky bottom-20 md:bottom-2 pt-4 pb-2 bg-gradient-to-t from-white via-white to-transparent dark:from-neutral-950 dark:via-neutral-950">
-        <button
-          onClick={() => saveDraft.mutate(buildPayload())}
-          disabled={saveDraft.isPending}
-          className="btn-secondary flex-1 justify-center"
-        >
-          {saveDraft.isPending ? 'Saving…' : 'Save draft'}
-        </button>
-        <button
-          onClick={() => {
-            if (confirm('Finish this workout?')) finish.mutate(buildPayload());
-          }}
-          disabled={finish.isPending}
-          className="btn-primary flex-1 justify-center"
-        >
-          {finish.isPending ? '…' : 'Finish workout'}
-        </button>
       </div>
     </div>
   );

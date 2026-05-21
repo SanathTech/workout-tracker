@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useIsFetching } from '@tanstack/react-query';
 
@@ -55,6 +55,8 @@ function ThemeToggle() {
 }
 
 export default function Navbar() {
+  const location = useLocation();
+  const inSession = /^\/session\//.test(location.pathname);
   return (
     <>
       {/* Top header — mobile: brand + toggle. Desktop: full nav */}
@@ -87,7 +89,8 @@ export default function Navbar() {
         </div>
       </header>
 
-      {/* Bottom tab bar — mobile only */}
+      {/* Bottom tab bar — mobile only, hidden during a workout session */}
+      {!inSession && (
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-20 bg-white/95 backdrop-blur border-t border-neutral-200 dark:bg-neutral-950/95 dark:border-neutral-900 pb-[env(safe-area-inset-bottom)]">
         <div className="grid grid-cols-4">
           {links.map((l) => (
@@ -107,6 +110,7 @@ export default function Navbar() {
           ))}
         </div>
       </nav>
+      )}
     </>
   );
 }
