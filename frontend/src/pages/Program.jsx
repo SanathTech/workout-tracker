@@ -375,8 +375,13 @@ export default function Program() {
   });
 
   useEffect(() => {
-    if (active?.id && !viewingId && !editing) setViewingId(active.id);
-  }, [active, viewingId, editing]);
+    if (viewingId || editing) return;
+    if (active?.id) {
+      setViewingId(active.id);
+    } else if (allPrograms.length) {
+      setViewingId(allPrograms[0].id);
+    }
+  }, [active, allPrograms, viewingId, editing]);
 
   if (editing) {
     return (
