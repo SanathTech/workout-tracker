@@ -88,7 +88,6 @@ export default function ExercisePickerSheet({
         {/* Search */}
         <div className="px-4 py-3 border-b border-neutral-200 dark:border-neutral-900 shrink-0">
           <input
-            ref={searchRef}
             type="text"
             placeholder="Search exercises…"
             value={query}
