@@ -247,12 +247,25 @@ router.put('/:id', async (req, res) => {
 
 // DELETE /api/programs/:id
 router.delete('/:id', async (req, res) => {
+  const client = await db.pool.connect();
   try {
-    const { rowCount } = await db.query('DELETE FROM programs WHERE id = $1', [req.params.id]);
-    if (!rowCount) return res.status(404).json({ error: 'Program not found' });
+    await client.query('BEGIN');
+    await client.query(
+      "DELETE FROM workouts WHERE program_id = $1 AND status = 'in_progress'",
+      [req.params.id]
+    );
+    const { rowCount } = await client.query('DELETE FROM programs WHERE id = $1', [req.params.id]);
+    if (!rowCount) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Program not found' });
+    }
+    await client.query('COMMIT');
     res.json({ success: true });
   } catch (err) {
+    await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
   }
 });
 
