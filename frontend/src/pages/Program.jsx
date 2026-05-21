@@ -5,6 +5,7 @@ import {
   getActiveProgram, getPrograms, getProgram, createProgram, updateProgram,
   deleteProgram, startProgram, endProgram, getExercises, startWorkout,
 } from '../api/client';
+import { Skeleton } from '../components/Skeleton';
 
 function emptyExercise() {
   return {
@@ -376,7 +377,7 @@ export default function Program() {
     queryKey: ['active-program'],
     queryFn: getActiveProgram,
   });
-  const { data: allPrograms = [] } = useQuery({
+  const { data: allPrograms = [], isLoading: allLoading } = useQuery({
     queryKey: ['programs'],
     queryFn: getPrograms,
   });
@@ -409,9 +410,8 @@ export default function Program() {
     );
   }
 
-  if (activeLoading) return <p className="text-center text-neutral-500 py-20">Loading…</p>;
-
-  const noPrograms = allPrograms.length === 0;
+  const stillResolving = activeLoading || allLoading;
+  const noPrograms = !stillResolving && allPrograms.length === 0;
   const displayed = selected && active && selected.id === active.id
     ? { ...selected, progress: active.progress }
     : (selected || active);
@@ -450,6 +450,28 @@ export default function Program() {
       )}
 
       {displayed && <ProgramView program={displayed} onEdit={() => setEditing(displayed)} />}
+      {!displayed && !noPrograms && <ProgramSkeleton />}
+    </div>
+  );
+}
+
+function ProgramSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="card space-y-3">
+        <div className="space-y-2">
+          <Skeleton className="h-7 w-56" />
+          <Skeleton className="h-3 w-40" />
+        </div>
+        <Skeleton className="h-11 w-full" />
+      </div>
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="card space-y-2">
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-3 w-48" />
+          <Skeleton className="h-3 w-44" />
+        </div>
+      ))}
     </div>
   );
 }

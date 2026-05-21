@@ -5,6 +5,7 @@ import {
   Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
 import { getStats, getVolumeProgress, getExerciseProgress, getPersonalBests, getExercises } from '../api/client';
+import { Skeleton } from '../components/Skeleton';
 
 const ACCENT_LIGHT = '#171717';   // neutral-900
 const ACCENT_DARK = '#e5e5e5';    // neutral-200
@@ -21,14 +22,18 @@ function useChartTheme() {
   };
 }
 
-function StatCard({ label, value, unit }) {
+function StatCard({ label, value, unit, loading }) {
   return (
     <div className="card">
       <p className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">{label}</p>
-      <p className="text-2xl font-semibold mt-1">
-        {value}
-        {unit && <span className="text-sm font-normal text-neutral-500 ml-1">{unit}</span>}
-      </p>
+      {loading ? (
+        <Skeleton className="h-7 w-16 mt-2" />
+      ) : (
+        <p className="text-2xl font-semibold mt-1">
+          {value}
+          {unit && <span className="text-sm font-normal text-neutral-500 ml-1">{unit}</span>}
+        </p>
+      )}
     </div>
   );
 }
@@ -38,18 +43,18 @@ export default function Progress() {
   const [selectedExerciseId, setSelectedExerciseId] = useState('');
   const theme = useChartTheme();
 
-  const { data: stats } = useQuery({ queryKey: ['stats'], queryFn: getStats });
-  const { data: volumeData = [] } = useQuery({
+  const { data: stats, isLoading: statsLoading } = useQuery({ queryKey: ['stats'], queryFn: getStats, staleTime: 10 * 60_000 });
+  const { data: volumeData = [], isLoading: volumeLoading } = useQuery({
     queryKey: ['volume-progress', weeks],
     queryFn: () => getVolumeProgress({ weeks }),
   });
   const { data: allExercises = [] } = useQuery({ queryKey: ['exercises'], queryFn: getExercises });
-  const { data: exerciseProgress = [] } = useQuery({
+  const { data: exerciseProgress = [], isLoading: exerciseProgressLoading } = useQuery({
     queryKey: ['exercise-progress', selectedExerciseId, weeks],
     queryFn: () => getExerciseProgress(selectedExerciseId, { weeks }),
     enabled: !!selectedExerciseId,
   });
-  const { data: pbs = [] } = useQuery({ queryKey: ['personal-bests'], queryFn: getPersonalBests });
+  const { data: pbs = [], isLoading: pbsLoading } = useQuery({ queryKey: ['personal-bests'], queryFn: getPersonalBests });
 
   const formatDate = (dateStr) => {
     const d = new Date(dateStr);
@@ -69,18 +74,18 @@ export default function Progress() {
         </select>
       </div>
 
-      {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <StatCard label="Total workouts" value={stats.total_workouts} />
-          <StatCard label="This week" value={stats.workouts_this_week} />
-          <StatCard label="Total sets" value={stats.total_sets} />
-          <StatCard label="Total volume" value={Math.round(stats.total_volume_kg / 1000).toLocaleString()} unit="t" />
-        </div>
-      )}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <StatCard label="Total workouts" value={stats?.total_workouts} loading={statsLoading} />
+        <StatCard label="This week" value={stats?.workouts_this_week} loading={statsLoading} />
+        <StatCard label="Total sets" value={stats?.total_sets} loading={statsLoading} />
+        <StatCard label="Total volume" value={stats ? Math.round(stats.total_volume_kg / 1000).toLocaleString() : '—'} unit="t" loading={statsLoading} />
+      </div>
 
       <div className="card">
         <h2 className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400 mb-4">Weekly training volume (kg)</h2>
-        {volumeData.length === 0 ? (
+        {volumeLoading ? (
+          <Skeleton className="h-[240px] w-full" />
+        ) : volumeData.length === 0 ? (
           <p className="text-center text-neutral-500 py-12 text-sm">Log workouts to see volume trends.</p>
         ) : (
           <ResponsiveContainer width="100%" height={240}>
@@ -115,6 +120,8 @@ export default function Progress() {
         </div>
         {!selectedExerciseId ? (
           <p className="text-center text-neutral-500 py-12 text-sm">Select an exercise to see your progress.</p>
+        ) : exerciseProgressLoading ? (
+          <Skeleton className="h-[240px] w-full" />
         ) : exerciseProgress.length === 0 ? (
           <p className="text-center text-neutral-500 py-12 text-sm">No data for this exercise in the selected period.</p>
         ) : (
@@ -137,7 +144,11 @@ export default function Progress() {
 
       <div className="card">
         <h2 className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400 mb-3">Personal bests</h2>
-        {pbs.length === 0 ? (
+        {pbsLoading ? (
+          <div className="space-y-2 py-2">
+            {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-7 w-full" />)}
+          </div>
+        ) : pbs.length === 0 ? (
           <p className="text-center text-neutral-500 py-8 text-sm">Log workouts to see your personal bests.</p>
         ) : (
           <div className="overflow-x-auto">
