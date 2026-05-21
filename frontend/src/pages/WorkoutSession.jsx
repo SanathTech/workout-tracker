@@ -1,15 +1,9 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getWorkout, updateWorkout, completeWorkout, getExercises, getLastByExercise } from '../api/client';
+import { getWorkout, updateWorkout, completeWorkout, getLastByExercise } from '../api/client';
 import { Skeleton } from '../components/Skeleton';
-
-function groupByMuscle(exercises) {
-  return exercises.reduce((acc, ex) => {
-    (acc[ex.muscle_group] = acc[ex.muscle_group] || []).push(ex);
-    return acc;
-  }, {});
-}
+import ExercisePickerSheet from '../components/ExercisePickerSheet';
 
 function ChevronIcon({ open }) {
   return (
@@ -74,11 +68,7 @@ function SetRow({ set, previousSet, onChange, onRemove }) {
   );
 }
 
-function ExerciseBlock({ block, allExercises, workoutId, autoOpenPicker, onChange, onRemove }) {
-  const [pickerOpen, setPickerOpen] = useState(autoOpenPicker);
-  const [subsOpen, setSubsOpen] = useState(false);
-  const grouped = useMemo(() => groupByMuscle(allExercises), [allExercises]);
-
+function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove }) {
   const { data: previous } = useQuery({
     queryKey: ['last-by-exercise', block.exercise_id, workoutId],
     queryFn: () => getLastByExercise(block.exercise_id, { exclude: workoutId }),
@@ -92,7 +82,6 @@ function ExerciseBlock({ block, allExercises, workoutId, autoOpenPicker, onChang
   }, [previous]);
 
   const target = block.target;
-  const presetSubs = target?.substitutes || [];
   const repRange = target && (target.rep_range_low || target.rep_range_high)
     ? `${target.rep_range_low || '?'}–${target.rep_range_high || '?'}`
     : null;
@@ -107,27 +96,19 @@ function ExerciseBlock({ block, allExercises, workoutId, autoOpenPicker, onChang
     sets: block.sets.filter((_, j) => j !== i).map((s, j) => ({ ...s, set_number: j + 1 })),
   });
 
-  const pickExercise = (exId) => {
-    const found = allExercises.find((x) => x.id === parseInt(exId));
-    if (!found) return;
-    onChange({ ...block, exercise_id: found.id, exercise_name: found.name, muscle_group: found.muscle_group });
-    setPickerOpen(false);
-    setSubsOpen(false);
-  };
-
   return (
     <div className="card space-y-3">
       <div className="flex items-start justify-between gap-2">
         <button
           type="button"
-          onClick={() => setSubsOpen((v) => !v)}
+          onClick={onOpenPicker}
           className="flex items-center gap-1.5 text-left flex-1 min-w-0 -mx-1 px-1 py-0.5 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
         >
           <span className="font-semibold text-neutral-900 dark:text-neutral-200 truncate">
             {block.exercise_name || 'Pick an exercise'}
           </span>
           <span className="text-neutral-400 dark:text-neutral-500 shrink-0">
-            <ChevronIcon open={subsOpen} />
+            <ChevronIcon open={false} />
           </span>
         </button>
         <button
@@ -139,60 +120,17 @@ function ExerciseBlock({ block, allExercises, workoutId, autoOpenPicker, onChang
         </button>
       </div>
 
-      {(target || block.notes) && (
+      {target && (
         <div className="flex flex-wrap gap-1.5">
-          {target?.target_sets && <TargetChip>{target.target_sets} sets</TargetChip>}
+          {target.target_sets && <TargetChip>{target.target_sets} sets</TargetChip>}
           {repRange && <TargetChip>{repRange} reps</TargetChip>}
-          {target?.target_rir != null && <TargetChip>RIR {target.target_rir}</TargetChip>}
-          {target?.rest_seconds && <TargetChip>{target.rest_seconds}s rest</TargetChip>}
+          {target.target_rir != null && <TargetChip>RIR {target.target_rir}</TargetChip>}
+          {target.rest_seconds && <TargetChip>{target.rest_seconds}s rest</TargetChip>}
         </div>
       )}
 
       {block.notes && (
         <p className="text-xs text-neutral-500 dark:text-neutral-500 italic">{block.notes}</p>
-      )}
-
-      {subsOpen && (
-        <div className="space-y-2 py-1">
-          {presetSubs.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {presetSubs.map((s) => (
-                <button
-                  key={s.exercise_id}
-                  type="button"
-                  onClick={() => pickExercise(s.exercise_id)}
-                  className="inline-flex items-center px-2 py-1 rounded border border-neutral-200 dark:border-neutral-800 text-xs text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
-                >
-                  {s.exercise_name}
-                </button>
-              ))}
-            </div>
-          )}
-          {pickerOpen ? (
-            <select
-              autoFocus
-              className="input"
-              value={block.exercise_id || ''}
-              onChange={(e) => pickExercise(e.target.value)}
-              onBlur={() => setPickerOpen(false)}
-            >
-              <option value="">Pick an exercise…</option>
-              {Object.entries(grouped).map(([g, exs]) => (
-                <optgroup key={g} label={g}>
-                  {exs.map((ex) => <option key={ex.id} value={ex.id}>{ex.name}</option>)}
-                </optgroup>
-              ))}
-            </select>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setPickerOpen(true)}
-              className="text-xs text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200 underline-offset-2 hover:underline"
-            >
-              {presetSubs.length ? 'Pick from library instead' : 'Pick from library'}
-            </button>
-          )}
-        </div>
       )}
 
       <div className="space-y-2">
@@ -223,11 +161,10 @@ export default function WorkoutSession() {
   const qc = useQueryClient();
 
   const { data: workout, isLoading } = useQuery({ queryKey: ['workout', id], queryFn: () => getWorkout(id) });
-  const { data: allExercises = [] } = useQuery({ queryKey: ['exercises'], queryFn: getExercises });
 
   const [exercises, setExercises] = useState([]);
   const [notes, setNotes] = useState('');
-  const [adding, setAdding] = useState(false);
+  const [picker, setPicker] = useState(null); // { mode: 'replace' | 'add', forIndex?: number }
 
   useEffect(() => {
     if (workout) {
@@ -285,6 +222,38 @@ export default function WorkoutSession() {
       })),
   });
 
+  const handlePickerSelect = (ex) => {
+    if (picker?.mode === 'replace') {
+      setExercises((prev) => prev.map((x, j) =>
+        j === picker.forIndex
+          ? { ...x, exercise_id: ex.id, exercise_name: ex.name, muscle_group: ex.muscle_group }
+          : x
+      ));
+    } else if (picker?.mode === 'add') {
+      setExercises((prev) => [...prev, {
+        exercise_id: ex.id,
+        exercise_name: ex.name,
+        muscle_group: ex.muscle_group,
+        notes: '',
+        target: null,
+        sets: [{ set_number: 1, reps: null, weight_kg: null }],
+      }]);
+    }
+  };
+
+  const pickerProps = picker
+    ? picker.mode === 'replace'
+      ? (() => {
+          const ex = exercises[picker.forIndex];
+          return {
+            title: `Replace ${ex?.exercise_name || 'exercise'}`,
+            presetSubstitutes: ex?.target?.substitutes || [],
+            currentExerciseId: ex?.exercise_id || null,
+          };
+        })()
+      : { title: 'Add exercise', presetSubstitutes: [], currentExerciseId: null }
+    : { title: '', presetSubstitutes: [], currentExerciseId: null };
+
   return (
     <div className="max-w-2xl mx-auto space-y-4">
       <div>
@@ -302,35 +271,20 @@ export default function WorkoutSession() {
           <ExerciseBlock
             key={i}
             block={ex}
-            allExercises={allExercises}
             workoutId={id}
-            autoOpenPicker={!ex.exercise_id}
+            onOpenPicker={() => setPicker({ mode: 'replace', forIndex: i })}
             onChange={(u) => setExercises(exercises.map((x, j) => j === i ? u : x))}
             onRemove={() => setExercises(exercises.filter((_, j) => j !== i))}
           />
         ))}
 
-        {adding ? (
-          <ExerciseBlock
-            block={{ exercise_id: null, exercise_name: '', notes: '', target: null, sets: [{ set_number: 1, reps: null, weight_kg: null }] }}
-            allExercises={allExercises}
-            workoutId={id}
-            autoOpenPicker
-            onChange={(u) => {
-              setExercises([...exercises, u]);
-              setAdding(false);
-            }}
-            onRemove={() => setAdding(false)}
-          />
-        ) : (
-          <button
-            type="button"
-            onClick={() => setAdding(true)}
-            className="w-full py-3 text-sm font-medium text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200 border border-dashed border-neutral-200 dark:border-neutral-800 rounded hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
-          >
-            + Add exercise
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => setPicker({ mode: 'add' })}
+          className="w-full py-3 text-sm font-medium text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200 border border-dashed border-neutral-200 dark:border-neutral-800 rounded hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
+        >
+          + Add exercise
+        </button>
       </div>
 
       <div className="card">
@@ -343,7 +297,6 @@ export default function WorkoutSession() {
         />
       </div>
 
-      {/* Fixed action bar — takes the bottom-nav slot on mobile, sticks to viewport on desktop too */}
       <div className="h-20" aria-hidden="true" />
       <div className="fixed bottom-0 inset-x-0 z-20 bg-white dark:bg-neutral-950 border-t border-neutral-200 dark:border-neutral-900 pb-[env(safe-area-inset-bottom)]">
         <div className="max-w-2xl mx-auto px-4 py-3 flex gap-2">
@@ -365,6 +318,13 @@ export default function WorkoutSession() {
           </button>
         </div>
       </div>
+
+      <ExercisePickerSheet
+        open={!!picker}
+        onClose={() => setPicker(null)}
+        onSelect={handlePickerSelect}
+        {...pickerProps}
+      />
     </div>
   );
 }
