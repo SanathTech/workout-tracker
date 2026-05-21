@@ -6,6 +6,8 @@ import {
 } from 'recharts';
 import { getStats, getVolumeProgress, getExerciseProgress, getPersonalBests, getExercises } from '../api/client';
 import { Skeleton } from '../components/Skeleton';
+import ExercisePickerSheet from '../components/ExercisePickerSheet';
+import { ChevronIcon } from '../components/icons';
 
 const ACCENT_LIGHT = '#171717';   // neutral-900
 const ACCENT_DARK = '#e5e5e5';    // neutral-200
@@ -41,6 +43,7 @@ function StatCard({ label, value, unit, loading }) {
 export default function Progress() {
   const [weeks, setWeeks] = useState(12);
   const [selectedExerciseId, setSelectedExerciseId] = useState('');
+  const [pickerOpen, setPickerOpen] = useState(false);
   const theme = useChartTheme();
 
   const { data: stats, isLoading: statsLoading } = useQuery({ queryKey: ['stats'], queryFn: getStats, staleTime: 10 * 60_000 });
@@ -105,18 +108,20 @@ export default function Progress() {
       </div>
 
       <div className="card space-y-4">
-        <div className="flex items-center justify-between gap-4">
-          <h2 className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Exercise progress</h2>
-          <select className="input w-56" value={selectedExerciseId} onChange={(e) => setSelectedExerciseId(e.target.value)}>
-            <option value="">Select an exercise…</option>
-            {Object.entries(
-              allExercises.reduce((acc, ex) => { (acc[ex.muscle_group] = acc[ex.muscle_group] || []).push(ex); return acc; }, {})
-            ).map(([group, exs]) => (
-              <optgroup key={group} label={group}>
-                {exs.map((ex) => <option key={ex.id} value={ex.id}>{ex.name}</option>)}
-              </optgroup>
-            ))}
-          </select>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400 shrink-0">Exercise progress</h2>
+          <button
+            type="button"
+            onClick={() => setPickerOpen(true)}
+            className="flex items-center gap-1.5 text-left min-w-0 max-w-[60%] px-3 py-1.5 rounded border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
+          >
+            <span className={`flex-1 min-w-0 truncate text-sm ${selectedExerciseId ? 'text-neutral-900 dark:text-neutral-200' : 'text-neutral-500 dark:text-neutral-500'}`}>
+              {selectedExerciseId
+                ? allExercises.find((e) => String(e.id) === String(selectedExerciseId))?.name || 'Pick an exercise'
+                : 'Pick an exercise'}
+            </span>
+            <span className="text-neutral-400 dark:text-neutral-500 shrink-0"><ChevronIcon /></span>
+          </button>
         </div>
         {!selectedExerciseId ? (
           <p className="text-center text-neutral-500 py-12 text-sm">Select an exercise to see your progress.</p>
@@ -179,6 +184,14 @@ export default function Progress() {
           </div>
         )}
       </div>
+
+      <ExercisePickerSheet
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onSelect={(picked) => setSelectedExerciseId(String(picked.id))}
+        title="Pick an exercise"
+        currentExerciseId={selectedExerciseId ? parseInt(selectedExerciseId) : null}
+      />
     </div>
   );
 }

@@ -6,6 +6,11 @@ import {
   deleteProgram, startProgram, endProgram, getExercises, startWorkout,
 } from '../api/client';
 import { Skeleton } from '../components/Skeleton';
+import ExercisePickerSheet from '../components/ExercisePickerSheet';
+import { CloseIcon, ChevronIcon } from '../components/icons';
+
+const dashedAddBtn = 'w-full text-center py-2 text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200 border border-dashed border-neutral-200 dark:border-neutral-800 rounded hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors';
+const iconBtn = 'text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 p-1 shrink-0';
 
 function emptyExercise() {
   return {
@@ -23,33 +28,45 @@ function emptyRoutine(name = '') {
   return { name, exercises: [emptyExercise()] };
 }
 
-function groupByMuscle(exercises) {
-  return exercises.reduce((acc, ex) => {
-    (acc[ex.muscle_group] = acc[ex.muscle_group] || []).push(ex);
-    return acc;
-  }, {});
-}
-
 function ExerciseEditor({ ex, allExercises, onChange, onRemove }) {
-  const grouped = useMemo(() => groupByMuscle(allExercises), [allExercises]);
-  const addSub = () => onChange({ ...ex, substitutes: [...ex.substitutes, { exercise_id: '' }] });
+  const [picker, setPicker] = useState(null); // { kind: 'primary' } | { kind: 'sub', subIndex }
+  const byId = useMemo(() => {
+    const m = {};
+    for (const e of allExercises) m[String(e.id)] = e;
+    return m;
+  }, [allExercises]);
+
+  const primary = ex.exercise_id ? byId[String(ex.exercise_id)] : null;
+
+  const handleSelect = (picked) => {
+    if (picker?.kind === 'primary') {
+      onChange({ ...ex, exercise_id: String(picked.id) });
+    } else if (picker?.kind === 'sub') {
+      const subs = ex.substitutes.map((s, j) => j === picker.subIndex ? { ...s, exercise_id: String(picked.id) } : s);
+      onChange({ ...ex, substitutes: subs });
+    }
+  };
+
+  const pickerTitle = picker?.kind === 'primary'
+    ? (primary ? `Replace ${primary.name}` : 'Pick an exercise')
+    : 'Pick substitute';
 
   return (
     <div className="border border-neutral-200 dark:border-neutral-800 rounded-md p-3 space-y-3">
-      <div className="flex gap-2">
-        <select
-          className="input flex-1"
-          value={ex.exercise_id}
-          onChange={(e) => onChange({ ...ex, exercise_id: e.target.value })}
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setPicker({ kind: 'primary' })}
+          className="flex items-center gap-1.5 text-left flex-1 min-w-0 px-3 py-2 rounded border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
         >
-          <option value="">Select exercise…</option>
-          {Object.entries(grouped).map(([g, exs]) => (
-            <optgroup key={g} label={g}>
-              {exs.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
-            </optgroup>
-          ))}
-        </select>
-        <button type="button" onClick={onRemove} className="btn-ghost px-2">Remove</button>
+          <span className={`flex-1 min-w-0 truncate ${primary ? 'text-neutral-900 dark:text-neutral-200' : 'text-neutral-500 dark:text-neutral-500'}`}>
+            {primary ? primary.name : 'Pick an exercise'}
+          </span>
+          <span className="text-neutral-400 dark:text-neutral-500 shrink-0"><ChevronIcon /></span>
+        </button>
+        <button type="button" onClick={onRemove} aria-label="Remove exercise" className={iconBtn}>
+          <CloseIcon />
+        </button>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
@@ -83,34 +100,49 @@ function ExerciseEditor({ ex, allExercises, onChange, onRemove }) {
       <input className="input" placeholder="Notes (optional)" value={ex.notes || ''}
         onChange={(e) => onChange({ ...ex, notes: e.target.value })} />
 
-      <div className="space-y-1">
-        <div className="flex items-center justify-between">
-          <span className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Preset substitutes</span>
-          <button type="button" onClick={addSub} className="text-xs text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 underline-offset-2 hover:underline">Add</button>
-        </div>
-        {ex.substitutes.map((sub, i) => (
-          <div key={i} className="flex gap-2">
-            <select
-              className="input flex-1"
-              value={sub.exercise_id || ''}
-              onChange={(e) => {
-                const subs = ex.substitutes.map((s, j) => j === i ? { ...s, exercise_id: e.target.value } : s);
-                onChange({ ...ex, substitutes: subs });
-              }}
-            >
-              <option value="">Select substitute…</option>
-              {Object.entries(grouped).map(([g, exs]) => (
-                <optgroup key={g} label={g}>
-                  {exs.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
-                </optgroup>
-              ))}
-            </select>
-            <button type="button" onClick={() => {
-              onChange({ ...ex, substitutes: ex.substitutes.filter((_, j) => j !== i) });
-            }} className="btn-ghost px-2">×</button>
-          </div>
-        ))}
+      <div className="space-y-2">
+        <span className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Preset substitutes</span>
+        {ex.substitutes.map((sub, i) => {
+          const subEx = sub.exercise_id ? byId[String(sub.exercise_id)] : null;
+          return (
+            <div key={i} className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setPicker({ kind: 'sub', subIndex: i })}
+                className="flex items-center gap-1.5 text-left flex-1 min-w-0 px-3 py-1.5 rounded border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
+              >
+                <span className={`flex-1 min-w-0 truncate text-sm ${subEx ? 'text-neutral-900 dark:text-neutral-200' : 'text-neutral-500 dark:text-neutral-500'}`}>
+                  {subEx ? subEx.name : 'Pick substitute'}
+                </span>
+                <span className="text-neutral-400 dark:text-neutral-500 shrink-0"><ChevronIcon /></span>
+              </button>
+              <button
+                type="button"
+                aria-label="Remove substitute"
+                onClick={() => onChange({ ...ex, substitutes: ex.substitutes.filter((_, j) => j !== i) })}
+                className={iconBtn}
+              >
+                <CloseIcon />
+              </button>
+            </div>
+          );
+        })}
+        <button
+          type="button"
+          onClick={() => onChange({ ...ex, substitutes: [...ex.substitutes, { exercise_id: '' }] })}
+          className={`${dashedAddBtn} text-xs py-1.5`}
+        >
+          + Add substitute
+        </button>
       </div>
+
+      <ExercisePickerSheet
+        open={!!picker}
+        onClose={() => setPicker(null)}
+        onSelect={handleSelect}
+        title={pickerTitle}
+        currentExerciseId={picker?.kind === 'primary' ? (ex.exercise_id ? parseInt(ex.exercise_id) : null) : null}
+      />
     </div>
   );
 }
@@ -125,7 +157,9 @@ function RoutineEditor({ routine, allExercises, onChange, onRemove }) {
           placeholder="Routine name (e.g. Upper 1)"
           onChange={(e) => onChange({ ...routine, name: e.target.value })}
         />
-        <button type="button" onClick={onRemove} className="btn-ghost px-3">Remove</button>
+        <button type="button" onClick={onRemove} aria-label="Remove routine" className={iconBtn}>
+          <CloseIcon />
+        </button>
       </div>
 
       <div className="space-y-2">
@@ -147,9 +181,9 @@ function RoutineEditor({ routine, allExercises, onChange, onRemove }) {
         <button
           type="button"
           onClick={() => onChange({ ...routine, exercises: [...routine.exercises, emptyExercise()] })}
-          className="btn-secondary w-full justify-center"
+          className={dashedAddBtn}
         >
-          Add exercise
+          + Add exercise
         </button>
       </div>
     </div>
@@ -235,12 +269,7 @@ function ProgramEditor({ initial, onCancel, onSaved }) {
       </div>
 
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="font-semibold">Routines</h2>
-          <button type="button" onClick={() => setRoutines([...routines, emptyRoutine()])} className="btn-secondary">
-            Add routine
-          </button>
-        </div>
+        <h2 className="font-semibold">Routines</h2>
         {routines.map((r, i) => (
           <RoutineEditor
             key={i}
@@ -250,13 +279,23 @@ function ProgramEditor({ initial, onCancel, onSaved }) {
             onRemove={() => setRoutines(routines.filter((_, j) => j !== i))}
           />
         ))}
+        <button
+          type="button"
+          onClick={() => setRoutines([...routines, emptyRoutine()])}
+          className={dashedAddBtn}
+        >
+          + Add routine
+        </button>
       </div>
 
-      <div className="flex gap-2 sticky bottom-20 md:bottom-2 pt-2">
-        <button type="button" onClick={onCancel} className="btn-secondary flex-1 justify-center">Cancel</button>
-        <button type="submit" disabled={save.isPending} className="btn-primary flex-1 justify-center">
-          {save.isPending ? 'Saving…' : initial?.id ? 'Save changes' : 'Create program'}
-        </button>
+      <div className="h-28 md:h-20" aria-hidden="true" />
+      <div className="fixed bottom-16 md:bottom-0 inset-x-0 z-20 bg-white dark:bg-neutral-950 border-t border-neutral-200 dark:border-neutral-900 md:pb-[env(safe-area-inset-bottom)]">
+        <div className="max-w-2xl mx-auto px-4 py-3 flex gap-2">
+          <button type="button" onClick={onCancel} className="btn-secondary flex-1 justify-center">Cancel</button>
+          <button type="submit" disabled={save.isPending} className="btn-primary flex-1 justify-center">
+            {save.isPending ? 'Saving…' : initial?.id ? 'Save changes' : 'Create program'}
+          </button>
+        </div>
       </div>
     </form>
   );
