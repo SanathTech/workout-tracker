@@ -262,7 +262,7 @@ export default function WorkoutSession() {
         </div>
       </div>
 
-      <div className="flex gap-2 sticky bottom-2 pt-2 bg-gradient-to-t from-white to-transparent dark:from-neutral-950">
+      <div className="flex gap-2 sticky bottom-20 md:bottom-2 pt-4 pb-2 bg-gradient-to-t from-white via-white to-transparent dark:from-neutral-950 dark:via-neutral-950">
         <button
           onClick={() => saveDraft.mutate(buildPayload())}
           disabled={saveDraft.isPending}

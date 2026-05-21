@@ -251,7 +251,7 @@ function ProgramEditor({ initial, onCancel, onSaved }) {
         ))}
       </div>
 
-      <div className="flex gap-2 sticky bottom-2 pt-2">
+      <div className="flex gap-2 sticky bottom-20 md:bottom-2 pt-2">
         <button type="button" onClick={onCancel} className="btn-secondary flex-1 justify-center">Cancel</button>
         <button type="submit" disabled={save.isPending} className="btn-primary flex-1 justify-center">
           {save.isPending ? 'Saving…' : initial?.id ? 'Save changes' : 'Create program'}
