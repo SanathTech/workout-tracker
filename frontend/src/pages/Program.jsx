@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   getActiveProgram, getPrograms, getProgram, createProgram, updateProgram,
   deleteProgram, startProgram, endProgram, getExercises, startWorkout,
@@ -34,7 +34,7 @@ function ExerciseEditor({ ex, allExercises, onChange, onRemove }) {
   const addSub = () => onChange({ ...ex, substitutes: [...ex.substitutes, { exercise_id: '' }] });
 
   return (
-    <div className="border border-gray-200 rounded-xl p-3 space-y-2">
+    <div className="border border-neutral-200 dark:border-neutral-800 rounded-md p-3 space-y-3">
       <div className="flex gap-2">
         <select
           className="input flex-1"
@@ -48,32 +48,32 @@ function ExerciseEditor({ ex, allExercises, onChange, onRemove }) {
             </optgroup>
           ))}
         </select>
-        <button type="button" onClick={onRemove} className="btn-ghost text-red-400 px-2">🗑️</button>
+        <button type="button" onClick={onRemove} className="btn-ghost px-2">Remove</button>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
         <div>
-          <label className="text-xs text-gray-500 dark:text-gray-400">Sets</label>
+          <label className="label">Sets</label>
           <input type="number" min="1" className="input" value={ex.target_sets}
             onChange={(e) => onChange({ ...ex, target_sets: parseInt(e.target.value) || 1 })} />
         </div>
         <div>
-          <label className="text-xs text-gray-500 dark:text-gray-400">Reps low</label>
+          <label className="label">Reps low</label>
           <input type="number" min="1" className="input" value={ex.rep_range_low ?? ''}
             onChange={(e) => onChange({ ...ex, rep_range_low: e.target.value ? parseInt(e.target.value) : null })} />
         </div>
         <div>
-          <label className="text-xs text-gray-500 dark:text-gray-400">Reps high</label>
+          <label className="label">Reps high</label>
           <input type="number" min="1" className="input" value={ex.rep_range_high ?? ''}
             onChange={(e) => onChange({ ...ex, rep_range_high: e.target.value ? parseInt(e.target.value) : null })} />
         </div>
         <div>
-          <label className="text-xs text-gray-500 dark:text-gray-400">RIR</label>
+          <label className="label">RIR</label>
           <input type="number" min="0" className="input" value={ex.target_rir ?? ''}
             onChange={(e) => onChange({ ...ex, target_rir: e.target.value !== '' ? parseInt(e.target.value) : null })} />
         </div>
         <div>
-          <label className="text-xs text-gray-500 dark:text-gray-400">Rest (s)</label>
+          <label className="label">Rest (s)</label>
           <input type="number" min="0" className="input" value={ex.rest_seconds ?? ''}
             onChange={(e) => onChange({ ...ex, rest_seconds: e.target.value ? parseInt(e.target.value) : null })} />
         </div>
@@ -84,8 +84,8 @@ function ExerciseEditor({ ex, allExercises, onChange, onRemove }) {
 
       <div className="space-y-1">
         <div className="flex items-center justify-between">
-          <span className="text-xs text-gray-500 dark:text-gray-400">Preset substitutes</span>
-          <button type="button" onClick={addSub} className="text-xs text-blue-600 hover:underline">+ Add substitute</button>
+          <span className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Preset substitutes</span>
+          <button type="button" onClick={addSub} className="text-xs text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 underline-offset-2 hover:underline">Add</button>
         </div>
         {ex.substitutes.map((sub, i) => (
           <div key={i} className="flex gap-2">
@@ -106,7 +106,7 @@ function ExerciseEditor({ ex, allExercises, onChange, onRemove }) {
             </select>
             <button type="button" onClick={() => {
               onChange({ ...ex, substitutes: ex.substitutes.filter((_, j) => j !== i) });
-            }} className="btn-ghost text-red-400 px-2">✕</button>
+            }} className="btn-ghost px-2">×</button>
           </div>
         ))}
       </div>
@@ -124,7 +124,7 @@ function RoutineEditor({ routine, allExercises, onChange, onRemove }) {
           placeholder="Routine name (e.g. Upper 1)"
           onChange={(e) => onChange({ ...routine, name: e.target.value })}
         />
-        <button type="button" onClick={onRemove} className="btn-ghost text-red-400 px-2">🗑️</button>
+        <button type="button" onClick={onRemove} className="btn-ghost px-3">Remove</button>
       </div>
 
       <div className="space-y-2">
@@ -146,9 +146,9 @@ function RoutineEditor({ routine, allExercises, onChange, onRemove }) {
         <button
           type="button"
           onClick={() => onChange({ ...routine, exercises: [...routine.exercises, emptyExercise()] })}
-          className="btn-secondary w-full"
+          className="btn-secondary w-full justify-center"
         >
-          + Add exercise
+          Add exercise
         </button>
       </div>
     </div>
@@ -217,7 +217,7 @@ function ProgramEditor({ initial, onCancel, onSaved }) {
     <form onSubmit={submit} className="space-y-4">
       <div className="card space-y-3">
         <div>
-          <label className="label">Program name *</label>
+          <label className="label">Program name</label>
           <input className="input" value={name} onChange={(e) => setName(e.target.value)}
             placeholder="e.g. Phase 2 Min-Max, 5x/week" required />
         </div>
@@ -235,9 +235,9 @@ function ProgramEditor({ initial, onCancel, onSaved }) {
 
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-lg">Routines</h2>
+          <h2 className="font-semibold">Routines</h2>
           <button type="button" onClick={() => setRoutines([...routines, emptyRoutine()])} className="btn-secondary">
-            + Add routine
+            Add routine
           </button>
         </div>
         {routines.map((r, i) => (
@@ -252,7 +252,7 @@ function ProgramEditor({ initial, onCancel, onSaved }) {
       </div>
 
       <div className="flex gap-2 sticky bottom-2 pt-2">
-        <button type="button" onClick={onCancel} className="btn-secondary flex-1">Cancel</button>
+        <button type="button" onClick={onCancel} className="btn-secondary flex-1 justify-center">Cancel</button>
         <button type="submit" disabled={save.isPending} className="btn-primary flex-1 justify-center">
           {save.isPending ? 'Saving…' : initial?.id ? 'Save changes' : 'Create program'}
         </button>
@@ -288,32 +288,32 @@ function ProgramView({ program, onEdit }) {
 
   return (
     <div className="space-y-4">
-      <div className="card space-y-2">
-        <div className="flex items-start justify-between gap-2">
+      <div className="card space-y-3">
+        <div className="flex items-start justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold">{program.name}</h1>
-            {program.description && <p className="text-gray-500 mt-1">{program.description}</p>}
-            <p className="text-sm text-gray-400 mt-1">
-              {program.total_weeks} weeks · {program.routines.length} routines · status: {program.status}
+            <h1 className="text-2xl font-semibold tracking-tight">{program.name}</h1>
+            {program.description && <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">{program.description}</p>}
+            <p className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400 mt-2">
+              {program.total_weeks} weeks · {program.routines.length} routines · {program.status}
             </p>
           </div>
           <div className="flex flex-col gap-2 shrink-0">
-            <button onClick={onEdit} className="btn-secondary text-sm">✏️ Edit</button>
+            <button onClick={onEdit} className="btn-secondary">Edit</button>
             {!isActive && program.status !== 'completed' && (
-              <button onClick={() => startMut.mutate()} className="btn-primary text-sm">
-                {startMut.isPending ? '…' : '▶ Start'}
+              <button onClick={() => startMut.mutate()} className="btn-primary">
+                {startMut.isPending ? '…' : 'Start program'}
               </button>
             )}
             {isActive && (
               <button
                 onClick={() => { if (confirm('End this program early? It will be archived.')) endMut.mutate(); }}
-                className="btn-secondary text-sm"
+                className="btn-secondary"
               >End</button>
             )}
             {program.status !== 'active' && (
               <button
                 onClick={() => { if (confirm(`Delete "${program.name}"? This removes all its workouts too.`)) deleteMut.mutate(); }}
-                className="btn-ghost text-red-400 text-sm"
+                className="btn-ghost"
               >Delete</button>
             )}
           </div>
@@ -325,7 +325,7 @@ function ProgramView({ program, onEdit }) {
             disabled={startWorkoutMut.isPending}
             className="btn-primary w-full justify-center py-3"
           >
-            {startWorkoutMut.isPending ? 'Starting…' : `▶ Start ${nextRoutine.name} (Week ${program.progress.week})`}
+            {startWorkoutMut.isPending ? 'Starting…' : `Start ${nextRoutine.name} · Week ${program.progress.week}`}
           </button>
         )}
       </div>
@@ -333,30 +333,28 @@ function ProgramView({ program, onEdit }) {
       {program.routines.map((r, i) => (
         <div
           key={r.id}
-          className={`card ${nextRoutine?.id === r.id ? 'ring-2 ring-blue-500' : ''}`}
+          className={`card ${nextRoutine?.id === r.id ? 'border-neutral-900 dark:border-neutral-100' : ''}`}
         >
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-sm text-gray-400 w-6">{i + 1}.</span>
+            <span className="text-sm text-neutral-400 w-6">{String(i + 1).padStart(2, '0')}</span>
             <h2 className="font-semibold">{r.name}</h2>
-            {nextRoutine?.id === r.id && (
-              <span className="badge bg-blue-100 text-blue-700 ml-1">next</span>
-            )}
-            <span className="text-xs text-gray-400 ml-auto">{r.exercises.length} exercises</span>
+            {nextRoutine?.id === r.id && <span className="badge-solid ml-1">Next</span>}
+            <span className="text-xs text-neutral-500 dark:text-neutral-400 ml-auto">{r.exercises.length} exercises</span>
           </div>
           <div className="space-y-2">
             {r.exercises.map((ex) => (
-              <div key={ex.id} className="flex items-start gap-3 text-sm border-t border-gray-100 pt-2">
+              <div key={ex.id} className="flex items-start gap-3 text-sm border-t border-neutral-200 dark:border-neutral-800 pt-2">
                 <div className="flex-1">
-                  <p className="font-medium">{ex.exercise_name}</p>
-                  <p className="text-xs text-gray-500">
+                  <p className="font-medium text-neutral-900 dark:text-neutral-100">{ex.exercise_name}</p>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400">
                     {ex.target_sets} sets
                     {(ex.rep_range_low || ex.rep_range_high) && ` · ${ex.rep_range_low || '?'}–${ex.rep_range_high || '?'} reps`}
                     {ex.target_rir != null && ` · RIR ${ex.target_rir}`}
                     {ex.rest_seconds && ` · ${ex.rest_seconds}s rest`}
                   </p>
-                  {ex.notes && <p className="text-xs text-gray-400 italic mt-0.5">{ex.notes}</p>}
+                  {ex.notes && <p className="text-xs text-neutral-500 italic mt-0.5">{ex.notes}</p>}
                   {ex.substitutes?.length > 0 && (
-                    <p className="text-xs text-gray-400 mt-0.5">
+                    <p className="text-xs text-neutral-500 mt-0.5">
                       Subs: {ex.substitutes.map((s) => s.exercise_name).join(', ')}
                     </p>
                   )}
@@ -371,8 +369,7 @@ function ProgramView({ program, onEdit }) {
 }
 
 export default function Program() {
-  const qc = useQueryClient();
-  const [editing, setEditing] = useState(null); // null | 'new' | program object
+  const [editing, setEditing] = useState(null);
   const [viewingId, setViewingId] = useState(null);
 
   const { data: active, isLoading: activeLoading } = useQuery({
@@ -401,8 +398,8 @@ export default function Program() {
   if (editing) {
     return (
       <div className="space-y-3">
-        <button onClick={() => setEditing(null)} className="text-sm text-gray-400 hover:text-gray-600">← Back</button>
-        <h1 className="text-2xl font-bold">{editing === 'new' ? 'New Program' : 'Edit Program'}</h1>
+        <button onClick={() => setEditing(null)} className="text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100">← Back</button>
+        <h1 className="text-2xl font-semibold tracking-tight">{editing === 'new' ? 'New program' : 'Edit program'}</h1>
         <ProgramEditor
           initial={editing === 'new' ? null : editing}
           onCancel={() => setEditing(null)}
@@ -412,11 +409,9 @@ export default function Program() {
     );
   }
 
-  if (activeLoading) return <p className="text-center text-gray-400 py-20">Loading…</p>;
+  if (activeLoading) return <p className="text-center text-neutral-500 py-20">Loading…</p>;
 
   const noPrograms = allPrograms.length === 0;
-  // When viewing the active program, prefer the active payload (it includes
-  // `progress` with the next-routine pointer that getProgram(id) doesn't).
   const displayed = selected && active && selected.id === active.id
     ? { ...selected, progress: active.progress }
     : (selected || active);
@@ -424,14 +419,14 @@ export default function Program() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">Program</h1>
-        <button onClick={() => setEditing('new')} className="btn-primary">+ New Program</button>
+        <h1 className="text-2xl font-semibold tracking-tight">Program</h1>
+        <button onClick={() => setEditing('new')} className="btn-primary">New program</button>
       </div>
 
       {noPrograms && (
-        <div className="card text-center py-12 text-gray-400">
-          <p className="text-4xl mb-2">📋</p>
-          <p>No programs yet. Create one to get started.</p>
+        <div className="card">
+          <p className="font-semibold">No programs yet</p>
+          <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">Create one to get started.</p>
           <button onClick={() => setEditing('new')} className="btn-primary mt-4">Create your first program</button>
         </div>
       )}
@@ -442,13 +437,13 @@ export default function Program() {
             <button
               key={p.id}
               onClick={() => setViewingId(p.id)}
-              className={`badge border cursor-pointer ${
+              className={
                 (displayed?.id === p.id)
-                  ? 'bg-blue-100 text-blue-700 border-blue-200'
-                  : 'bg-gray-100 text-gray-600 border-gray-200'
-              }`}
+                  ? 'badge-solid cursor-pointer'
+                  : 'badge cursor-pointer hover:text-neutral-900 dark:hover:text-neutral-100'
+              }
             >
-              {p.name} {p.status === 'active' && '· active'}
+              {p.name}{p.status === 'active' ? ' · active' : ''}
             </button>
           ))}
         </div>
