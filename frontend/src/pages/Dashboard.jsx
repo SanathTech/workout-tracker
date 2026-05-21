@@ -3,15 +3,20 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   getStats, getRecentWorkouts, getActiveProgram, getInProgressWorkout, startWorkout,
 } from '../api/client';
+import { Skeleton } from '../components/Skeleton';
 
-function StatCard({ label, value, unit }) {
+function StatCard({ label, value, unit, loading }) {
   return (
     <div className="card">
       <p className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">{label}</p>
-      <p className="text-2xl font-semibold mt-1 text-neutral-900 dark:text-neutral-100">
-        {value ?? '—'}
-        {unit && <span className="text-sm font-normal ml-1 text-neutral-500 dark:text-neutral-500">{unit}</span>}
-      </p>
+      {loading ? (
+        <Skeleton className="h-7 w-16 mt-2" />
+      ) : (
+        <p className="text-2xl font-semibold mt-1 text-neutral-900 dark:text-neutral-100">
+          {value ?? '—'}
+          {unit && <span className="text-sm font-normal ml-1 text-neutral-500 dark:text-neutral-500">{unit}</span>}
+        </p>
+      )}
     </div>
   );
 }
@@ -36,6 +41,15 @@ function WorkoutRow({ workout }) {
         <span className="text-xs text-neutral-500 dark:text-neutral-400">{workout.duration_minutes} min</span>
       )}
     </Link>
+  );
+}
+
+function WorkoutRowSkeleton() {
+  return (
+    <div className="py-3 space-y-1.5">
+      <Skeleton className="h-4 w-32" />
+      <Skeleton className="h-3 w-48" />
+    </div>
   );
 }
 
@@ -91,6 +105,20 @@ function NextWorkoutCard({ program }) {
   );
 }
 
+function NextWorkoutSkeleton() {
+  return (
+    <div className="card space-y-4">
+      <div className="space-y-2">
+        <Skeleton className="h-3 w-16" />
+        <Skeleton className="h-7 w-40" />
+        <Skeleton className="h-3 w-56" />
+      </div>
+      <Skeleton className="h-4 w-3/4" />
+      <Skeleton className="h-11 w-full" />
+    </div>
+  );
+}
+
 function InProgressCard({ workout }) {
   return (
     <Link to={`/session/${workout.id}`} className="card block hover:border-neutral-300 dark:hover:border-neutral-700 transition-colors">
@@ -104,10 +132,16 @@ function InProgressCard({ workout }) {
 }
 
 export default function Dashboard() {
-  const { data: stats, isLoading: statsLoading } = useQuery({ queryKey: ['stats'], queryFn: getStats });
-  const { data: recent, isLoading: recentLoading } = useQuery({ queryKey: ['recent-workouts'], queryFn: getRecentWorkouts });
-  const { data: active } = useQuery({ queryKey: ['active-program'], queryFn: getActiveProgram });
-  const { data: inProgress } = useQuery({ queryKey: ['in-progress-workout'], queryFn: getInProgressWorkout });
+  const { data: stats, isLoading: statsLoading } = useQuery({ queryKey: ['stats'], queryFn: getStats, staleTime: 10 * 60_000 });
+  const { data: recent, isLoading: recentLoading } = useQuery({ queryKey: ['recent-workouts'], queryFn: getRecentWorkouts, staleTime: 10 * 60_000 });
+  const { data: active, isLoading: activeLoading } = useQuery({ queryKey: ['active-program'], queryFn: getActiveProgram });
+  const { data: inProgress, isLoading: inProgressLoading } = useQuery({
+    queryKey: ['in-progress-workout'],
+    queryFn: getInProgressWorkout,
+    staleTime: 0,
+  });
+
+  const programResolved = !activeLoading;
 
   return (
     <div className="space-y-6">
@@ -120,7 +154,9 @@ export default function Dashboard() {
 
       {inProgress && <InProgressCard workout={inProgress} />}
 
-      {!active ? (
+      {!programResolved || inProgressLoading ? (
+        <NextWorkoutSkeleton />
+      ) : !active ? (
         <div className="card">
           <p className="font-semibold">No active program</p>
           <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
@@ -133,20 +169,25 @@ export default function Dashboard() {
       )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard label="Total workouts" value={statsLoading ? '…' : stats?.total_workouts} />
-        <StatCard label="This week" value={statsLoading ? '…' : stats?.workouts_this_week} />
-        <StatCard label="Total sets" value={statsLoading ? '…' : stats?.total_sets} />
+        <StatCard label="Total workouts" value={stats?.total_workouts} loading={statsLoading} />
+        <StatCard label="This week" value={stats?.workouts_this_week} loading={statsLoading} />
+        <StatCard label="Total sets" value={stats?.total_sets} loading={statsLoading} />
         <StatCard
           label="Total volume"
-          value={statsLoading ? '…' : stats ? Math.round(stats.total_volume_kg).toLocaleString() : '—'}
+          value={stats ? Math.round(stats.total_volume_kg).toLocaleString() : '—'}
           unit="kg"
+          loading={statsLoading}
         />
       </div>
 
       <div className="card">
         <h2 className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400 mb-2">Recent workouts</h2>
         {recentLoading ? (
-          <p className="text-sm text-neutral-500 py-4">Loading…</p>
+          <div className="divide-y divide-neutral-200 dark:divide-neutral-800">
+            <WorkoutRowSkeleton />
+            <WorkoutRowSkeleton />
+            <WorkoutRowSkeleton />
+          </div>
         ) : recent?.length === 0 ? (
           <p className="text-sm text-neutral-500 py-4">No workouts logged yet.</p>
         ) : (

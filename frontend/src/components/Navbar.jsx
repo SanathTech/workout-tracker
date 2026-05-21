@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import { useIsFetching } from '@tanstack/react-query';
 
 const links = [
   { to: '/dashboard', label: 'Dashboard' },
@@ -21,6 +22,17 @@ function MoonIcon(props) {
     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" {...props}>
       <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" strokeLinejoin="round" />
     </svg>
+  );
+}
+
+function SyncingDot() {
+  const fetching = useIsFetching();
+  if (!fetching) return null;
+  return (
+    <span
+      aria-label="Syncing"
+      className="w-1.5 h-1.5 rounded-full bg-neutral-400 dark:bg-neutral-500 animate-pulse"
+    />
   );
 }
 
@@ -68,7 +80,8 @@ export default function Navbar() {
               </NavLink>
             ))}
           </div>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
+            <SyncingDot />
             <ThemeToggle />
           </div>
         </div>

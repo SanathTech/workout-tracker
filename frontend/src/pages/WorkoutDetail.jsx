@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { getWorkout, deleteWorkout } from '../api/client';
+import { Skeleton } from '../components/Skeleton';
 
 export default function WorkoutDetail() {
   const { id } = useParams();
@@ -21,7 +22,7 @@ export default function WorkoutDetail() {
     },
   });
 
-  if (isLoading) return <p className="text-center text-neutral-500 py-20">Loading…</p>;
+  if (isLoading) return <WorkoutDetailSkeleton />;
   if (!workout) return <p className="text-center text-neutral-500 py-20">Workout not found.</p>;
 
   const totalVolume = workout.exercises?.reduce(
@@ -109,6 +110,33 @@ export default function WorkoutDetail() {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function WorkoutDetailSkeleton() {
+  return (
+    <div className="max-w-2xl mx-auto space-y-6">
+      <div className="space-y-2">
+        <Skeleton className="h-3 w-12" />
+        <Skeleton className="h-7 w-48" />
+        <Skeleton className="h-3 w-64" />
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="card space-y-2">
+            <Skeleton className="h-3 w-16" />
+            <Skeleton className="h-6 w-12" />
+          </div>
+        ))}
+      </div>
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="card space-y-3">
+          <Skeleton className="h-5 w-40" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-full" />
+        </div>
+      ))}
     </div>
   );
 }

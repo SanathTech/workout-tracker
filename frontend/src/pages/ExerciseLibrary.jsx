@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getExercises, getExerciseGroups, createExercise, deleteExercise } from '../api/client';
+import { Skeleton } from '../components/Skeleton';
 
 function AddExerciseModal({ onClose }) {
   const qc = useQueryClient();
@@ -116,7 +117,9 @@ export default function ExerciseLibrary() {
       </div>
 
       {isLoading ? (
-        <p className="text-center text-neutral-500 py-20 text-sm">Loading…</p>
+        <div className="space-y-2">
+          {[0, 1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-14 w-full" />)}
+        </div>
       ) : exercises.length === 0 ? (
         <p className="text-center text-neutral-500 py-20 text-sm">No exercises found.</p>
       ) : (

@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getWorkout, updateWorkout, completeWorkout, getExercises, getLastByExercise } from '../api/client';
+import { Skeleton } from '../components/Skeleton';
 
 function groupByMuscle(exercises) {
   return exercises.reduce((acc, ex) => {
@@ -53,6 +54,7 @@ function ExerciseBlock({ block, allExercises, workoutId, onChange, onRemove }) {
     queryKey: ['last-by-exercise', block.exercise_id, workoutId],
     queryFn: () => getLastByExercise(block.exercise_id, { exclude: workoutId }),
     enabled: !!block.exercise_id,
+    staleTime: Infinity,
   });
   const prevBySet = useMemo(() => {
     const m = {};
@@ -177,7 +179,7 @@ export default function WorkoutSession() {
     },
   });
 
-  if (isLoading || !workout) return <p className="text-center text-neutral-500 py-20">Loading…</p>;
+  if (isLoading || !workout) return <WorkoutSessionSkeleton />;
   if (workout.status === 'completed') {
     navigate(`/workouts/${id}`, { replace: true });
     return null;
@@ -280,6 +282,28 @@ export default function WorkoutSession() {
           {finish.isPending ? '…' : 'Finish workout'}
         </button>
       </div>
+    </div>
+  );
+}
+
+function WorkoutSessionSkeleton() {
+  return (
+    <div className="max-w-2xl mx-auto space-y-4">
+      <div className="space-y-2">
+        <Skeleton className="h-3 w-12" />
+        <Skeleton className="h-7 w-48" />
+        <Skeleton className="h-3 w-64" />
+      </div>
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="card space-y-3">
+          <Skeleton className="h-5 w-40" />
+          <Skeleton className="h-3 w-32" />
+          <div className="space-y-2">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
