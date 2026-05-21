@@ -262,7 +262,7 @@ function ProgramEditor({ initial, onCancel, onSaved }) {
   );
 }
 
-function ProgramView({ program, onEdit }) {
+function ProgramView({ program, onEdit, onDeleted }) {
   const qc = useQueryClient();
   const navigate = useNavigate();
 
@@ -270,11 +270,19 @@ function ProgramView({ program, onEdit }) {
     qc.invalidateQueries({ queryKey: ['active-program'] });
     qc.invalidateQueries({ queryKey: ['programs'] });
     qc.invalidateQueries({ queryKey: ['program', program.id] });
+    qc.invalidateQueries({ queryKey: ['in-progress-workout'] });
   };
 
   const startMut = useMutation({ mutationFn: () => startProgram(program.id), onSuccess: invalidateAll });
   const endMut = useMutation({ mutationFn: () => endProgram(program.id), onSuccess: invalidateAll });
-  const deleteMut = useMutation({ mutationFn: () => deleteProgram(program.id), onSuccess: invalidateAll });
+  const deleteMut = useMutation({
+    mutationFn: () => deleteProgram(program.id),
+    onSuccess: () => {
+      invalidateAll();
+      qc.removeQueries({ queryKey: ['program', program.id] });
+      onDeleted?.();
+    },
+  });
 
   const startWorkoutMut = useMutation({
     mutationFn: (routineId) => startWorkout({ routine_id: routineId }),
@@ -313,7 +321,7 @@ function ProgramView({ program, onEdit }) {
             )}
             {program.status !== 'active' && (
               <button
-                onClick={() => { if (confirm(`Delete "${program.name}"? This removes all its workouts too.`)) deleteMut.mutate(); }}
+                onClick={() => { if (confirm(`Delete "${program.name}"? Any unfinished workout will be discarded. Completed history is kept.`)) deleteMut.mutate(); }}
                 className="btn-ghost"
               >Delete</button>
             )}
@@ -449,7 +457,7 @@ export default function Program() {
         </div>
       )}
 
-      {displayed && <ProgramView program={displayed} onEdit={() => setEditing(displayed)} />}
+      {displayed && <ProgramView program={displayed} onEdit={() => setEditing(displayed)} onDeleted={() => setViewingId(null)} />}
       {!displayed && !noPrograms && <ProgramSkeleton />}
     </div>
   );
