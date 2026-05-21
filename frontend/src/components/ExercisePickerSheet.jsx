@@ -1,15 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getExercises } from '../api/client';
-
-function CloseIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2">
-      <line x1="6" y1="6" x2="18" y2="18" strokeLinecap="round" />
-      <line x1="6" y1="18" x2="18" y2="6" strokeLinecap="round" />
-    </svg>
-  );
-}
+import { CloseIcon } from './icons';
 
 function groupByMuscle(exercises) {
   return exercises.reduce((acc, ex) => {
@@ -81,7 +73,7 @@ export default function ExercisePickerSheet({
             aria-label="Close"
             className="text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200 p-1"
           >
-            <CloseIcon />
+            <CloseIcon size={18} />
           </button>
         </div>
 
