@@ -1,9 +1,9 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   getActiveProgram, getPrograms, getProgram, createProgram, updateProgram,
-  deleteProgram, startProgram, endProgram, getExercises,
+  deleteProgram, startProgram, endProgram, getExercises, startWorkout,
 } from '../api/client';
 
 function emptyExercise() {
@@ -263,29 +263,28 @@ function ProgramEditor({ initial, onCancel, onSaved }) {
 
 function ProgramView({ program, onEdit }) {
   const qc = useQueryClient();
-  const startMut = useMutation({
-    mutationFn: () => startProgram(program.id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['active-program'] });
-      qc.invalidateQueries({ queryKey: ['programs'] });
-    },
-  });
-  const endMut = useMutation({
-    mutationFn: () => endProgram(program.id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['active-program'] });
-      qc.invalidateQueries({ queryKey: ['programs'] });
-    },
-  });
-  const deleteMut = useMutation({
-    mutationFn: () => deleteProgram(program.id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['active-program'] });
-      qc.invalidateQueries({ queryKey: ['programs'] });
+  const navigate = useNavigate();
+
+  const invalidateAll = () => {
+    qc.invalidateQueries({ queryKey: ['active-program'] });
+    qc.invalidateQueries({ queryKey: ['programs'] });
+    qc.invalidateQueries({ queryKey: ['program', program.id] });
+  };
+
+  const startMut = useMutation({ mutationFn: () => startProgram(program.id), onSuccess: invalidateAll });
+  const endMut = useMutation({ mutationFn: () => endProgram(program.id), onSuccess: invalidateAll });
+  const deleteMut = useMutation({ mutationFn: () => deleteProgram(program.id), onSuccess: invalidateAll });
+
+  const startWorkoutMut = useMutation({
+    mutationFn: (routineId) => startWorkout({ routine_id: routineId }),
+    onSuccess: (w) => {
+      qc.invalidateQueries({ queryKey: ['in-progress-workout'] });
+      navigate(`/session/${w.id}`);
     },
   });
 
   const isActive = program.status === 'active';
+  const nextRoutine = isActive ? program.progress?.next_routine : null;
 
   return (
     <div className="space-y-4">
@@ -319,13 +318,29 @@ function ProgramView({ program, onEdit }) {
             )}
           </div>
         </div>
+
+        {isActive && nextRoutine && (
+          <button
+            onClick={() => startWorkoutMut.mutate(nextRoutine.id)}
+            disabled={startWorkoutMut.isPending}
+            className="btn-primary w-full justify-center py-3"
+          >
+            {startWorkoutMut.isPending ? 'Starting…' : `▶ Start ${nextRoutine.name} (Week ${program.progress.week})`}
+          </button>
+        )}
       </div>
 
       {program.routines.map((r, i) => (
-        <div key={r.id} className="card">
+        <div
+          key={r.id}
+          className={`card ${nextRoutine?.id === r.id ? 'ring-2 ring-blue-500' : ''}`}
+        >
           <div className="flex items-center gap-2 mb-3">
             <span className="text-sm text-gray-400 w-6">{i + 1}.</span>
             <h2 className="font-semibold">{r.name}</h2>
+            {nextRoutine?.id === r.id && (
+              <span className="badge bg-blue-100 text-blue-700 ml-1">next</span>
+            )}
             <span className="text-xs text-gray-400 ml-auto">{r.exercises.length} exercises</span>
           </div>
           <div className="space-y-2">
@@ -400,7 +415,11 @@ export default function Program() {
   if (activeLoading) return <p className="text-center text-gray-400 py-20">Loading…</p>;
 
   const noPrograms = allPrograms.length === 0;
-  const displayed = selected || active;
+  // When viewing the active program, prefer the active payload (it includes
+  // `progress` with the next-routine pointer that getProgram(id) doesn't).
+  const displayed = selected && active && selected.id === active.id
+    ? { ...selected, progress: active.progress }
+    : (selected || active);
 
   return (
     <div className="space-y-6">
