@@ -289,7 +289,7 @@ function ProgramEditor({ initial, onCancel, onSaved }) {
       </div>
 
       <div className="h-28 md:h-20" aria-hidden="true" />
-      <div className="fixed bottom-16 md:bottom-0 inset-x-0 z-20 bg-white dark:bg-neutral-950 border-t border-neutral-200 dark:border-neutral-900 md:pb-[env(safe-area-inset-bottom)]">
+      <div className="fixed bottom-[calc(2.5rem+env(safe-area-inset-bottom))] md:bottom-0 inset-x-0 z-20 bg-white dark:bg-neutral-950 border-t border-neutral-200 dark:border-neutral-900 md:pb-[env(safe-area-inset-bottom)]">
         <div className="max-w-2xl mx-auto px-4 py-3 flex gap-2">
           <button type="button" onClick={onCancel} className="btn-secondary flex-1 justify-center">Cancel</button>
           <button type="submit" disabled={save.isPending} className="btn-primary flex-1 justify-center">
