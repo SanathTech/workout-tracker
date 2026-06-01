@@ -44,12 +44,10 @@ function CreateExerciseForm({ initialName, onCancel, onCreated }) {
   });
 
   const canSubmit = name.trim().length > 0 && group && !mutation.isPending;
+  const submit = () => { if (canSubmit) mutation.mutate(); };
 
   return (
-    <form
-      onSubmit={(e) => { e.preventDefault(); if (canSubmit) mutation.mutate(); }}
-      className="flex-1 overflow-y-auto overscroll-contain"
-    >
+    <div className="flex-1 overflow-y-auto overscroll-contain">
       <div className="p-4 space-y-4">
         <div>
           <label className="label">Name</label>
@@ -59,6 +57,7 @@ function CreateExerciseForm({ initialName, onCancel, onCreated }) {
             className="input"
             value={name}
             onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submit(); } }}
             placeholder="e.g. Bulgarian Split Squat"
           />
         </div>
@@ -92,14 +91,14 @@ function CreateExerciseForm({ initialName, onCancel, onCreated }) {
           </p>
         )}
 
-        <button type="submit" disabled={!canSubmit} className="btn-primary w-full justify-center">
+        <button type="button" onClick={submit} disabled={!canSubmit} className="btn-primary w-full justify-center">
           {mutation.isPending ? 'Creating…' : 'Save & pick'}
         </button>
         <button type="button" onClick={onCancel} className="btn-ghost w-full justify-center">
           Cancel
         </button>
       </div>
-    </form>
+    </div>
   );
 }
 
