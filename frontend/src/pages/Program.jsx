@@ -8,6 +8,7 @@ import {
 import { Skeleton } from '../components/Skeleton';
 import ExercisePickerSheet from '../components/ExercisePickerSheet';
 import { CloseIcon, ChevronIcon } from '../components/icons';
+import { useHideMobileNav } from '../hooks/useMobileNavVisibility';
 
 const dashedAddBtn = 'w-full text-center py-2 text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200 border border-dashed border-neutral-200 dark:border-neutral-800 rounded hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors';
 const iconBtn = 'text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 p-1 shrink-0';
@@ -191,6 +192,7 @@ function RoutineEditor({ routine, allExercises, onChange, onRemove }) {
 }
 
 function ProgramEditor({ initial, onCancel, onSaved }) {
+  useHideMobileNav();
   const qc = useQueryClient();
   const [name, setName] = useState(initial?.name || '');
   const [description, setDescription] = useState(initial?.description || '');
@@ -288,8 +290,8 @@ function ProgramEditor({ initial, onCancel, onSaved }) {
         </button>
       </div>
 
-      <div className="h-28 md:h-20" aria-hidden="true" />
-      <div className="fixed bottom-[calc(2.5rem+env(safe-area-inset-bottom))] md:bottom-0 inset-x-0 z-20 bg-white dark:bg-neutral-950 border-t border-neutral-200 dark:border-neutral-900 md:pb-[env(safe-area-inset-bottom)]">
+      <div className="h-20" aria-hidden="true" />
+      <div className="fixed bottom-0 inset-x-0 z-20 bg-white dark:bg-neutral-950 border-t border-neutral-200 dark:border-neutral-900 pb-[env(safe-area-inset-bottom)]">
         <div className="max-w-2xl mx-auto px-4 py-3 flex gap-2">
           <button type="button" onClick={onCancel} className="btn-secondary flex-1 justify-center">Cancel</button>
           <button type="submit" disabled={save.isPending} className="btn-primary flex-1 justify-center">
