@@ -127,16 +127,18 @@ export default function ExercisePickerSheet({
     if (!open) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
     const onKey = (e) => {
       if (e.key !== 'Escape') return;
       if (mode === 'create') setMode('list');
       else onClose();
     };
     window.addEventListener('keydown', onKey);
-    return () => {
-      document.body.style.overflow = prev;
-      window.removeEventListener('keydown', onKey);
-    };
+    return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose, mode]);
 
   const filtered = useMemo(() => {
@@ -222,7 +224,7 @@ export default function ExercisePickerSheet({
 
             {/* Body */}
             <div className="flex-1 overflow-y-auto overscroll-contain">
-              {presetSubstitutes.length > 0 && !query && (
+              {presetSubstitutes.length > 0 && !query.trim() && (
                 <section>
                   <h3 className="px-4 pt-3 pb-1 text-[10px] uppercase tracking-wide font-medium text-neutral-500 dark:text-neutral-500">
                     Substitutes
