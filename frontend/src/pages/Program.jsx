@@ -9,6 +9,7 @@ import { Skeleton } from '../components/Skeleton';
 import ExercisePickerSheet from '../components/ExercisePickerSheet';
 import { CloseIcon, ChevronIcon } from '../components/icons';
 import { useHideMobileNav } from '../hooks/useMobileNavVisibility';
+import { formatRest, parseIntOrNull } from '../utils/format';
 
 const dashedAddBtn = 'w-full text-center py-2 text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200 border border-dashed border-neutral-200 dark:border-neutral-800 rounded hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors';
 const iconBtn = 'text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 p-1 shrink-0';
@@ -27,13 +28,6 @@ function emptyExercise() {
 }
 
 const selectOnFocus = (e) => e.target.select();
-
-function formatRest(seconds) {
-  if (seconds == null) return '';
-  if (seconds < 60) return `${seconds}s`;
-  const mins = seconds / 60;
-  return Number.isInteger(mins) ? `${mins}m` : `${mins.toFixed(1)}m`;
-}
 function emptyRoutine(name = '') {
   return { name, exercises: [emptyExercise()] };
 }
@@ -87,15 +81,14 @@ function ExerciseEditor({ ex, allExercises, onChange, onRemove }) {
             value={ex.target_sets ?? ''}
             onFocus={selectOnFocus}
             onChange={(e) => {
-              const v = e.target.value === '' ? null : parseInt(e.target.value);
-              const nextSets = v;
+              const v = parseIntOrNull(e.target.value);
               const rir = Array.isArray(ex.target_rir_per_set) ? ex.target_rir_per_set : [];
               let nextRir = rir;
               if (typeof v === 'number' && v > 0) {
                 if (rir.length < v) nextRir = [...rir, ...Array(v - rir.length).fill(1)];
                 else if (rir.length > v) nextRir = rir.slice(0, v);
               }
-              onChange({ ...ex, target_sets: nextSets, target_rir_per_set: nextRir });
+              onChange({ ...ex, target_sets: v, target_rir_per_set: nextRir });
             }}
           />
         </div>
@@ -105,7 +98,7 @@ function ExerciseEditor({ ex, allExercises, onChange, onRemove }) {
             type="number" inputMode="numeric" min="1" className="input"
             value={ex.rep_range_low ?? ''}
             onFocus={selectOnFocus}
-            onChange={(e) => onChange({ ...ex, rep_range_low: e.target.value ? parseInt(e.target.value) : null })}
+            onChange={(e) => onChange({ ...ex, rep_range_low: parseIntOrNull(e.target.value) })}
           />
         </div>
         <div>
@@ -114,7 +107,7 @@ function ExerciseEditor({ ex, allExercises, onChange, onRemove }) {
             type="number" inputMode="numeric" min="1" className="input"
             value={ex.rep_range_high ?? ''}
             onFocus={selectOnFocus}
-            onChange={(e) => onChange({ ...ex, rep_range_high: e.target.value ? parseInt(e.target.value) : null })}
+            onChange={(e) => onChange({ ...ex, rep_range_high: parseIntOrNull(e.target.value) })}
           />
         </div>
       </div>
@@ -152,7 +145,7 @@ function ExerciseEditor({ ex, allExercises, onChange, onRemove }) {
                     value={value == null ? '' : value}
                     onFocus={selectOnFocus}
                     onChange={(e) => {
-                      const v = e.target.value === '' ? null : parseInt(e.target.value);
+                      const v = parseIntOrNull(e.target.value);
                       const arr = Array.isArray(ex.target_rir_per_set)
                         ? [...ex.target_rir_per_set]
                         : Array(ex.target_sets).fill(null);
@@ -312,8 +305,8 @@ function ProgramEditor({ initial, onCancel, onSaved }) {
           const sets = ex.target_sets && ex.target_sets > 0 ? ex.target_sets : 1;
           const rirSource = Array.isArray(ex.target_rir_per_set) ? ex.target_rir_per_set : [];
           const target_rir_per_set = Array.from({ length: sets }, (_, i) => {
-            const v = rirSource[i];
-            return v == null || v === '' ? null : Number(v);
+            const n = Number(rirSource[i]);
+            return Number.isFinite(n) ? n : null;
           });
           return {
             exercise_id: parseInt(ex.exercise_id),

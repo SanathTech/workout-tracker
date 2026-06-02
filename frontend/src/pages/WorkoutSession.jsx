@@ -5,13 +5,7 @@ import { getWorkout, updateWorkout, completeWorkout, getLastByExercise } from '.
 import { Skeleton } from '../components/Skeleton';
 import ExercisePickerSheet from '../components/ExercisePickerSheet';
 import { CloseIcon, ChevronIcon } from '../components/icons';
-
-function formatRest(seconds) {
-  if (seconds == null) return '';
-  if (seconds < 60) return `${seconds}s`;
-  const mins = seconds / 60;
-  return Number.isInteger(mins) ? `${mins}m` : `${mins.toFixed(1)}m`;
-}
+import { formatRest } from '../utils/format';
 
 function TargetChip({ children }) {
   return (

@@ -86,8 +86,8 @@ async function writeRoutines(client, programId, routines) {
       const targetSets = ex.target_sets ?? 3;
       const rirArr = Array.isArray(ex.target_rir_per_set) ? ex.target_rir_per_set : [];
       const normalizedRir = Array.from({ length: targetSets }, (_, i) => {
-        const v = rirArr[i];
-        return v == null || v === '' ? null : Number(v);
+        const n = Number(rirArr[i]);
+        return Number.isFinite(n) ? n : null;
       });
       const reRes = await client.query(
         `INSERT INTO routine_exercises
