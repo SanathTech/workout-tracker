@@ -83,18 +83,24 @@ async function writeRoutines(client, programId, routines) {
     const exs = r.exercises || [];
     for (let j = 0; j < exs.length; j++) {
       const ex = exs[j];
+      const targetSets = ex.target_sets ?? 3;
+      const rirArr = Array.isArray(ex.target_rir_per_set) ? ex.target_rir_per_set : [];
+      const normalizedRir = Array.from({ length: targetSets }, (_, i) => {
+        const v = rirArr[i];
+        return v == null || v === '' ? null : Number(v);
+      });
       const reRes = await client.query(
         `INSERT INTO routine_exercises
-          (routine_id, exercise_id, sort_order, target_sets, rep_range_low, rep_range_high, target_rir, rest_seconds, notes)
+          (routine_id, exercise_id, sort_order, target_sets, rep_range_low, rep_range_high, target_rir_per_set, rest_seconds, notes)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
         [
           routineId,
           ex.exercise_id,
           j,
-          ex.target_sets ?? 3,
+          targetSets,
           ex.rep_range_low ?? null,
           ex.rep_range_high ?? null,
-          ex.target_rir ?? null,
+          normalizedRir,
           ex.rest_seconds ?? null,
           ex.notes ?? null,
         ]
