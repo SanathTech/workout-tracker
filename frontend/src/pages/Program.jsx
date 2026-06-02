@@ -14,14 +14,17 @@ import { formatRest, parseIntOrNull } from '../utils/format';
 const dashedAddBtn = 'w-full text-center py-2 text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200 border border-dashed border-neutral-200 dark:border-neutral-800 rounded hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors';
 const iconBtn = 'text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 p-1 shrink-0';
 
+const genId = () => crypto.randomUUID();
+
 function emptyExercise() {
   return {
+    client_id: genId(),
     exercise_id: '',
-    target_sets: 3,
-    rep_range_low: 8,
-    rep_range_high: 12,
-    target_rir_per_set: [1, 1, 1],
-    rest_seconds: 120,
+    target_sets: null,
+    rep_range_low: null,
+    rep_range_high: null,
+    target_rir_per_set: [],
+    rest_seconds: null,
     notes: '',
     substitutes: [],
   };
@@ -29,10 +32,47 @@ function emptyExercise() {
 
 const selectOnFocus = (e) => e.target.select();
 function emptyRoutine(name = '') {
-  return { name, exercises: [emptyExercise()] };
+  return { client_id: genId(), name, exercises: [emptyExercise()] };
 }
 
-function ExerciseEditor({ ex, allExercises, onChange, onRemove }) {
+function formatRirArray(arr) {
+  if (!Array.isArray(arr) || arr.length === 0) return null;
+  if (arr.every((v) => v == null)) return null;
+  return arr.map((v) => v == null ? '–' : v).join('/');
+}
+
+function summarizeExercise(ex) {
+  const chips = [];
+  if (ex.target_sets) chips.push(`${ex.target_sets} sets`);
+  if (ex.rep_range_low || ex.rep_range_high) {
+    chips.push(`${ex.rep_range_low ?? '?'}–${ex.rep_range_high ?? '?'} reps`);
+  }
+  const rirStr = formatRirArray(ex.target_rir_per_set);
+  if (rirStr) chips.push(`RIR ${rirStr}`);
+  if (ex.rest_seconds != null) chips.push(`${formatRest(ex.rest_seconds)} rest`);
+  return chips;
+}
+
+function handleEditorEnter(e) {
+  if (e.key !== 'Enter') return;
+  if (e.nativeEvent?.isComposing) return;
+  if (!(e.target instanceof HTMLElement)) return;
+  if (e.target.dataset.editorInput !== 'true') return;
+  e.preventDefault();
+  const root = e.currentTarget;
+  const inputs = Array.from(root.querySelectorAll('[data-editor-input="true"]:not(:disabled)'));
+  const idx = inputs.indexOf(e.target);
+  if (idx === -1) return;
+  const next = inputs[idx + 1];
+  if (next) {
+    next.focus();
+    next.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  } else {
+    e.target.blur();
+  }
+}
+
+function ExerciseEditor({ ex, allExercises, expanded, onToggle, onChange, onRemove }) {
   const [picker, setPicker] = useState(null); // { kind: 'primary' } | { kind: 'sub', subIndex }
   const byId = useMemo(() => {
     const m = {};
@@ -41,6 +81,7 @@ function ExerciseEditor({ ex, allExercises, onChange, onRemove }) {
   }, [allExercises]);
 
   const primary = ex.exercise_id ? byId[String(ex.exercise_id)] : null;
+  const chips = summarizeExercise(ex);
 
   const handleSelect = (picked) => {
     if (picker?.kind === 'primary') {
@@ -56,161 +97,226 @@ function ExerciseEditor({ ex, allExercises, onChange, onRemove }) {
     : 'Pick substitute';
 
   return (
-    <div className="border border-neutral-200 dark:border-neutral-800 rounded-md p-3 space-y-3">
-      <div className="flex items-center gap-2">
+    <div>
+      {/* Header row — always visible, tappable to expand/collapse */}
+      <div className="flex items-start gap-2 py-2">
         <button
           type="button"
-          onClick={() => setPicker({ kind: 'primary' })}
-          className="flex items-center gap-1.5 text-left flex-1 min-w-0 px-3 py-2 rounded border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
+          onClick={onToggle}
+          className="flex items-start gap-2 flex-1 min-w-0 text-left -mx-1 px-1 py-1 rounded hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
         >
-          <span className={`flex-1 min-w-0 truncate ${primary ? 'text-neutral-900 dark:text-neutral-200' : 'text-neutral-500 dark:text-neutral-500'}`}>
-            {primary ? primary.name : 'Pick an exercise'}
+          <span className="text-neutral-400 dark:text-neutral-500 shrink-0 mt-1">
+            <ChevronIcon open={expanded} />
           </span>
-          <span className="text-neutral-400 dark:text-neutral-500 shrink-0"><ChevronIcon /></span>
+          <div className="flex-1 min-w-0">
+            <div className={`truncate ${primary ? 'font-medium text-neutral-900 dark:text-neutral-200' : 'text-neutral-500 dark:text-neutral-500'}`}>
+              {primary ? primary.name : 'Pick an exercise'}
+            </div>
+            {!expanded && chips.length > 0 && (
+              <div className="text-xs text-neutral-500 dark:text-neutral-500 mt-0.5 truncate">
+                {chips.join(' · ')}
+              </div>
+            )}
+          </div>
         </button>
-        <button type="button" onClick={onRemove} aria-label="Remove exercise" className={iconBtn}>
+        <button type="button" onClick={onRemove} aria-label="Remove exercise" className={`${iconBtn} mt-1`}>
           <CloseIcon />
         </button>
       </div>
 
-      <div className="grid grid-cols-3 gap-2">
-        <div>
-          <label className="label">Sets</label>
-          <input
-            type="number" inputMode="numeric" min="1" className="input"
-            value={ex.target_sets ?? ''}
-            onFocus={selectOnFocus}
-            onChange={(e) => {
-              const v = parseIntOrNull(e.target.value);
-              const rir = Array.isArray(ex.target_rir_per_set) ? ex.target_rir_per_set : [];
-              let nextRir = rir;
-              if (typeof v === 'number' && v > 0) {
-                if (rir.length < v) nextRir = [...rir, ...Array(v - rir.length).fill(1)];
-                else if (rir.length > v) nextRir = rir.slice(0, v);
-              }
-              onChange({ ...ex, target_sets: v, target_rir_per_set: nextRir });
-            }}
-          />
-        </div>
-        <div>
-          <label className="label">Reps low</label>
-          <input
-            type="number" inputMode="numeric" min="1" className="input"
-            value={ex.rep_range_low ?? ''}
-            onFocus={selectOnFocus}
-            onChange={(e) => onChange({ ...ex, rep_range_low: parseIntOrNull(e.target.value) })}
-          />
-        </div>
-        <div>
-          <label className="label">Reps high</label>
-          <input
-            type="number" inputMode="numeric" min="1" className="input"
-            value={ex.rep_range_high ?? ''}
-            onFocus={selectOnFocus}
-            onChange={(e) => onChange({ ...ex, rep_range_high: parseIntOrNull(e.target.value) })}
-          />
-        </div>
-      </div>
+      {/* Expanded body */}
+      {expanded && (
+        <div data-editor-root className="pl-7 pr-1 pb-3 space-y-3" onKeyDown={handleEditorEnter}>
+          <button
+            type="button"
+            onClick={() => setPicker({ kind: 'primary' })}
+            className="flex items-center gap-1.5 text-left w-full min-w-0 px-3 py-2 rounded border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
+          >
+            <span className={`flex-1 min-w-0 truncate ${primary ? 'text-neutral-900 dark:text-neutral-200' : 'text-neutral-500 dark:text-neutral-500'}`}>
+              {primary ? primary.name : 'Pick an exercise'}
+            </span>
+            <span className="text-neutral-400 dark:text-neutral-500 shrink-0"><ChevronIcon /></span>
+          </button>
 
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label className="label">Rest (min)</label>
-          <input
-            type="number" inputMode="decimal" min="0" step="0.25" className="input"
-            value={ex.rest_seconds == null ? '' : (ex.rest_seconds / 60)}
-            onFocus={selectOnFocus}
-            onChange={(e) => {
-              if (e.target.value === '') return onChange({ ...ex, rest_seconds: null });
-              const mins = parseFloat(e.target.value);
-              onChange({ ...ex, rest_seconds: Number.isFinite(mins) ? Math.round(mins * 60) : null });
-            }}
-          />
-        </div>
-      </div>
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label className="label">Sets</label>
+              <input
+                data-editor-input="true"
+                type="number" inputMode="numeric" min="1" placeholder="3" className="input"
+                value={ex.target_sets ?? ''}
+                onFocus={selectOnFocus}
+                onChange={(e) => {
+                  const v = parseIntOrNull(e.target.value);
+                  const rir = Array.isArray(ex.target_rir_per_set) ? ex.target_rir_per_set : [];
+                  let nextRir = rir;
+                  if (typeof v === 'number' && v > 0) {
+                    if (rir.length < v) nextRir = [...rir, ...Array(v - rir.length).fill(null)];
+                    else if (rir.length > v) nextRir = rir.slice(0, v);
+                  } else if (v == null) {
+                    nextRir = [];
+                  }
+                  onChange({ ...ex, target_sets: v, target_rir_per_set: nextRir });
+                }}
+              />
+            </div>
+            <div>
+              <label className="label">Reps low</label>
+              <input
+                data-editor-input="true"
+                type="number" inputMode="numeric" min="1" placeholder="8" className="input"
+                value={ex.rep_range_low ?? ''}
+                onFocus={selectOnFocus}
+                onChange={(e) => onChange({ ...ex, rep_range_low: parseIntOrNull(e.target.value) })}
+              />
+            </div>
+            <div>
+              <label className="label">Reps high</label>
+              <input
+                data-editor-input="true"
+                type="number" inputMode="numeric" min="1" placeholder="12" className="input"
+                value={ex.rep_range_high ?? ''}
+                onFocus={selectOnFocus}
+                onChange={(e) => onChange({ ...ex, rep_range_high: parseIntOrNull(e.target.value) })}
+              />
+            </div>
+          </div>
 
-      <div className="space-y-1.5">
-        <span className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">RIR per set</span>
-        {!ex.target_sets ? (
-          <p className="text-xs text-neutral-500 dark:text-neutral-500">Set the number of sets to define per-set RIR.</p>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {Array.from({ length: ex.target_sets }, (_, i) => {
-              const value = ex.target_rir_per_set?.[i];
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="label">Rest (min)</label>
+              <input
+                data-editor-input="true"
+                type="number" inputMode="decimal" min="0" step="0.25" placeholder="2" className="input"
+                value={ex.rest_seconds == null ? '' : (ex.rest_seconds / 60)}
+                onFocus={selectOnFocus}
+                onChange={(e) => {
+                  if (e.target.value === '') return onChange({ ...ex, rest_seconds: null });
+                  const mins = parseFloat(e.target.value);
+                  onChange({ ...ex, rest_seconds: Number.isFinite(mins) ? Math.round(mins * 60) : null });
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <span className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">RIR per set</span>
+            {!ex.target_sets ? (
+              <p className="text-xs text-neutral-500 dark:text-neutral-500">Set the number of sets to define per-set RIR.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {Array.from({ length: ex.target_sets }, (_, i) => {
+                  const value = ex.target_rir_per_set?.[i];
+                  return (
+                    <label key={i} className="flex items-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-500">
+                      <span className="w-9 text-right">Set {i + 1}</span>
+                      <input
+                        data-editor-input="true"
+                        type="number" inputMode="numeric" min="0" placeholder="1"
+                        className="input w-14 py-1.5 text-center"
+                        value={value == null ? '' : value}
+                        onFocus={selectOnFocus}
+                        onChange={(e) => {
+                          const v = parseIntOrNull(e.target.value);
+                          const arr = Array.isArray(ex.target_rir_per_set)
+                            ? [...ex.target_rir_per_set]
+                            : Array(ex.target_sets).fill(null);
+                          arr[i] = v;
+                          onChange({ ...ex, target_rir_per_set: arr });
+                        }}
+                      />
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <input
+            data-editor-input="true"
+            className="input" placeholder="Notes (optional)" value={ex.notes || ''}
+            onChange={(e) => onChange({ ...ex, notes: e.target.value })}
+          />
+
+          <div className="space-y-2">
+            <span className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Preset substitutes</span>
+            {ex.substitutes.map((sub, i) => {
+              const subEx = sub.exercise_id ? byId[String(sub.exercise_id)] : null;
               return (
-                <label key={i} className="flex items-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-500">
-                  <span className="w-9 text-right">Set {i + 1}</span>
-                  <input
-                    type="number" inputMode="numeric" min="0"
-                    className="input w-14 py-1.5 text-center"
-                    value={value == null ? '' : value}
-                    onFocus={selectOnFocus}
-                    onChange={(e) => {
-                      const v = parseIntOrNull(e.target.value);
-                      const arr = Array.isArray(ex.target_rir_per_set)
-                        ? [...ex.target_rir_per_set]
-                        : Array(ex.target_sets).fill(null);
-                      arr[i] = v;
-                      onChange({ ...ex, target_rir_per_set: arr });
-                    }}
-                  />
-                </label>
+                <div key={i} className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPicker({ kind: 'sub', subIndex: i })}
+                    className="flex items-center gap-1.5 text-left flex-1 min-w-0 px-3 py-1.5 rounded border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
+                  >
+                    <span className={`flex-1 min-w-0 truncate text-sm ${subEx ? 'text-neutral-900 dark:text-neutral-200' : 'text-neutral-500 dark:text-neutral-500'}`}>
+                      {subEx ? subEx.name : 'Pick substitute'}
+                    </span>
+                    <span className="text-neutral-400 dark:text-neutral-500 shrink-0"><ChevronIcon /></span>
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Remove substitute"
+                    onClick={() => onChange({ ...ex, substitutes: ex.substitutes.filter((_, j) => j !== i) })}
+                    className={iconBtn}
+                  >
+                    <CloseIcon />
+                  </button>
+                </div>
               );
             })}
+            <button
+              type="button"
+              onClick={() => onChange({ ...ex, substitutes: [...ex.substitutes, { exercise_id: '' }] })}
+              className={`${dashedAddBtn} text-xs py-1.5`}
+            >
+              + Add substitute
+            </button>
           </div>
-        )}
-      </div>
 
-      <input className="input" placeholder="Notes (optional)" value={ex.notes || ''}
-        onChange={(e) => onChange({ ...ex, notes: e.target.value })} />
-
-      <div className="space-y-2">
-        <span className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Preset substitutes</span>
-        {ex.substitutes.map((sub, i) => {
-          const subEx = sub.exercise_id ? byId[String(sub.exercise_id)] : null;
-          return (
-            <div key={i} className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setPicker({ kind: 'sub', subIndex: i })}
-                className="flex items-center gap-1.5 text-left flex-1 min-w-0 px-3 py-1.5 rounded border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
-              >
-                <span className={`flex-1 min-w-0 truncate text-sm ${subEx ? 'text-neutral-900 dark:text-neutral-200' : 'text-neutral-500 dark:text-neutral-500'}`}>
-                  {subEx ? subEx.name : 'Pick substitute'}
-                </span>
-                <span className="text-neutral-400 dark:text-neutral-500 shrink-0"><ChevronIcon /></span>
-              </button>
-              <button
-                type="button"
-                aria-label="Remove substitute"
-                onClick={() => onChange({ ...ex, substitutes: ex.substitutes.filter((_, j) => j !== i) })}
-                className={iconBtn}
-              >
-                <CloseIcon />
-              </button>
-            </div>
-          );
-        })}
-        <button
-          type="button"
-          onClick={() => onChange({ ...ex, substitutes: [...ex.substitutes, { exercise_id: '' }] })}
-          className={`${dashedAddBtn} text-xs py-1.5`}
-        >
-          + Add substitute
-        </button>
-      </div>
-
-      <ExercisePickerSheet
-        open={!!picker}
-        onClose={() => setPicker(null)}
-        onSelect={handleSelect}
-        title={pickerTitle}
-        currentExerciseId={picker?.kind === 'primary' ? (ex.exercise_id ? parseInt(ex.exercise_id) : null) : null}
-      />
+          <ExercisePickerSheet
+            open={!!picker}
+            onClose={() => setPicker(null)}
+            onSelect={handleSelect}
+            title={pickerTitle}
+            currentExerciseId={picker?.kind === 'primary' ? (ex.exercise_id ? parseInt(ex.exercise_id) : null) : null}
+          />
+        </div>
+      )}
     </div>
   );
 }
 
 function RoutineEditor({ routine, allExercises, onChange, onRemove }) {
+  const [expandedIdx, setExpandedIdx] = useState(() => {
+    const i = routine.exercises.findIndex((ex) => !ex.exercise_id);
+    return i >= 0 ? i : null;
+  });
+
+  const updateExercise = (i, updated) => onChange({
+    ...routine,
+    exercises: routine.exercises.map((e, j) => j === i ? updated : e),
+  });
+
+  const removeExercise = (i) => {
+    onChange({
+      ...routine,
+      exercises: routine.exercises.filter((_, j) => j !== i),
+    });
+    setExpandedIdx((cur) => {
+      if (cur == null) return cur;
+      if (cur === i) return null;
+      if (cur > i) return cur - 1;
+      return cur;
+    });
+  };
+
+  const addExercise = () => {
+    const newIdx = routine.exercises.length;
+    onChange({ ...routine, exercises: [...routine.exercises, emptyExercise()] });
+    setExpandedIdx(newIdx);
+  };
+
   return (
     <div className="card space-y-3">
       <div className="flex items-center gap-2">
@@ -225,30 +331,24 @@ function RoutineEditor({ routine, allExercises, onChange, onRemove }) {
         </button>
       </div>
 
-      <div className="space-y-2">
+      <div>
         {routine.exercises.map((ex, i) => (
-          <ExerciseEditor
-            key={i}
-            ex={ex}
-            allExercises={allExercises}
-            onChange={(updated) => onChange({
-              ...routine,
-              exercises: routine.exercises.map((e, j) => j === i ? updated : e),
-            })}
-            onRemove={() => onChange({
-              ...routine,
-              exercises: routine.exercises.filter((_, j) => j !== i),
-            })}
-          />
+          <div key={ex.client_id} className={i > 0 ? 'border-t border-neutral-200 dark:border-neutral-800' : ''}>
+            <ExerciseEditor
+              ex={ex}
+              allExercises={allExercises}
+              expanded={expandedIdx === i}
+              onToggle={() => setExpandedIdx((cur) => cur === i ? null : i)}
+              onChange={(updated) => updateExercise(i, updated)}
+              onRemove={() => removeExercise(i)}
+            />
+          </div>
         ))}
-        <button
-          type="button"
-          onClick={() => onChange({ ...routine, exercises: [...routine.exercises, emptyExercise()] })}
-          className={dashedAddBtn}
-        >
-          + Add exercise
-        </button>
       </div>
+
+      <button type="button" onClick={addExercise} className={dashedAddBtn}>
+        + Add exercise
+      </button>
     </div>
   );
 }
@@ -262,12 +362,14 @@ function ProgramEditor({ initial, onCancel, onSaved }) {
   const [routines, setRoutines] = useState(
     initial?.routines?.length
       ? initial.routines.map((r) => ({
+          client_id: genId(),
           name: r.name,
           exercises: r.exercises.map((re) => {
             const sets = re.target_sets ?? 0;
             const incoming = Array.isArray(re.target_rir_per_set) ? re.target_rir_per_set : [];
             const rir = Array.from({ length: sets }, (_, i) => incoming[i] ?? null);
             return {
+              client_id: genId(),
               exercise_id: String(re.exercise_id),
               target_sets: re.target_sets,
               rep_range_low: re.rep_range_low,
@@ -302,7 +404,7 @@ function ProgramEditor({ initial, onCancel, onSaved }) {
       exercises: r.exercises
         .filter((ex) => ex.exercise_id)
         .map((ex) => {
-          const sets = ex.target_sets && ex.target_sets > 0 ? ex.target_sets : 1;
+          const sets = ex.target_sets && ex.target_sets > 0 ? ex.target_sets : 3;
           const rirSource = Array.isArray(ex.target_rir_per_set) ? ex.target_rir_per_set : [];
           const target_rir_per_set = Array.from({ length: sets }, (_, i) => {
             const n = Number(rirSource[i]);
@@ -349,7 +451,7 @@ function ProgramEditor({ initial, onCancel, onSaved }) {
         <h2 className="font-semibold">Routines</h2>
         {routines.map((r, i) => (
           <RoutineEditor
-            key={i}
+            key={r.client_id}
             routine={r}
             allExercises={allExercises}
             onChange={(u) => setRoutines(routines.map((x, j) => j === i ? u : x))}
