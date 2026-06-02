@@ -14,8 +14,11 @@ import { formatRest, parseIntOrNull } from '../utils/format';
 const dashedAddBtn = 'w-full text-center py-2 text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200 border border-dashed border-neutral-200 dark:border-neutral-800 rounded hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors';
 const iconBtn = 'text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 p-1 shrink-0';
 
+const genId = () => crypto.randomUUID();
+
 function emptyExercise() {
   return {
+    client_id: genId(),
     exercise_id: '',
     target_sets: null,
     rep_range_low: null,
@@ -29,7 +32,7 @@ function emptyExercise() {
 
 const selectOnFocus = (e) => e.target.select();
 function emptyRoutine(name = '') {
-  return { name, exercises: [emptyExercise()] };
+  return { client_id: genId(), name, exercises: [emptyExercise()] };
 }
 
 function formatRirArray(arr) {
@@ -52,6 +55,7 @@ function summarizeExercise(ex) {
 
 function handleEditorEnter(e) {
   if (e.key !== 'Enter') return;
+  if (e.nativeEvent?.isComposing) return;
   if (!(e.target instanceof HTMLElement)) return;
   if (e.target.dataset.editorInput !== 'true') return;
   e.preventDefault();
@@ -329,7 +333,7 @@ function RoutineEditor({ routine, allExercises, onChange, onRemove }) {
 
       <div>
         {routine.exercises.map((ex, i) => (
-          <div key={i} className={i > 0 ? 'border-t border-neutral-200 dark:border-neutral-800' : ''}>
+          <div key={ex.client_id} className={i > 0 ? 'border-t border-neutral-200 dark:border-neutral-800' : ''}>
             <ExerciseEditor
               ex={ex}
               allExercises={allExercises}
@@ -358,12 +362,14 @@ function ProgramEditor({ initial, onCancel, onSaved }) {
   const [routines, setRoutines] = useState(
     initial?.routines?.length
       ? initial.routines.map((r) => ({
+          client_id: genId(),
           name: r.name,
           exercises: r.exercises.map((re) => {
             const sets = re.target_sets ?? 0;
             const incoming = Array.isArray(re.target_rir_per_set) ? re.target_rir_per_set : [];
             const rir = Array.from({ length: sets }, (_, i) => incoming[i] ?? null);
             return {
+              client_id: genId(),
               exercise_id: String(re.exercise_id),
               target_sets: re.target_sets,
               rep_range_low: re.rep_range_low,
@@ -445,7 +451,7 @@ function ProgramEditor({ initial, onCancel, onSaved }) {
         <h2 className="font-semibold">Routines</h2>
         {routines.map((r, i) => (
           <RoutineEditor
-            key={i}
+            key={r.client_id}
             routine={r}
             allExercises={allExercises}
             onChange={(u) => setRoutines(routines.map((x, j) => j === i ? u : x))}
