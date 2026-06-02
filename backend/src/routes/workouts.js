@@ -66,7 +66,7 @@ async function fetchWorkout(client, id) {
   let targetsByEx = {};
   if (wRes.rows[0].routine_id) {
     const tRes = await client.query(
-      `SELECT id, exercise_id, target_sets, rep_range_low, rep_range_high, target_rir, rest_seconds, notes
+      `SELECT id, exercise_id, target_sets, rep_range_low, rep_range_high, target_rir_per_set, rest_seconds, notes
          FROM routine_exercises
         WHERE routine_id = $1`,
       [wRes.rows[0].routine_id]

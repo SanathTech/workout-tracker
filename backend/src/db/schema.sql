@@ -51,7 +51,7 @@ CREATE TABLE routine_exercises (
   target_sets INTEGER NOT NULL DEFAULT 3,
   rep_range_low INTEGER,
   rep_range_high INTEGER,
-  target_rir INTEGER,
+  target_rir_per_set INTEGER[] NOT NULL DEFAULT '{}',
   rest_seconds INTEGER,
   notes TEXT
 );

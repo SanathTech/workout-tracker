@@ -5,6 +5,7 @@ import { getWorkout, updateWorkout, completeWorkout, getLastByExercise } from '.
 import { Skeleton } from '../components/Skeleton';
 import ExercisePickerSheet from '../components/ExercisePickerSheet';
 import { CloseIcon, ChevronIcon } from '../components/icons';
+import { formatRest } from '../utils/format';
 
 function TargetChip({ children }) {
   return (
@@ -14,7 +15,7 @@ function TargetChip({ children }) {
   );
 }
 
-function SetRow({ set, previousSet, onChange, onRemove }) {
+function SetRow({ set, previousSet, targetRir, onChange, onRemove }) {
   const prevLabel = previousSet?.weight_kg != null && previousSet?.reps != null
     ? `${previousSet.weight_kg}×${previousSet.reps}`
     : previousSet?.reps != null
@@ -23,7 +24,10 @@ function SetRow({ set, previousSet, onChange, onRemove }) {
   return (
     <div className="flex items-center gap-2">
       <span className="text-xs text-neutral-500 dark:text-neutral-500 w-5 text-center">{set.set_number}</span>
-      <span className="text-[11px] text-neutral-500 dark:text-neutral-500 w-16 truncate" title={prevLabel}>{prevLabel}</span>
+      <span className="text-[10px] uppercase tracking-wide text-neutral-500 dark:text-neutral-500 w-12 text-center" title={targetRir != null ? `Target RIR ${targetRir}` : ''}>
+        {targetRir != null ? `RIR ${targetRir}` : ''}
+      </span>
+      <span className="text-[11px] text-neutral-500 dark:text-neutral-500 w-14 truncate" title={prevLabel}>{prevLabel}</span>
       <input
         type="number" inputMode="decimal" min="0" step="0.5"
         placeholder="kg"
@@ -105,8 +109,7 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove }) {
         <div className="flex flex-wrap gap-1.5">
           {target.target_sets && <TargetChip>{target.target_sets} sets</TargetChip>}
           {repRange && <TargetChip>{repRange} reps</TargetChip>}
-          {target.target_rir != null && <TargetChip>RIR {target.target_rir}</TargetChip>}
-          {target.rest_seconds && <TargetChip>{target.rest_seconds}s rest</TargetChip>}
+          {target.rest_seconds != null && <TargetChip>{formatRest(target.rest_seconds)} rest</TargetChip>}
         </div>
       )}
 
@@ -115,15 +118,19 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove }) {
       )}
 
       <div className="space-y-2">
-        {block.sets.map((s, i) => (
-          <SetRow
-            key={i}
-            set={s}
-            previousSet={prevBySet[s.set_number]}
-            onChange={(u) => updateSet(i, u)}
-            onRemove={() => removeSet(i)}
-          />
-        ))}
+        {block.sets.map((s, i) => {
+          const targetRir = Array.isArray(target?.target_rir_per_set) ? target.target_rir_per_set[i] : null;
+          return (
+            <SetRow
+              key={i}
+              set={s}
+              previousSet={prevBySet[s.set_number]}
+              targetRir={targetRir ?? null}
+              onChange={(u) => updateSet(i, u)}
+              onRemove={() => removeSet(i)}
+            />
+          );
+        })}
         <button
           type="button"
           onClick={addSet}
