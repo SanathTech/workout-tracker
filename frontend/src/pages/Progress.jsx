@@ -143,7 +143,7 @@ export default function Progress() {
               <CartesianGrid strokeDasharray="3 3" stroke={theme.grid} />
               <XAxis dataKey="date" tickFormatter={formatDate} tick={{ fontSize: 11, fill: theme.text }} stroke={theme.grid} />
               <YAxis yAxisId="left" tick={{ fontSize: 11, fill: theme.text }} stroke={theme.grid} />
-              <YAxis yAxisId="rir" orientation="right" width={28} domain={[0, (max) => Math.max(4, Math.ceil(max))]} allowDecimals={false} tick={{ fontSize: 11, fill: theme.text }} stroke={theme.grid} />
+              <YAxis yAxisId="rir" orientation="right" width={28} domain={[0, (max) => Math.max(4, Math.ceil(Number.isFinite(max) ? max : 0))]} allowDecimals={false} tick={{ fontSize: 11, fill: theme.text }} stroke={theme.grid} />
               <Tooltip
                 labelFormatter={formatDate}
                 contentStyle={{ background: 'rgba(0,0,0,0.85)', border: 'none', borderRadius: 6, color: '#fff', fontSize: 12 }}

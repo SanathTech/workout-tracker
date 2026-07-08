@@ -149,9 +149,11 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove }) {
   );
 }
 
-const hasVal = (v) => v !== '' && v != null;
+// Parse to a finite number or null — drops empty and mid-edit values like "." or "-".
+const toInt = (v) => { const n = parseInt(v, 10); return Number.isFinite(n) ? n : null; };
+const toFloat = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : null; };
 
-// Pure builder shared by autosave, Save draft, and Finish so they persist identically.
+// Pure builder shared by autosave, Save now, and Finish so they persist identically.
 function serializePayload(exercises, notes) {
   return {
     notes: notes || null,
@@ -161,13 +163,13 @@ function serializePayload(exercises, notes) {
         exercise_id: ex.exercise_id,
         notes: ex.notes || null,
         sets: ex.sets
-          .filter((s) => hasVal(s.reps) || hasVal(s.weight_kg) || hasVal(s.rir))
           .map((s) => ({
             set_number: s.set_number,
-            reps: hasVal(s.reps) ? parseInt(s.reps, 10) : null,
-            weight_kg: hasVal(s.weight_kg) ? parseFloat(s.weight_kg) : null,
-            rir: hasVal(s.rir) ? parseInt(s.rir, 10) : null,
-          })),
+            reps: toInt(s.reps),
+            weight_kg: toFloat(s.weight_kg),
+            rir: toInt(s.rir),
+          }))
+          .filter((s) => s.reps !== null || s.weight_kg !== null || s.rir !== null),
       })),
   };
 }

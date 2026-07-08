@@ -121,7 +121,7 @@ router.get('/', async (req, res) => {
   const rawLimit = parseInt(req.query.limit, 10);
   const limit = Number.isNaN(rawLimit) ? 50 : Math.min(Math.max(rawLimit, 1), 200);
   const rawOffset = parseInt(req.query.offset, 10);
-  const offset = Number.isNaN(rawOffset) ? 0 : Math.max(rawOffset, 0);
+  const offset = Number.isNaN(rawOffset) ? 0 : Math.min(Math.max(rawOffset, 0), 100000);
   const params = [limit, offset];
   let where = '';
   if (status) {
