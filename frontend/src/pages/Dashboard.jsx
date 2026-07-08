@@ -70,7 +70,7 @@ function NextWorkoutCard({ program }) {
       <div className="card">
         <p className="text-xs uppercase tracking-wide text-neutral-500">Program complete</p>
         <p className="text-lg font-semibold mt-1">
-          {progress?.completed_workouts}/{progress?.total_workouts} workouts done
+          {progress?.completed_workouts}{progress?.total_workouts ? `/${progress.total_workouts}` : ''} workouts done
         </p>
         <p className="text-sm text-neutral-500 mt-1">Start a new program when you're ready.</p>
         <Link to="/program" className="btn-primary mt-4 inline-flex">New program</Link>
