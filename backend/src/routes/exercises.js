@@ -64,6 +64,9 @@ router.post('/', async (req, res) => {
     );
     res.status(201).json(rows[0]);
   } catch (err) {
+    if (err.code === '23505') { // unique_violation on exercises.name
+      return res.status(409).json({ error: 'An exercise with that name already exists.' });
+    }
     serverError(res, err);
   }
 });
@@ -80,6 +83,9 @@ router.put('/:id', async (req, res) => {
     if (!rows.length) return res.status(404).json({ error: 'Exercise not found' });
     res.json(rows[0]);
   } catch (err) {
+    if (err.code === '23505') { // unique_violation on exercises.name
+      return res.status(409).json({ error: 'An exercise with that name already exists.' });
+    }
     serverError(res, err);
   }
 });
