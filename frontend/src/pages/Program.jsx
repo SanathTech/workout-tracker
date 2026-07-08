@@ -92,197 +92,252 @@ function ExerciseEditor({ ex, allExercises, expanded, onToggle, onChange, onRemo
     }
   };
 
-  const pickerTitle = picker?.kind === 'primary'
-    ? (primary ? `Replace ${primary.name}` : 'Pick an exercise')
-    : 'Pick substitute';
+  const removePrimary = () => {
+    if (ex.substitutes.length > 0) {
+      onChange({
+        ...ex,
+        exercise_id: ex.substitutes[0].exercise_id,
+        substitutes: ex.substitutes.slice(1),
+      });
+    } else {
+      onChange({ ...ex, exercise_id: '' });
+    }
+  };
+
+  const addOption = () => {
+    const newIdx = ex.substitutes.length;
+    onChange({
+      ...ex,
+      substitutes: [...ex.substitutes, { client_id: genId(), exercise_id: '' }],
+    });
+    setPicker({ kind: 'sub', subIndex: newIdx });
+  };
+
+  const pickerCurrentId = (() => {
+    if (picker?.kind === 'primary') {
+      return ex.exercise_id ? parseInt(ex.exercise_id) : null;
+    }
+    if (picker?.kind === 'sub') {
+      const sid = ex.substitutes[picker.subIndex]?.exercise_id;
+      return sid ? parseInt(sid) : null;
+    }
+    return null;
+  })();
+
+  const pickerTitle = (() => {
+    if (picker?.kind === 'primary') {
+      return primary ? `Replace ${primary.name}` : 'Pick an exercise';
+    }
+    if (picker?.kind === 'sub') {
+      const sid = ex.substitutes[picker.subIndex]?.exercise_id;
+      const subEx = sid ? byId[String(sid)] : null;
+      return subEx ? `Replace ${subEx.name}` : 'Pick alternative';
+    }
+    return '';
+  })();
+
+  // Empty slot — single tap row, no chevron, no body
+  if (!primary) {
+    return (
+      <div className="flex items-center gap-1 py-2">
+        <button
+          type="button"
+          onClick={() => setPicker({ kind: 'primary' })}
+          className="flex-1 min-w-0 text-left text-neutral-500 dark:text-neutral-500 truncate -mx-1 px-1 py-1 rounded hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
+        >
+          Pick an exercise
+        </button>
+        <button type="button" onClick={onRemove} aria-label="Remove exercise" className={iconBtn}>
+          <CloseIcon />
+        </button>
+        <ExercisePickerSheet
+          open={!!picker}
+          onClose={() => setPicker(null)}
+          onSelect={handleSelect}
+          title={pickerTitle}
+          currentExerciseId={pickerCurrentId}
+        />
+      </div>
+    );
+  }
 
   return (
     <div>
-      {/* Header row — always visible, tappable to expand/collapse */}
-      <div className="flex items-start gap-2 py-2">
+      {/* Primary row */}
+      <div className="flex items-center gap-1 py-2">
         <button
           type="button"
           onClick={onToggle}
-          className="flex items-start gap-2 flex-1 min-w-0 text-left -mx-1 px-1 py-1 rounded hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
+          aria-label={expanded ? 'Collapse' : 'Expand'}
+          className="shrink-0 p-1 text-neutral-400 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-200"
         >
-          <span className="text-neutral-400 dark:text-neutral-500 shrink-0 mt-1">
-            <ChevronIcon open={expanded} />
-          </span>
-          <div className="flex-1 min-w-0">
-            <div className={`truncate ${primary ? 'font-medium text-neutral-900 dark:text-neutral-200' : 'text-neutral-500 dark:text-neutral-500'}`}>
-              {primary ? primary.name : 'Pick an exercise'}
-            </div>
-            {!expanded && chips.length > 0 && (
-              <div className="text-xs text-neutral-500 dark:text-neutral-500 mt-0.5 truncate">
-                {chips.join(' · ')}
-              </div>
-            )}
-          </div>
+          <ChevronIcon open={expanded} />
         </button>
-        <button type="button" onClick={onRemove} aria-label="Remove exercise" className={`${iconBtn} mt-1`}>
+        <button
+          type="button"
+          onClick={() => setPicker({ kind: 'primary' })}
+          className="flex-1 min-w-0 text-left -mx-1 px-1 py-1 rounded hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
+        >
+          <div className="font-medium text-neutral-900 dark:text-neutral-200 truncate">
+            {primary.name}
+          </div>
+          {!expanded && chips.length > 0 && (
+            <div className="text-xs text-neutral-500 dark:text-neutral-500 mt-0.5 truncate">
+              {chips.join(' · ')}
+            </div>
+          )}
+        </button>
+        <button type="button" onClick={removePrimary} aria-label="Remove exercise" className={iconBtn}>
           <CloseIcon />
         </button>
       </div>
 
-      {/* Expanded body */}
       {expanded && (
-        <div data-editor-root className="pl-7 pr-1 pb-3 space-y-3" onKeyDown={handleEditorEnter}>
-          <button
-            type="button"
-            onClick={() => setPicker({ kind: 'primary' })}
-            className="flex items-center gap-1.5 text-left w-full min-w-0 px-3 py-2 rounded border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
-          >
-            <span className={`flex-1 min-w-0 truncate ${primary ? 'text-neutral-900 dark:text-neutral-200' : 'text-neutral-500 dark:text-neutral-500'}`}>
-              {primary ? primary.name : 'Pick an exercise'}
-            </span>
-            <span className="text-neutral-400 dark:text-neutral-500 shrink-0"><ChevronIcon /></span>
-          </button>
+        <>
+          {/* Substitute rows — names align with primary, muted color */}
+          {ex.substitutes.map((sub, i) => {
+            const subEx = sub.exercise_id ? byId[String(sub.exercise_id)] : null;
+            return (
+              <div key={sub.client_id || i} className="flex items-center gap-1 py-1.5">
+                <span className="shrink-0 w-7" aria-hidden="true" />
+                <button
+                  type="button"
+                  onClick={() => setPicker({ kind: 'sub', subIndex: i })}
+                  className="flex-1 min-w-0 text-left text-neutral-500 dark:text-neutral-500 truncate -mx-1 px-1 py-1 rounded hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
+                >
+                  {subEx ? subEx.name : 'Pick alternative'}
+                </button>
+                <button
+                  type="button"
+                  aria-label="Remove option"
+                  onClick={() => onChange({ ...ex, substitutes: ex.substitutes.filter((_, j) => j !== i) })}
+                  className={iconBtn}
+                >
+                  <CloseIcon />
+                </button>
+              </div>
+            );
+          })}
 
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <label className="label">Sets</label>
-              <input
-                data-editor-input="true"
-                type="number" inputMode="numeric" min="1" placeholder="3" className="input"
-                value={ex.target_sets ?? ''}
-                onFocus={selectOnFocus}
-                onChange={(e) => {
-                  const v = parseIntOrNull(e.target.value);
-                  const rir = Array.isArray(ex.target_rir_per_set) ? ex.target_rir_per_set : [];
-                  let nextRir = rir;
-                  if (typeof v === 'number' && v > 0) {
-                    if (rir.length < v) nextRir = [...rir, ...Array(v - rir.length).fill(null)];
-                    else if (rir.length > v) nextRir = rir.slice(0, v);
-                  } else if (v == null) {
-                    nextRir = [];
-                  }
-                  onChange({ ...ex, target_sets: v, target_rir_per_set: nextRir });
-                }}
-              />
-            </div>
-            <div>
-              <label className="label">Reps low</label>
-              <input
-                data-editor-input="true"
-                type="number" inputMode="numeric" min="1" placeholder="8" className="input"
-                value={ex.rep_range_low ?? ''}
-                onFocus={selectOnFocus}
-                onChange={(e) => onChange({ ...ex, rep_range_low: parseIntOrNull(e.target.value) })}
-              />
-            </div>
-            <div>
-              <label className="label">Reps high</label>
-              <input
-                data-editor-input="true"
-                type="number" inputMode="numeric" min="1" placeholder="12" className="input"
-                value={ex.rep_range_high ?? ''}
-                onFocus={selectOnFocus}
-                onChange={(e) => onChange({ ...ex, rep_range_high: parseIntOrNull(e.target.value) })}
-              />
-            </div>
+          {/* + Add option */}
+          <div className="flex items-center gap-1 py-1.5">
+            <span className="shrink-0 w-7" aria-hidden="true" />
+            <button
+              type="button"
+              onClick={addOption}
+              className="flex-1 text-left text-sm text-neutral-500 dark:text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200 -mx-1 px-1 py-1 rounded hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
+            >
+              + Add option
+            </button>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="label">Rest (min)</label>
-              <input
-                data-editor-input="true"
-                type="number" inputMode="decimal" min="0" step="0.25" placeholder="2" className="input"
-                value={ex.rest_seconds == null ? '' : (ex.rest_seconds / 60)}
-                onFocus={selectOnFocus}
-                onChange={(e) => {
-                  if (e.target.value === '') return onChange({ ...ex, rest_seconds: null });
-                  const mins = parseFloat(e.target.value);
-                  onChange({ ...ex, rest_seconds: Number.isFinite(mins) ? Math.round(mins * 60) : null });
-                }}
-              />
+          {/* Targets — inline labels, no all-caps, no separate sections */}
+          <div data-editor-root className="pt-3 space-y-3" onKeyDown={handleEditorEnter}>
+            <div className="flex items-center flex-wrap gap-x-4 gap-y-2 text-sm text-neutral-500 dark:text-neutral-500">
+              <label className="flex items-center gap-1.5">
+                <span>Sets</span>
+                <input
+                  data-editor-input="true"
+                  type="number" inputMode="numeric" min="1" placeholder="3"
+                  className="input w-14 py-1.5 text-center"
+                  value={ex.target_sets ?? ''}
+                  onFocus={selectOnFocus}
+                  onChange={(e) => {
+                    const v = parseIntOrNull(e.target.value);
+                    const rir = Array.isArray(ex.target_rir_per_set) ? ex.target_rir_per_set : [];
+                    let nextRir = rir;
+                    if (typeof v === 'number' && v > 0) {
+                      if (rir.length < v) nextRir = [...rir, ...Array(v - rir.length).fill(null)];
+                      else if (rir.length > v) nextRir = rir.slice(0, v);
+                    } else if (v == null) {
+                      nextRir = [];
+                    }
+                    onChange({ ...ex, target_sets: v, target_rir_per_set: nextRir });
+                  }}
+                />
+              </label>
+              <label className="flex items-center gap-1.5">
+                <span>Reps</span>
+                <input
+                  data-editor-input="true"
+                  type="number" inputMode="numeric" min="1" placeholder="8"
+                  className="input w-12 py-1.5 text-center"
+                  value={ex.rep_range_low ?? ''}
+                  onFocus={selectOnFocus}
+                  onChange={(e) => onChange({ ...ex, rep_range_low: parseIntOrNull(e.target.value) })}
+                />
+                <span aria-hidden="true">–</span>
+                <input
+                  data-editor-input="true"
+                  type="number" inputMode="numeric" min="1" placeholder="12"
+                  className="input w-12 py-1.5 text-center"
+                  value={ex.rep_range_high ?? ''}
+                  onFocus={selectOnFocus}
+                  onChange={(e) => onChange({ ...ex, rep_range_high: parseIntOrNull(e.target.value) })}
+                />
+              </label>
+              <label className="flex items-center gap-1.5">
+                <span>Rest</span>
+                <input
+                  data-editor-input="true"
+                  type="number" inputMode="decimal" min="0" step="0.25" placeholder="2"
+                  className="input w-14 py-1.5 text-center"
+                  value={ex.rest_seconds == null ? '' : (ex.rest_seconds / 60)}
+                  onFocus={selectOnFocus}
+                  onChange={(e) => {
+                    if (e.target.value === '') return onChange({ ...ex, rest_seconds: null });
+                    const mins = parseFloat(e.target.value);
+                    onChange({ ...ex, rest_seconds: Number.isFinite(mins) ? Math.round(mins * 60) : null });
+                  }}
+                />
+                <span>min</span>
+              </label>
             </div>
-          </div>
 
-          <div className="space-y-1.5">
-            <span className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">RIR per set</span>
-            {!ex.target_sets ? (
-              <p className="text-xs text-neutral-500 dark:text-neutral-500">Set the number of sets to define per-set RIR.</p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
+            {ex.target_sets > 0 && (
+              <div className="flex items-center flex-wrap gap-2 text-sm text-neutral-500 dark:text-neutral-500">
+                <span>RIR</span>
                 {Array.from({ length: ex.target_sets }, (_, i) => {
                   const value = ex.target_rir_per_set?.[i];
                   return (
-                    <label key={i} className="flex items-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-500">
-                      <span className="w-9 text-right">Set {i + 1}</span>
-                      <input
-                        data-editor-input="true"
-                        type="number" inputMode="numeric" min="0" placeholder="1"
-                        className="input w-14 py-1.5 text-center"
-                        value={value == null ? '' : value}
-                        onFocus={selectOnFocus}
-                        onChange={(e) => {
-                          const v = parseIntOrNull(e.target.value);
-                          const arr = Array.isArray(ex.target_rir_per_set)
-                            ? [...ex.target_rir_per_set]
-                            : Array(ex.target_sets).fill(null);
-                          arr[i] = v;
-                          onChange({ ...ex, target_rir_per_set: arr });
-                        }}
-                      />
-                    </label>
+                    <input
+                      key={i}
+                      data-editor-input="true"
+                      aria-label={`RIR set ${i + 1}`}
+                      type="number" inputMode="numeric" min="0" placeholder="1"
+                      className="input w-12 py-1.5 text-center"
+                      value={value == null ? '' : value}
+                      onFocus={selectOnFocus}
+                      onChange={(e) => {
+                        const v = parseIntOrNull(e.target.value);
+                        const arr = Array.isArray(ex.target_rir_per_set)
+                          ? [...ex.target_rir_per_set]
+                          : Array(ex.target_sets).fill(null);
+                        arr[i] = v;
+                        onChange({ ...ex, target_rir_per_set: arr });
+                      }}
+                    />
                   );
                 })}
               </div>
             )}
+
+            <input
+              data-editor-input="true"
+              className="input" placeholder="Notes (optional)" value={ex.notes || ''}
+              onChange={(e) => onChange({ ...ex, notes: e.target.value })}
+            />
           </div>
-
-          <input
-            data-editor-input="true"
-            className="input" placeholder="Notes (optional)" value={ex.notes || ''}
-            onChange={(e) => onChange({ ...ex, notes: e.target.value })}
-          />
-
-          <div className="space-y-2">
-            <span className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Preset substitutes</span>
-            {ex.substitutes.map((sub, i) => {
-              const subEx = sub.exercise_id ? byId[String(sub.exercise_id)] : null;
-              return (
-                <div key={i} className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setPicker({ kind: 'sub', subIndex: i })}
-                    className="flex items-center gap-1.5 text-left flex-1 min-w-0 px-3 py-1.5 rounded border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
-                  >
-                    <span className={`flex-1 min-w-0 truncate text-sm ${subEx ? 'text-neutral-900 dark:text-neutral-200' : 'text-neutral-500 dark:text-neutral-500'}`}>
-                      {subEx ? subEx.name : 'Pick substitute'}
-                    </span>
-                    <span className="text-neutral-400 dark:text-neutral-500 shrink-0"><ChevronIcon /></span>
-                  </button>
-                  <button
-                    type="button"
-                    aria-label="Remove substitute"
-                    onClick={() => onChange({ ...ex, substitutes: ex.substitutes.filter((_, j) => j !== i) })}
-                    className={iconBtn}
-                  >
-                    <CloseIcon />
-                  </button>
-                </div>
-              );
-            })}
-            <button
-              type="button"
-              onClick={() => onChange({ ...ex, substitutes: [...ex.substitutes, { exercise_id: '' }] })}
-              className={`${dashedAddBtn} text-xs py-1.5`}
-            >
-              + Add substitute
-            </button>
-          </div>
-
-          <ExercisePickerSheet
-            open={!!picker}
-            onClose={() => setPicker(null)}
-            onSelect={handleSelect}
-            title={pickerTitle}
-            currentExerciseId={picker?.kind === 'primary' ? (ex.exercise_id ? parseInt(ex.exercise_id) : null) : null}
-          />
-        </div>
+        </>
       )}
+
+      <ExercisePickerSheet
+        open={!!picker}
+        onClose={() => setPicker(null)}
+        onSelect={handleSelect}
+        title={pickerTitle}
+        currentExerciseId={pickerCurrentId}
+      />
     </div>
   );
 }
@@ -379,7 +434,7 @@ function ProgramEditor({ initial, onCancel, onSaved }) {
               target_rir_per_set: rir,
               rest_seconds: re.rest_seconds,
               notes: re.notes || '',
-              substitutes: (re.substitutes || []).map((s) => ({ exercise_id: String(s.exercise_id) })),
+              substitutes: (re.substitutes || []).map((s) => ({ client_id: genId(), exercise_id: String(s.exercise_id) })),
             };
           }),
         }))
