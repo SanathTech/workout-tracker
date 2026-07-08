@@ -7,6 +7,8 @@ async function maybeCompleteProgram(client, programId) {
   const pRes = await client.query('SELECT total_weeks, status FROM programs WHERE id = $1', [programId]);
   if (!pRes.rows.length || pRes.rows[0].status !== 'active') return;
 
+  if (pRes.rows[0].total_weeks == null) return; // open-ended program never auto-completes
+
   const rRes = await client.query(
     'SELECT COUNT(*)::int AS n FROM routines WHERE program_id = $1',
     [programId]
@@ -107,6 +109,7 @@ async function fetchWorkout(client, id) {
         set_number: s.set_number,
         reps: s.reps,
         weight_kg: s.weight_kg,
+        rir: s.rir,
       })),
     })),
   };
@@ -194,7 +197,7 @@ router.get('/last-by-exercise/:exerciseId', async (req, res) => {
     if (!wRes.rows.length) return res.json(null);
 
     const sRes = await db.query(
-      `SELECT ws.set_number, ws.weight_kg, ws.reps
+      `SELECT ws.set_number, ws.weight_kg, ws.reps, ws.rir
          FROM workout_sets ws
          JOIN workout_exercises we ON we.id = ws.workout_exercise_id
         WHERE we.workout_id = $1 AND we.exercise_id = $2
@@ -296,8 +299,8 @@ router.post('/', async (req, res) => {
         const weId = weRes.rows[0].id;
         for (const s of ex.sets || []) {
           await client.query(
-            'INSERT INTO workout_sets (workout_exercise_id, set_number, reps, weight_kg) VALUES ($1, $2, $3, $4)',
-            [weId, s.set_number, s.reps ?? null, s.weight_kg ?? null]
+            'INSERT INTO workout_sets (workout_exercise_id, set_number, reps, weight_kg, rir) VALUES ($1, $2, $3, $4, $5)',
+            [weId, s.set_number, s.reps ?? null, s.weight_kg ?? null, s.rir ?? null]
           );
         }
       }
@@ -343,8 +346,8 @@ router.put('/:id', async (req, res) => {
         const weId = weRes.rows[0].id;
         for (const s of ex.sets || []) {
           await client.query(
-            'INSERT INTO workout_sets (workout_exercise_id, set_number, reps, weight_kg) VALUES ($1, $2, $3, $4)',
-            [weId, s.set_number, s.reps ?? null, s.weight_kg ?? null]
+            'INSERT INTO workout_sets (workout_exercise_id, set_number, reps, weight_kg, rir) VALUES ($1, $2, $3, $4, $5)',
+            [weId, s.set_number, s.reps ?? null, s.weight_kg ?? null, s.rir ?? null]
           );
         }
       }

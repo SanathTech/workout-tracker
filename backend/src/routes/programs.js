@@ -124,10 +124,12 @@ function computeProgress(program, completedCount) {
   if (!routinesPerCycle) {
     return { completed_workouts: completedCount, week: null, position_in_cycle: null, next_routine: null, total_workouts: program.total_weeks };
   }
-  const totalWorkouts = program.total_weeks * routinesPerCycle;
+  const openEnded = program.total_weeks == null;
+  const totalWorkouts = openEnded ? null : program.total_weeks * routinesPerCycle;
   const week = Math.floor(completedCount / routinesPerCycle) + 1;
   const positionInCycle = (completedCount % routinesPerCycle) + 1;
-  const nextRoutine = completedCount < totalWorkouts ? program.routines[completedCount % routinesPerCycle] : null;
+  const finished = !openEnded && completedCount >= totalWorkouts;
+  const nextRoutine = finished ? null : program.routines[completedCount % routinesPerCycle];
   return {
     completed_workouts: completedCount,
     total_workouts: totalWorkouts,
@@ -194,8 +196,10 @@ router.get('/:id', async (req, res) => {
 
 // POST /api/programs — create draft program with routines tree
 router.post('/', async (req, res) => {
-  const { name, description, total_weeks, routines } = req.body;
+  const { name, description, routines } = req.body;
   if (!name) return res.status(400).json({ error: 'name is required' });
+  // Absent → default 12 weeks; present-but-falsy (null/'') → open-ended.
+  const totalWeeks = 'total_weeks' in req.body ? (req.body.total_weeks || null) : 12;
 
   const client = await db.pool.connect();
   try {
@@ -203,7 +207,7 @@ router.post('/', async (req, res) => {
     const { rows } = await client.query(
       `INSERT INTO programs (name, description, total_weeks)
        VALUES ($1, $2, $3) RETURNING *`,
-      [name, description || null, total_weeks || 12]
+      [name, description || null, totalWeeks]
     );
     await writeRoutines(client, rows[0].id, routines);
     await client.query('COMMIT');
@@ -220,6 +224,9 @@ router.post('/', async (req, res) => {
 // PUT /api/programs/:id — replace metadata + full routine tree
 router.put('/:id', async (req, res) => {
   const { name, description, total_weeks, routines } = req.body;
+  // total_weeks is set exactly when the key is present (so it can be cleared to
+  // null for an open-ended program); otherwise it's left untouched.
+  const setTotalWeeks = 'total_weeks' in req.body;
   const client = await db.pool.connect();
   try {
     await client.query('BEGIN');
@@ -227,9 +234,9 @@ router.put('/:id', async (req, res) => {
       `UPDATE programs SET
          name = COALESCE($1, name),
          description = COALESCE($2, description),
-         total_weeks = COALESCE($3, total_weeks)
-       WHERE id = $4 RETURNING *`,
-      [name, description, total_weeks, req.params.id]
+         total_weeks = CASE WHEN $3::boolean THEN $4 ELSE total_weeks END
+       WHERE id = $5 RETURNING *`,
+      [name, description, setTotalWeeks, setTotalWeeks ? (total_weeks || null) : null, req.params.id]
     );
     if (!rows.length) {
       await client.query('ROLLBACK');

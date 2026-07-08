@@ -84,7 +84,9 @@ function NextWorkoutCard({ program }) {
         <p className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Up next</p>
         <h2 className="text-2xl font-semibold mt-1 tracking-tight">{progress.next_routine.name}</h2>
         <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
-          {program.name} · Week {progress.week} of {program.total_weeks} · {progress.completed_workouts}/{progress.total_workouts} done
+          {program.name} · Week {progress.week}{program.total_weeks ? ` of ${program.total_weeks}` : ''}
+          {' · '}
+          {progress.completed_workouts}{progress.total_workouts ? `/${progress.total_workouts}` : ''} done
         </p>
       </div>
 

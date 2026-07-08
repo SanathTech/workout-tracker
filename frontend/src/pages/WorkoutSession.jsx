@@ -21,13 +21,11 @@ function SetRow({ set, previousSet, targetRir, onChange, onRemove }) {
     : previousSet?.reps != null
       ? `—×${previousSet.reps}`
       : '—';
+  const prevTitle = previousSet?.rir != null ? `${prevLabel} @ RIR ${previousSet.rir}` : prevLabel;
   return (
     <div className="flex items-center gap-2">
       <span className="text-xs text-neutral-500 dark:text-neutral-500 w-5 text-center">{set.set_number}</span>
-      <span className="text-[10px] uppercase tracking-wide text-neutral-500 dark:text-neutral-500 w-12 text-center" title={targetRir != null ? `Target RIR ${targetRir}` : ''}>
-        {targetRir != null ? `RIR ${targetRir}` : ''}
-      </span>
-      <span className="text-[11px] text-neutral-500 dark:text-neutral-500 w-14 truncate" title={prevLabel}>{prevLabel}</span>
+      <span className="text-[11px] text-neutral-500 dark:text-neutral-500 w-14 truncate" title={prevTitle}>{prevLabel}</span>
       <input
         type="number" inputMode="decimal" min="0" step="0.5"
         placeholder="kg"
@@ -41,6 +39,14 @@ function SetRow({ set, previousSet, targetRir, onChange, onRemove }) {
         value={set.reps ?? ''}
         onChange={(e) => onChange({ ...set, reps: e.target.value })}
         className="input flex-1 py-1.5"
+      />
+      <input
+        type="number" inputMode="numeric" min="0"
+        placeholder={targetRir != null ? `${targetRir}` : 'rir'}
+        title={targetRir != null ? `Reps in reserve — target ${targetRir}` : 'Reps in reserve'}
+        value={set.rir ?? ''}
+        onChange={(e) => onChange({ ...set, rir: e.target.value })}
+        className="input w-14 py-1.5 text-center"
       />
       <button
         onClick={onRemove}
@@ -73,7 +79,7 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove }) {
 
   const addSet = () => {
     const nextNum = (block.sets[block.sets.length - 1]?.set_number || 0) + 1;
-    onChange({ ...block, sets: [...block.sets, { set_number: nextNum, reps: null, weight_kg: null }] });
+    onChange({ ...block, sets: [...block.sets, { set_number: nextNum, reps: null, weight_kg: null, rir: null }] });
   };
   const updateSet = (i, u) => onChange({ ...block, sets: block.sets.map((s, j) => j === i ? u : s) });
   const removeSet = (i) => onChange({
@@ -162,7 +168,7 @@ export default function WorkoutSession() {
         muscle_group: e.muscle_group,
         notes: e.notes || '',
         target: e.target,
-        sets: e.sets.length ? e.sets : [{ set_number: 1, reps: null, weight_kg: null }],
+        sets: e.sets.length ? e.sets : [{ set_number: 1, reps: null, weight_kg: null, rir: null }],
       })));
       setNotes(workout.notes || '');
     }
@@ -206,6 +212,7 @@ export default function WorkoutSession() {
             set_number: s.set_number,
             reps: parseInt(s.reps),
             weight_kg: s.weight_kg !== '' && s.weight_kg != null ? parseFloat(s.weight_kg) : null,
+            rir: s.rir !== '' && s.rir != null ? parseInt(s.rir) : null,
           })),
       })),
   });
@@ -224,7 +231,7 @@ export default function WorkoutSession() {
         muscle_group: ex.muscle_group,
         notes: '',
         target: null,
-        sets: [{ set_number: 1, reps: null, weight_kg: null }],
+        sets: [{ set_number: 1, reps: null, weight_kg: null, rir: null }],
       }]);
     }
   };

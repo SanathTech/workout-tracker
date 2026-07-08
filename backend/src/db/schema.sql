@@ -23,7 +23,7 @@ CREATE TABLE programs (
   id SERIAL PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
   description TEXT,
-  total_weeks INTEGER NOT NULL DEFAULT 12,
+  total_weeks INTEGER,             -- NULL = open-ended / ongoing (no auto-complete)
   status VARCHAR(20) NOT NULL DEFAULT 'draft',  -- draft | active | completed | archived
   started_at TIMESTAMPTZ,
   completed_at TIMESTAMPTZ,
@@ -103,6 +103,7 @@ CREATE TABLE workout_sets (
   set_number INTEGER NOT NULL,
   reps INTEGER,
   weight_kg NUMERIC(6, 2),
+  rir INTEGER,                     -- actual reps-in-reserve logged for this set (nullable)
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
