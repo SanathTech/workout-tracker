@@ -273,6 +273,14 @@ export default function WorkoutSession() {
     },
   });
 
+  if (isError && !workout) {
+    return (
+      <div className="max-w-2xl mx-auto py-20 text-center space-y-3">
+        <p className="text-neutral-500 dark:text-neutral-400">Couldn’t load this workout. Check your connection and try again.</p>
+        <button onClick={() => navigate(-1)} className="btn-secondary">← Back</button>
+      </div>
+    );
+  }
   if (isLoading || !workout) return <WorkoutSessionSkeleton />;
   if (workout.status === 'completed') {
     navigate(`/workouts/${id}`, { replace: true });
