@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getWorkout, updateWorkout, completeWorkout, getLastByExercise } from '../api/client';
@@ -179,7 +179,7 @@ export default function WorkoutSession() {
 
   // staleTime 0 + refetch-on-mount so a reload pulls the freshest workout (the
   // persisted localStorage cache may lag the last autosave by the persist throttle).
-  const { data: workout, isLoading, isFetchedAfterMount } = useQuery({
+  const { data: workout, isLoading, isFetchedAfterMount, isError } = useQuery({
     queryKey: ['workout', id],
     queryFn: () => getWorkout(id),
     staleTime: 0,
@@ -190,12 +190,15 @@ export default function WorkoutSession() {
   const [picker, setPicker] = useState(null); // { mode: 'replace' | 'add', forIndex?: number }
   const [autosave, setAutosave] = useState('idle'); // idle | saving | saved | error
   const [hydrated, setHydrated] = useState(false);
-  const lastSavedRef = useRef(null);
+  const lastSavedRef = useRef(null);   // JSON of the last payload the server confirmed
+  const pendingRef = useRef(null);     // JSON of the latest payload wanting to be saved
+  const flushingRef = useRef(null);    // in-flight flush promise, or null
 
-  // Hydrate local state once from the fresh mount-fetch (not stale cache); a later
-  // background refetch must not clobber in-progress edits.
+  // Hydrate local state once from the fresh mount-fetch. If that fetch errored but
+  // cached data exists (e.g. offline), hydrate from cache instead of hanging on the
+  // skeleton. A later background refetch must not clobber in-progress edits.
   useEffect(() => {
-    if (!workout || !isFetchedAfterMount || hydrated) return;
+    if (!workout || (!isFetchedAfterMount && !isError) || hydrated) return;
     const rows = workout.exercises.map((e) => ({
       exercise_id: e.exercise_id,
       exercise_name: e.exercise_name,
@@ -207,42 +210,58 @@ export default function WorkoutSession() {
     setExercises(rows);
     setNotes(workout.notes || '');
     lastSavedRef.current = JSON.stringify(serializePayload(rows, workout.notes || ''));
+    pendingRef.current = lastSavedRef.current;
     setHydrated(true);
-  }, [workout, isFetchedAfterMount, hydrated]);
+  }, [workout, isFetchedAfterMount, isError, hydrated]);
 
-  // Debounced autosave so logged sets survive a phone lock, refresh, or accidental exit.
+  // Serialized flush: at most one PUT in flight, and the loop always re-reads the
+  // latest pending payload — so a slow response can never revert a newer edit, and
+  // callers can await the single in-flight run.
+  const flush = useCallback(() => {
+    if (flushingRef.current) return flushingRef.current;
+    const run = (async () => {
+      try {
+        while (pendingRef.current && pendingRef.current !== lastSavedRef.current) {
+          const snapshot = pendingRef.current;
+          setAutosave('saving');
+          try {
+            const updated = await updateWorkout(id, JSON.parse(snapshot));
+            qc.setQueryData(['workout', id], updated); // keep the persisted cache in sync for reloads
+            lastSavedRef.current = snapshot;
+            setAutosave('saved');
+          } catch {
+            setAutosave('error');
+            break; // leave pending unsaved; a later edit or Finish retries
+          }
+        }
+      } finally {
+        flushingRef.current = null;
+      }
+    })();
+    flushingRef.current = run;
+    return run;
+  }, [id, qc]);
+
+  // Debounced autosave: record the latest payload, then flush after a pause.
   useEffect(() => {
     if (!hydrated) return;
-    const serialized = JSON.stringify(serializePayload(exercises, notes));
-    if (serialized === lastSavedRef.current) return;
-    const t = setTimeout(async () => {
-      setAutosave('saving');
-      try {
-        const updated = await updateWorkout(id, JSON.parse(serialized));
-        // Keep the (persisted) cache in sync so a reload shows the saved sets;
-        // the hydrate-once guard stops this from clobbering in-progress edits.
-        qc.setQueryData(['workout', id], updated);
-        lastSavedRef.current = serialized;
-        setAutosave('saved');
-      } catch {
-        setAutosave('error');
-      }
-    }, 1200);
+    pendingRef.current = JSON.stringify(serializePayload(exercises, notes));
+    if (pendingRef.current === lastSavedRef.current) return;
+    const t = setTimeout(flush, 1200);
     return () => clearTimeout(t);
-  }, [exercises, notes, id, qc, hydrated]);
+  }, [exercises, notes, hydrated, flush]);
 
-  const saveDraft = useMutation({
-    mutationFn: (payload) => updateWorkout(id, payload),
-    onSuccess: (_data, payload) => {
-      lastSavedRef.current = JSON.stringify(payload);
-      setAutosave('saved');
-      qc.invalidateQueries({ queryKey: ['workout', id] });
-    },
-  });
+  const saveNow = useCallback(() => {
+    pendingRef.current = JSON.stringify(serializePayload(exercises, notes));
+    return flush();
+  }, [exercises, notes, flush]);
 
   const finish = useMutation({
-    mutationFn: async (payload) => {
-      await updateWorkout(id, payload);
+    mutationFn: async () => {
+      await saveNow(); // ensure the latest edits are persisted before completing
+      if (pendingRef.current !== lastSavedRef.current) {
+        throw new Error('Could not save your latest changes — check your connection and try again.');
+      }
       return completeWorkout(id);
     },
     onSuccess: () => {
@@ -260,8 +279,6 @@ export default function WorkoutSession() {
     return null;
   }
   if (!hydrated) return <WorkoutSessionSkeleton />;
-
-  const buildPayload = () => serializePayload(exercises, notes);
 
   const handlePickerSelect = (ex) => {
     if (picker?.mode === 'replace') {
@@ -307,7 +324,7 @@ export default function WorkoutSession() {
         </p>
         {autosave !== 'idle' && (
           <p className={`text-xs mt-0.5 ${autosave === 'error' ? 'text-red-600 dark:text-red-400' : 'text-neutral-400 dark:text-neutral-500'}`}>
-            {autosave === 'saving' ? 'Saving…' : autosave === 'saved' ? 'All changes saved' : 'Autosave failed — tap Save draft'}
+            {autosave === 'saving' ? 'Saving…' : autosave === 'saved' ? 'All changes saved' : 'Autosave failed — tap Save now'}
           </p>
         )}
       </div>
@@ -345,17 +362,22 @@ export default function WorkoutSession() {
 
       <div className="h-20" aria-hidden="true" />
       <div className="fixed bottom-0 inset-x-0 z-20 bg-white dark:bg-neutral-950 border-t border-neutral-200 dark:border-neutral-900 pb-[env(safe-area-inset-bottom)]">
+        {finish.isError && (
+          <p className="max-w-2xl mx-auto px-4 pt-2 text-xs text-red-600 dark:text-red-400">
+            {finish.error?.message || 'Could not finish the workout.'}
+          </p>
+        )}
         <div className="max-w-2xl mx-auto px-4 py-3 flex gap-2">
           <button
-            onClick={() => saveDraft.mutate(buildPayload())}
-            disabled={saveDraft.isPending}
+            onClick={() => saveNow()}
+            disabled={autosave === 'saving' || finish.isPending}
             className="btn-secondary flex-1 justify-center"
           >
-            {saveDraft.isPending ? 'Saving…' : 'Save draft'}
+            {autosave === 'saving' ? 'Saving…' : 'Save now'}
           </button>
           <button
             onClick={() => {
-              if (confirm('Finish this workout?')) finish.mutate(buildPayload());
+              if (confirm('Finish this workout?')) finish.mutate();
             }}
             disabled={finish.isPending}
             className="btn-primary flex-1 justify-center"
