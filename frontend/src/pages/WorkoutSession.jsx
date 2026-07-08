@@ -164,9 +164,9 @@ function serializePayload(exercises, notes) {
           .filter((s) => hasVal(s.reps) || hasVal(s.weight_kg) || hasVal(s.rir))
           .map((s) => ({
             set_number: s.set_number,
-            reps: hasVal(s.reps) ? parseInt(s.reps) : null,
+            reps: hasVal(s.reps) ? parseInt(s.reps, 10) : null,
             weight_kg: hasVal(s.weight_kg) ? parseFloat(s.weight_kg) : null,
-            rir: hasVal(s.rir) ? parseInt(s.rir) : null,
+            rir: hasVal(s.rir) ? parseInt(s.rir, 10) : null,
           })),
       })),
   };

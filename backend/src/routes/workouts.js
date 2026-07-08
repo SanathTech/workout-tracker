@@ -118,8 +118,10 @@ async function fetchWorkout(client, id) {
 
 router.get('/', async (req, res) => {
   const { status } = req.query;
-  const limit = Math.min(Math.max(parseInt(req.query.limit) || 50, 1), 200);
-  const offset = Math.max(parseInt(req.query.offset) || 0, 0);
+  const rawLimit = parseInt(req.query.limit, 10);
+  const limit = Number.isNaN(rawLimit) ? 50 : Math.min(Math.max(rawLimit, 1), 200);
+  const rawOffset = parseInt(req.query.offset, 10);
+  const offset = Number.isNaN(rawOffset) ? 0 : Math.max(rawOffset, 0);
   const params = [limit, offset];
   let where = '';
   if (status) {
