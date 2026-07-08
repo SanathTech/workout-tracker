@@ -158,10 +158,24 @@ const SESSIONS = [
   },
 ];
 
+// Statements shared with seed-program.sql. Each is idempotent so the seed can
+// run against any prior schema version (prod was initialised before the RIR
+// array and open-ended columns existed) without a full re-init.
+const MIGRATIONS = [
+  'ALTER TABLE programs ALTER COLUMN total_weeks DROP NOT NULL',
+  'ALTER TABLE programs ALTER COLUMN total_weeks DROP DEFAULT',
+  'ALTER TABLE workout_sets ADD COLUMN IF NOT EXISTS rir INTEGER',
+  "ALTER TABLE routine_exercises ADD COLUMN IF NOT EXISTS sort_order INTEGER NOT NULL DEFAULT 0",
+  "ALTER TABLE routine_exercises ADD COLUMN IF NOT EXISTS target_sets INTEGER NOT NULL DEFAULT 3",
+  'ALTER TABLE routine_exercises ADD COLUMN IF NOT EXISTS rep_range_low INTEGER',
+  'ALTER TABLE routine_exercises ADD COLUMN IF NOT EXISTS rep_range_high INTEGER',
+  "ALTER TABLE routine_exercises ADD COLUMN IF NOT EXISTS target_rir_per_set INTEGER[] NOT NULL DEFAULT '{}'",
+  'ALTER TABLE routine_exercises ADD COLUMN IF NOT EXISTS rest_seconds INTEGER',
+  'ALTER TABLE routine_exercises ADD COLUMN IF NOT EXISTS notes TEXT',
+];
+
 async function migrate(client) {
-  await client.query('ALTER TABLE programs ALTER COLUMN total_weeks DROP NOT NULL');
-  await client.query('ALTER TABLE programs ALTER COLUMN total_weeks DROP DEFAULT');
-  await client.query('ALTER TABLE workout_sets ADD COLUMN IF NOT EXISTS rir INTEGER');
+  for (const stmt of MIGRATIONS) await client.query(stmt);
 }
 
 async function ensureExercise(client, name) {
