@@ -175,7 +175,14 @@ const MIGRATIONS = [
 ];
 
 async function migrate(client) {
-  for (const stmt of MIGRATIONS) await client.query(stmt);
+  await client.query('BEGIN');
+  try {
+    for (const stmt of MIGRATIONS) await client.query(stmt);
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  }
 }
 
 async function ensureExercise(client, name) {

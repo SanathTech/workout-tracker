@@ -41,7 +41,7 @@ function SetRow({ set, previousSet, targetRir, onChange, onRemove }) {
         className="input flex-1 py-1.5"
       />
       <input
-        type="number" inputMode="numeric" min="0"
+        type="number" inputMode="numeric" min="0" step="1"
         placeholder={targetRir != null ? `${targetRir}` : 'rir'}
         title={targetRir != null ? `Reps in reserve — target ${targetRir}` : 'Reps in reserve'}
         value={set.rir ?? ''}

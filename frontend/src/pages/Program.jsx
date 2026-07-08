@@ -426,8 +426,15 @@ function ProgramEditor({ initial, onCancel, onSaved }) {
           };
         }),
     }));
-    const weeks = totalWeeks === '' || totalWeeks == null ? null : parseInt(totalWeeks);
-    save.mutate({ name, description, total_weeks: Number.isFinite(weeks) ? weeks : null, routines: cleaned });
+    let weeks = null;
+    if (totalWeeks !== '' && totalWeeks != null) {
+      const n = Number(totalWeeks);
+      if (!Number.isInteger(n) || n < 1) {
+        return alert('Total weeks must be a whole number ≥ 1, or left blank for an ongoing program.');
+      }
+      weeks = n;
+    }
+    save.mutate({ name, description, total_weeks: weeks, routines: cleaned });
   };
 
   return (
@@ -445,7 +452,7 @@ function ProgramEditor({ initial, onCancel, onSaved }) {
         </div>
         <div className="w-40">
           <label className="label">Total weeks</label>
-          <input type="number" min="1" className="input" value={totalWeeks}
+          <input type="number" min="1" step="1" className="input" value={totalWeeks}
             placeholder="ongoing"
             onChange={(e) => setTotalWeeks(e.target.value)} />
           <p className="text-xs text-neutral-500 dark:text-neutral-500 mt-1">Leave blank for an ongoing program.</p>
