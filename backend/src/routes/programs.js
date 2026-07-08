@@ -139,6 +139,20 @@ function computeProgress(program, completedCount) {
   };
 }
 
+// Normalizes a request body's total_weeks. Distinguishes absent (caller decides
+// the default) from null/'' (open-ended) from a fixed length (integer >= 1),
+// and flags anything else invalid so the route can 400.
+function normalizeTotalWeeks(body) {
+  if (!('total_weeks' in body)) return { present: false };
+  const raw = body.total_weeks;
+  if (raw === null || raw === '') return { present: true, valid: true, value: null };
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 1) return { present: true, valid: false };
+  return { present: true, valid: true, value: n };
+}
+
+const TOTAL_WEEKS_ERROR = 'total_weeks must be an integer >= 1, or null for an open-ended program';
+
 // ─── Routes ────────────────────────────────────────────────────────
 
 // GET /api/programs — list all programs (summary)
@@ -198,8 +212,10 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   const { name, description, routines } = req.body;
   if (!name) return res.status(400).json({ error: 'name is required' });
-  // Absent → default 12 weeks; present-but-falsy (null/'') → open-ended.
-  const totalWeeks = 'total_weeks' in req.body ? (req.body.total_weeks || null) : 12;
+  // Absent → default 12 weeks; null/'' → open-ended; number → validated >= 1.
+  const tw = normalizeTotalWeeks(req.body);
+  if (tw.present && !tw.valid) return res.status(400).json({ error: TOTAL_WEEKS_ERROR });
+  const totalWeeks = tw.present ? tw.value : 12;
 
   const client = await db.pool.connect();
   try {
@@ -223,10 +239,11 @@ router.post('/', async (req, res) => {
 
 // PUT /api/programs/:id — replace metadata + full routine tree
 router.put('/:id', async (req, res) => {
-  const { name, description, total_weeks, routines } = req.body;
+  const { name, description, routines } = req.body;
   // total_weeks is set exactly when the key is present (so it can be cleared to
   // null for an open-ended program); otherwise it's left untouched.
-  const setTotalWeeks = 'total_weeks' in req.body;
+  const tw = normalizeTotalWeeks(req.body);
+  if (tw.present && !tw.valid) return res.status(400).json({ error: TOTAL_WEEKS_ERROR });
   const client = await db.pool.connect();
   try {
     await client.query('BEGIN');
@@ -236,7 +253,7 @@ router.put('/:id', async (req, res) => {
          description = COALESCE($2, description),
          total_weeks = CASE WHEN $3::boolean THEN $4 ELSE total_weeks END
        WHERE id = $5 RETURNING *`,
-      [name, description, setTotalWeeks, setTotalWeeks ? (total_weeks || null) : null, req.params.id]
+      [name, description, tw.present, tw.present ? tw.value : null, req.params.id]
     );
     if (!rows.length) {
       await client.query('ROLLBACK');
