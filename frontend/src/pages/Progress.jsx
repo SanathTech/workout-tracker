@@ -142,14 +142,16 @@ export default function Progress() {
             <LineChart data={exerciseProgress} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={theme.grid} />
               <XAxis dataKey="date" tickFormatter={formatDate} tick={{ fontSize: 11, fill: theme.text }} stroke={theme.grid} />
-              <YAxis tick={{ fontSize: 11, fill: theme.text }} stroke={theme.grid} />
+              <YAxis yAxisId="left" tick={{ fontSize: 11, fill: theme.text }} stroke={theme.grid} />
+              <YAxis yAxisId="rir" orientation="right" width={28} domain={[0, (max) => Math.max(4, Math.ceil(max))]} allowDecimals={false} tick={{ fontSize: 11, fill: theme.text }} stroke={theme.grid} />
               <Tooltip
                 labelFormatter={formatDate}
                 contentStyle={{ background: 'rgba(0,0,0,0.85)', border: 'none', borderRadius: 6, color: '#fff', fontSize: 12 }}
               />
               <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Line type="monotone" dataKey="max_weight" stroke={theme.accent} strokeWidth={1.5} dot={{ r: 3 }} name="Max weight (kg)" />
-              <Line type="monotone" dataKey="total_reps" stroke={theme.accentAlt} strokeWidth={1.5} dot={{ r: 3 }} name="Total reps" />
+              <Line yAxisId="left" type="monotone" dataKey="max_weight" stroke={theme.accent} strokeWidth={1.5} dot={{ r: 3 }} name="Max weight (kg)" />
+              <Line yAxisId="left" type="monotone" dataKey="total_reps" stroke={theme.accentAlt} strokeWidth={1.5} dot={{ r: 3 }} name="Total reps" />
+              <Line yAxisId="rir" type="monotone" dataKey="avg_rir" stroke={theme.accentAlt} strokeDasharray="4 2" strokeWidth={1.5} dot={{ r: 2 }} name="Avg RIR" connectNulls />
             </LineChart>
           </ResponsiveContainer>
         )}
@@ -172,6 +174,7 @@ export default function Progress() {
                   <th className="pb-2 font-medium">Muscle</th>
                   <th className="pb-2 font-medium">Best</th>
                   <th className="pb-2 font-medium">Reps</th>
+                  <th className="pb-2 font-medium">Est. 1RM</th>
                   <th className="pb-2 font-medium">Date</th>
                 </tr>
               </thead>
@@ -180,8 +183,9 @@ export default function Progress() {
                   <tr key={pb.exercise_id} className="border-t border-neutral-200 dark:border-neutral-800">
                     <td className="py-2 font-medium">{pb.exercise_name}</td>
                     <td className="py-2 text-neutral-500 dark:text-neutral-400">{pb.muscle_group}</td>
-                    <td className="py-2 font-semibold">{pb.best_weight} kg</td>
+                    <td className="py-2 font-semibold">{pb.best_weight != null ? `${pb.best_weight} kg` : 'BW'}</td>
                     <td className="py-2">{pb.reps}</td>
+                    <td className="py-2 text-neutral-500 dark:text-neutral-400">{pb.est_1rm != null ? `${pb.est_1rm} kg` : '—'}</td>
                     <td className="py-2 text-neutral-500 dark:text-neutral-400">
                       {new Date(pb.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                     </td>
