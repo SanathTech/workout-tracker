@@ -177,19 +177,26 @@ export default function WorkoutSession() {
   const navigate = useNavigate();
   const qc = useQueryClient();
 
-  const { data: workout, isLoading } = useQuery({ queryKey: ['workout', id], queryFn: () => getWorkout(id) });
+  // staleTime 0 + refetch-on-mount so a reload pulls the freshest workout (the
+  // persisted localStorage cache may lag the last autosave by the persist throttle).
+  const { data: workout, isLoading, isFetchedAfterMount } = useQuery({
+    queryKey: ['workout', id],
+    queryFn: () => getWorkout(id),
+    staleTime: 0,
+  });
 
   const [exercises, setExercises] = useState([]);
   const [notes, setNotes] = useState('');
   const [picker, setPicker] = useState(null); // { mode: 'replace' | 'add', forIndex?: number }
   const [autosave, setAutosave] = useState('idle'); // idle | saving | saved | error
-  const hydratedRef = useRef(false);
+  const [hydrated, setHydrated] = useState(false);
   const lastSavedRef = useRef(null);
 
-  // Hydrate local state from the server once; a background refetch must not clobber in-progress edits.
+  // Hydrate local state once from the fresh mount-fetch (not stale cache); a later
+  // background refetch must not clobber in-progress edits.
   useEffect(() => {
-    if (!workout || hydratedRef.current) return;
-    const hydrated = workout.exercises.map((e) => ({
+    if (!workout || !isFetchedAfterMount || hydrated) return;
+    const rows = workout.exercises.map((e) => ({
       exercise_id: e.exercise_id,
       exercise_name: e.exercise_name,
       muscle_group: e.muscle_group,
@@ -197,21 +204,24 @@ export default function WorkoutSession() {
       target: e.target,
       sets: e.sets.length ? e.sets : [{ set_number: 1, reps: null, weight_kg: null, rir: null }],
     }));
-    setExercises(hydrated);
+    setExercises(rows);
     setNotes(workout.notes || '');
-    lastSavedRef.current = JSON.stringify(serializePayload(hydrated, workout.notes || ''));
-    hydratedRef.current = true;
-  }, [workout]);
+    lastSavedRef.current = JSON.stringify(serializePayload(rows, workout.notes || ''));
+    setHydrated(true);
+  }, [workout, isFetchedAfterMount, hydrated]);
 
   // Debounced autosave so logged sets survive a phone lock, refresh, or accidental exit.
   useEffect(() => {
-    if (!hydratedRef.current) return;
+    if (!hydrated) return;
     const serialized = JSON.stringify(serializePayload(exercises, notes));
     if (serialized === lastSavedRef.current) return;
     const t = setTimeout(async () => {
       setAutosave('saving');
       try {
-        await updateWorkout(id, JSON.parse(serialized));
+        const updated = await updateWorkout(id, JSON.parse(serialized));
+        // Keep the (persisted) cache in sync so a reload shows the saved sets;
+        // the hydrate-once guard stops this from clobbering in-progress edits.
+        qc.setQueryData(['workout', id], updated);
         lastSavedRef.current = serialized;
         setAutosave('saved');
       } catch {
@@ -219,7 +229,7 @@ export default function WorkoutSession() {
       }
     }, 1200);
     return () => clearTimeout(t);
-  }, [exercises, notes, id]);
+  }, [exercises, notes, id, qc, hydrated]);
 
   const saveDraft = useMutation({
     mutationFn: (payload) => updateWorkout(id, payload),
@@ -249,6 +259,7 @@ export default function WorkoutSession() {
     navigate(`/workouts/${id}`, { replace: true });
     return null;
   }
+  if (!hydrated) return <WorkoutSessionSkeleton />;
 
   const buildPayload = () => serializePayload(exercises, notes);
 
