@@ -193,6 +193,9 @@ export default function WorkoutSession() {
   const lastSavedRef = useRef(null);   // JSON of the last payload the server confirmed
   const pendingRef = useRef(null);     // JSON of the latest payload wanting to be saved
   const flushingRef = useRef(null);    // in-flight flush promise, or null
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
+  const setAutosaveIfMounted = useCallback((v) => { if (mountedRef.current) setAutosave(v); }, []);
 
   // Hydrate local state once from the fresh mount-fetch. If that fetch errored but
   // cached data exists (e.g. offline), hydrate from cache instead of hanging on the
@@ -223,14 +226,14 @@ export default function WorkoutSession() {
       try {
         while (pendingRef.current && pendingRef.current !== lastSavedRef.current) {
           const snapshot = pendingRef.current;
-          setAutosave('saving');
+          setAutosaveIfMounted('saving');
           try {
             const updated = await updateWorkout(id, JSON.parse(snapshot));
             qc.setQueryData(['workout', id], updated); // keep the persisted cache in sync for reloads
             lastSavedRef.current = snapshot;
-            setAutosave('saved');
+            setAutosaveIfMounted('saved');
           } catch {
-            setAutosave('error');
+            setAutosaveIfMounted('error');
             break; // leave pending unsaved; a later edit or Finish retries
           }
         }
@@ -240,7 +243,7 @@ export default function WorkoutSession() {
     })();
     flushingRef.current = run;
     return run;
-  }, [id, qc]);
+  }, [id, qc, setAutosaveIfMounted]);
 
   // Debounced autosave: record the latest payload, then flush after a pause.
   useEffect(() => {
