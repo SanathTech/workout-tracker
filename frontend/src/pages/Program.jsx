@@ -358,7 +358,9 @@ function ProgramEditor({ initial, onCancel, onSaved }) {
   const qc = useQueryClient();
   const [name, setName] = useState(initial?.name || '');
   const [description, setDescription] = useState(initial?.description || '');
-  const [totalWeeks, setTotalWeeks] = useState(initial?.total_weeks || 12);
+  const [totalWeeks, setTotalWeeks] = useState(
+    initial?.total_weeks === undefined ? 12 : (initial.total_weeks ?? '')
+  );
   const [routines, setRoutines] = useState(
     initial?.routines?.length
       ? initial.routines.map((r) => ({
@@ -424,7 +426,15 @@ function ProgramEditor({ initial, onCancel, onSaved }) {
           };
         }),
     }));
-    save.mutate({ name, description, total_weeks: parseInt(totalWeeks) || 12, routines: cleaned });
+    let weeks = null;
+    if (totalWeeks !== '' && totalWeeks != null) {
+      const n = Number(totalWeeks);
+      if (!Number.isInteger(n) || n < 1) {
+        return alert('Total weeks must be a whole number ≥ 1, or left blank for an ongoing program.');
+      }
+      weeks = n;
+    }
+    save.mutate({ name, description, total_weeks: weeks, routines: cleaned });
   };
 
   return (
@@ -440,10 +450,12 @@ function ProgramEditor({ initial, onCancel, onSaved }) {
           <textarea className="input resize-none" rows={2} value={description}
             onChange={(e) => setDescription(e.target.value)} />
         </div>
-        <div className="w-32">
+        <div className="w-40">
           <label className="label">Total weeks</label>
-          <input type="number" min="1" className="input" value={totalWeeks}
+          <input type="number" min="1" step="1" className="input" value={totalWeeks}
+            placeholder="ongoing"
             onChange={(e) => setTotalWeeks(e.target.value)} />
+          <p className="text-xs text-neutral-500 dark:text-neutral-500 mt-1">Leave blank for an ongoing program.</p>
         </div>
       </div>
 
@@ -521,7 +533,7 @@ function ProgramView({ program, onEdit, onDeleted }) {
             <h1 className="text-2xl font-semibold tracking-tight">{program.name}</h1>
             {program.description && <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">{program.description}</p>}
             <p className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400 mt-2">
-              {program.total_weeks} weeks · {program.routines.length} routines · {program.status}
+              {program.total_weeks ? `${program.total_weeks} weeks` : 'Ongoing'} · {program.routines.length} routines · {program.status}
             </p>
           </div>
           <div className="flex flex-col gap-2 shrink-0">

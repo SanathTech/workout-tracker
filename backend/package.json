@@ -7,7 +7,9 @@
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "db:init": "node src/db/init.js",
-    "db:seed": "node src/db/seed.js"
+    "db:migrate": "node src/db/migrate.js",
+    "db:seed": "node src/db/seed.js",
+    "db:seed-program": "node src/db/seed-program.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

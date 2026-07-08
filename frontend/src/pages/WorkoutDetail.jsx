@@ -91,6 +91,7 @@ export default function WorkoutDetail() {
                   <th className="pb-2 font-medium w-8">Set</th>
                   <th className="pb-2 font-medium">Weight</th>
                   <th className="pb-2 font-medium">Reps</th>
+                  <th className="pb-2 font-medium">RIR</th>
                   <th className="pb-2 font-medium text-right">Volume</th>
                 </tr>
               </thead>
@@ -100,6 +101,7 @@ export default function WorkoutDetail() {
                     <td className="py-2 text-neutral-500">{set.set_number}</td>
                     <td className="py-2">{set.weight_kg != null ? `${set.weight_kg} kg` : '—'}</td>
                     <td className="py-2">{set.reps ?? '—'}</td>
+                    <td className="py-2">{set.rir ?? '—'}</td>
                     <td className="py-2 text-right text-neutral-500 dark:text-neutral-400">
                       {set.weight_kg && set.reps ? `${set.weight_kg * set.reps} kg` : '—'}
                     </td>

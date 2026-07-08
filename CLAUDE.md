@@ -69,6 +69,7 @@ cd backend
 npm install
 npm run dev                                  # nodemon on :3001 (needs LOCAL_DEV=1 env or NODE_ENV!=production)
 npm run db:init                              # WIPE + recreate schema (preserves exercises table)
+npm run db:migrate                           # non-destructive: apply additive column migrations in place (idempotent)
 npm run db:seed                              # seed exercise library
 
 # Frontend
@@ -78,7 +79,7 @@ npm run dev                                  # Vite on :5173, proxies /api to :3
 npm run build                                # output to frontend/dist
 ```
 
-After any schema change in `backend/src/db/schema.sql`, **run `npm run db:init` against the production Neon DB** (or paste the schema into the Neon SQL Editor). The repo owner has done the init for the current schema.
+After any schema change in `backend/src/db/schema.sql`, apply it to the production Neon DB. For **additive** changes (new nullable columns, dropping NOT NULL/defaults), add an idempotent statement to `backend/src/db/migrations.js` and **run `npm run db:migrate`** (or paste `backend/src/db/migrate.sql` into the Neon SQL Editor) — this preserves logged data. Use `npm run db:init` only for a full rebuild (it WIPES non-exercise tables). The repo owner has done the init for the current schema.
 
 ## Deployment
 
