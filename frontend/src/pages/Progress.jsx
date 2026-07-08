@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -15,7 +15,15 @@ const GRID_LIGHT = '#e5e5e5';
 const GRID_DARK = '#262626';
 
 function useChartTheme() {
-  const dark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+  const [dark, setDark] = useState(
+    () => typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+  );
+  useEffect(() => {
+    const el = document.documentElement;
+    const obs = new MutationObserver(() => setDark(el.classList.contains('dark')));
+    obs.observe(el, { attributes: true, attributeFilter: ['class'] });
+    return () => obs.disconnect();
+  }, []);
   return {
     accent: dark ? ACCENT_DARK : ACCENT_LIGHT,
     accentAlt: dark ? '#a3a3a3' : '#737373',

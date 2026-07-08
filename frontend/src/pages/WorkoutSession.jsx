@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getWorkout, updateWorkout, completeWorkout, getLastByExercise } from '../api/client';
@@ -149,6 +149,29 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove }) {
   );
 }
 
+const hasVal = (v) => v !== '' && v != null;
+
+// Pure builder shared by autosave, Save draft, and Finish so they persist identically.
+function serializePayload(exercises, notes) {
+  return {
+    notes: notes || null,
+    exercises: exercises
+      .filter((ex) => ex.exercise_id)
+      .map((ex) => ({
+        exercise_id: ex.exercise_id,
+        notes: ex.notes || null,
+        sets: ex.sets
+          .filter((s) => hasVal(s.reps) || hasVal(s.weight_kg) || hasVal(s.rir))
+          .map((s) => ({
+            set_number: s.set_number,
+            reps: hasVal(s.reps) ? parseInt(s.reps) : null,
+            weight_kg: hasVal(s.weight_kg) ? parseFloat(s.weight_kg) : null,
+            rir: hasVal(s.rir) ? parseInt(s.rir) : null,
+          })),
+      })),
+  };
+}
+
 export default function WorkoutSession() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -159,24 +182,52 @@ export default function WorkoutSession() {
   const [exercises, setExercises] = useState([]);
   const [notes, setNotes] = useState('');
   const [picker, setPicker] = useState(null); // { mode: 'replace' | 'add', forIndex?: number }
+  const [autosave, setAutosave] = useState('idle'); // idle | saving | saved | error
+  const hydratedRef = useRef(false);
+  const lastSavedRef = useRef(null);
 
+  // Hydrate local state from the server once; a background refetch must not clobber in-progress edits.
   useEffect(() => {
-    if (workout) {
-      setExercises(workout.exercises.map((e) => ({
-        exercise_id: e.exercise_id,
-        exercise_name: e.exercise_name,
-        muscle_group: e.muscle_group,
-        notes: e.notes || '',
-        target: e.target,
-        sets: e.sets.length ? e.sets : [{ set_number: 1, reps: null, weight_kg: null, rir: null }],
-      })));
-      setNotes(workout.notes || '');
-    }
+    if (!workout || hydratedRef.current) return;
+    const hydrated = workout.exercises.map((e) => ({
+      exercise_id: e.exercise_id,
+      exercise_name: e.exercise_name,
+      muscle_group: e.muscle_group,
+      notes: e.notes || '',
+      target: e.target,
+      sets: e.sets.length ? e.sets : [{ set_number: 1, reps: null, weight_kg: null, rir: null }],
+    }));
+    setExercises(hydrated);
+    setNotes(workout.notes || '');
+    lastSavedRef.current = JSON.stringify(serializePayload(hydrated, workout.notes || ''));
+    hydratedRef.current = true;
   }, [workout]);
+
+  // Debounced autosave so logged sets survive a phone lock, refresh, or accidental exit.
+  useEffect(() => {
+    if (!hydratedRef.current) return;
+    const serialized = JSON.stringify(serializePayload(exercises, notes));
+    if (serialized === lastSavedRef.current) return;
+    const t = setTimeout(async () => {
+      setAutosave('saving');
+      try {
+        await updateWorkout(id, JSON.parse(serialized));
+        lastSavedRef.current = serialized;
+        setAutosave('saved');
+      } catch {
+        setAutosave('error');
+      }
+    }, 1200);
+    return () => clearTimeout(t);
+  }, [exercises, notes, id]);
 
   const saveDraft = useMutation({
     mutationFn: (payload) => updateWorkout(id, payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['workout', id] }),
+    onSuccess: (_data, payload) => {
+      lastSavedRef.current = JSON.stringify(payload);
+      setAutosave('saved');
+      qc.invalidateQueries({ queryKey: ['workout', id] });
+    },
   });
 
   const finish = useMutation({
@@ -199,23 +250,7 @@ export default function WorkoutSession() {
     return null;
   }
 
-  const buildPayload = () => ({
-    notes: notes || null,
-    exercises: exercises
-      .filter((ex) => ex.exercise_id)
-      .map((ex) => ({
-        exercise_id: ex.exercise_id,
-        notes: ex.notes || null,
-        sets: ex.sets
-          .filter((s) => s.reps !== '' && s.reps != null)
-          .map((s) => ({
-            set_number: s.set_number,
-            reps: parseInt(s.reps),
-            weight_kg: s.weight_kg !== '' && s.weight_kg != null ? parseFloat(s.weight_kg) : null,
-            rir: s.rir !== '' && s.rir != null ? parseInt(s.rir) : null,
-          })),
-      })),
-  });
+  const buildPayload = () => serializePayload(exercises, notes);
 
   const handlePickerSelect = (ex) => {
     if (picker?.mode === 'replace') {
@@ -259,6 +294,11 @@ export default function WorkoutSession() {
           {workout.program_week && `Week ${workout.program_week} · `}
           {new Date(workout.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
         </p>
+        {autosave !== 'idle' && (
+          <p className={`text-xs mt-0.5 ${autosave === 'error' ? 'text-red-600 dark:text-red-400' : 'text-neutral-400 dark:text-neutral-500'}`}>
+            {autosave === 'saving' ? 'Saving…' : autosave === 'saved' ? 'All changes saved' : 'Autosave failed — tap Save draft'}
+          </p>
+        )}
       </div>
 
       <div className="space-y-3">

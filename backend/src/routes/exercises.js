@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const { serverError } = require('../util/errors');
 
 // GET /api/exercises — list all, optionally filter by muscle_group
 router.get('/', async (req, res) => {
@@ -25,7 +26,7 @@ router.get('/', async (req, res) => {
     const { rows } = await db.query(text, params);
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    serverError(res, err);
   }
 });
 
@@ -37,7 +38,7 @@ router.get('/groups', async (req, res) => {
     );
     res.json(rows.map((r) => r.muscle_group));
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    serverError(res, err);
   }
 });
 
@@ -48,7 +49,7 @@ router.get('/:id', async (req, res) => {
     if (!rows.length) return res.status(404).json({ error: 'Exercise not found' });
     res.json(rows[0]);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    serverError(res, err);
   }
 });
 
@@ -63,7 +64,7 @@ router.post('/', async (req, res) => {
     );
     res.status(201).json(rows[0]);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    serverError(res, err);
   }
 });
 
@@ -79,7 +80,7 @@ router.put('/:id', async (req, res) => {
     if (!rows.length) return res.status(404).json({ error: 'Exercise not found' });
     res.json(rows[0]);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    serverError(res, err);
   }
 });
 
@@ -90,7 +91,11 @@ router.delete('/:id', async (req, res) => {
     if (!rowCount) return res.status(404).json({ error: 'Exercise not found' });
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    // 23503 = foreign_key_violation: exercise is referenced by a routine or logged workout.
+    if (err.code === '23503') {
+      return res.status(409).json({ error: 'This exercise is used by a program or logged workout, so it can’t be deleted.' });
+    }
+    serverError(res, err);
   }
 });
 

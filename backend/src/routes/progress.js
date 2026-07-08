@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const { serverError } = require('../util/errors');
 
 // GET /api/progress/exercise/:exerciseId — per-date max weight and volume
 router.get('/exercise/:exerciseId', async (req, res) => {
@@ -25,7 +26,7 @@ router.get('/exercise/:exerciseId', async (req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    serverError(res, err);
   }
 });
 
@@ -49,7 +50,7 @@ router.get('/volume', async (req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    serverError(res, err);
   }
 });
 
@@ -85,7 +86,7 @@ router.get('/stats', async (req, res) => {
       workouts_this_week: thisWeek.rows[0].count,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    serverError(res, err);
   }
 });
 
@@ -105,7 +106,7 @@ router.get('/personal-bests', async (req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    serverError(res, err);
   }
 });
 

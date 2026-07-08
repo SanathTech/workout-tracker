@@ -73,9 +73,11 @@ export default function ExerciseLibrary() {
     queryFn: () => getExercises({ search: search || undefined, muscle_group: filterGroup || undefined }),
   });
 
+  const [deleteError, setDeleteError] = useState('');
   const { mutate: remove } = useMutation({
     mutationFn: deleteExercise,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['exercises'] }),
+    onSuccess: () => { setDeleteError(''); qc.invalidateQueries({ queryKey: ['exercises'] }); },
+    onError: (err) => setDeleteError(err?.response?.data?.error || 'Could not delete exercise.'),
   });
 
   const grouped = exercises.reduce((acc, ex) => {
@@ -115,6 +117,12 @@ export default function ExerciseLibrary() {
           ))}
         </div>
       </div>
+
+      {deleteError && (
+        <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 rounded-md px-3 py-2">
+          {deleteError}
+        </p>
+      )}
 
       {isLoading ? (
         <div className="space-y-2">

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const { serverError } = require('../util/errors');
 
 // ─── Helpers ───────────────────────────────────────────────────────
 
@@ -170,7 +171,7 @@ router.get('/', async (req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    serverError(res, err);
   }
 });
 
@@ -188,7 +189,7 @@ router.get('/active', async (req, res) => {
     );
     res.json({ ...program, progress: computeProgress(program, countRes.rows[0].n) });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    serverError(res, err);
   } finally {
     client.release();
   }
@@ -202,7 +203,7 @@ router.get('/:id', async (req, res) => {
     if (!program) return res.status(404).json({ error: 'Program not found' });
     res.json(program);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    serverError(res, err);
   } finally {
     client.release();
   }
@@ -231,7 +232,7 @@ router.post('/', async (req, res) => {
     res.status(201).json(full);
   } catch (err) {
     await client.query('ROLLBACK');
-    res.status(500).json({ error: err.message });
+    serverError(res, err);
   } finally {
     client.release();
   }
@@ -269,7 +270,7 @@ router.put('/:id', async (req, res) => {
     res.json(full);
   } catch (err) {
     await client.query('ROLLBACK');
-    res.status(500).json({ error: err.message });
+    serverError(res, err);
   } finally {
     client.release();
   }
@@ -293,7 +294,7 @@ router.delete('/:id', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     await client.query('ROLLBACK');
-    res.status(500).json({ error: err.message });
+    serverError(res, err);
   } finally {
     client.release();
   }
@@ -322,7 +323,7 @@ router.post('/:id/start', async (req, res) => {
     res.json(rows[0]);
   } catch (err) {
     await client.query('ROLLBACK');
-    res.status(500).json({ error: err.message });
+    serverError(res, err);
   } finally {
     client.release();
   }
@@ -339,7 +340,7 @@ router.post('/:id/end', async (req, res) => {
     if (!rows.length) return res.status(404).json({ error: 'No active program with that id' });
     res.json(rows[0]);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    serverError(res, err);
   }
 });
 
