@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getWorkout, updateWorkout, completeWorkout, getLastByExercise } from '../api/client';
@@ -149,39 +149,124 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove }) {
   );
 }
 
+// Parse to a finite number or null — drops empty and mid-edit values like "." or "-".
+const toInt = (v) => { const n = parseInt(v, 10); return Number.isFinite(n) ? n : null; };
+const toFloat = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : null; };
+
+// Pure builder shared by autosave, Save now, and Finish so they persist identically.
+function serializePayload(exercises, notes) {
+  return {
+    notes: notes || null,
+    exercises: exercises
+      .filter((ex) => ex.exercise_id)
+      .map((ex) => ({
+        exercise_id: ex.exercise_id,
+        notes: ex.notes || null,
+        sets: ex.sets
+          .map((s) => ({
+            set_number: s.set_number,
+            reps: toInt(s.reps),
+            weight_kg: toFloat(s.weight_kg),
+            rir: toInt(s.rir),
+          }))
+          .filter((s) => s.reps !== null || s.weight_kg !== null || s.rir !== null),
+      })),
+  };
+}
+
 export default function WorkoutSession() {
   const { id } = useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
 
-  const { data: workout, isLoading } = useQuery({ queryKey: ['workout', id], queryFn: () => getWorkout(id) });
+  // staleTime 0 + refetch-on-mount so a reload pulls the freshest workout (the
+  // persisted localStorage cache may lag the last autosave by the persist throttle).
+  const { data: workout, isLoading, isFetchedAfterMount, isError } = useQuery({
+    queryKey: ['workout', id],
+    queryFn: () => getWorkout(id),
+    staleTime: 0,
+  });
 
   const [exercises, setExercises] = useState([]);
   const [notes, setNotes] = useState('');
   const [picker, setPicker] = useState(null); // { mode: 'replace' | 'add', forIndex?: number }
+  const [autosave, setAutosave] = useState('idle'); // idle | saving | saved | error
+  const [hydrated, setHydrated] = useState(false);
+  const lastSavedRef = useRef(null);   // JSON of the last payload the server confirmed
+  const pendingRef = useRef(null);     // JSON of the latest payload wanting to be saved
+  const flushingRef = useRef(null);    // in-flight flush promise, or null
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
+  const setAutosaveIfMounted = useCallback((v) => { if (mountedRef.current) setAutosave(v); }, []);
 
+  // Hydrate local state once from the fresh mount-fetch. If that fetch errored but
+  // cached data exists (e.g. offline), hydrate from cache instead of hanging on the
+  // skeleton. A later background refetch must not clobber in-progress edits.
   useEffect(() => {
-    if (workout) {
-      setExercises(workout.exercises.map((e) => ({
-        exercise_id: e.exercise_id,
-        exercise_name: e.exercise_name,
-        muscle_group: e.muscle_group,
-        notes: e.notes || '',
-        target: e.target,
-        sets: e.sets.length ? e.sets : [{ set_number: 1, reps: null, weight_kg: null, rir: null }],
-      })));
-      setNotes(workout.notes || '');
-    }
-  }, [workout]);
+    if (!workout || (!isFetchedAfterMount && !isError) || hydrated) return;
+    const rows = workout.exercises.map((e) => ({
+      exercise_id: e.exercise_id,
+      exercise_name: e.exercise_name,
+      muscle_group: e.muscle_group,
+      notes: e.notes || '',
+      target: e.target,
+      sets: e.sets.length ? e.sets : [{ set_number: 1, reps: null, weight_kg: null, rir: null }],
+    }));
+    setExercises(rows);
+    setNotes(workout.notes || '');
+    lastSavedRef.current = JSON.stringify(serializePayload(rows, workout.notes || ''));
+    pendingRef.current = lastSavedRef.current;
+    setHydrated(true);
+  }, [workout, isFetchedAfterMount, isError, hydrated]);
 
-  const saveDraft = useMutation({
-    mutationFn: (payload) => updateWorkout(id, payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['workout', id] }),
-  });
+  // Serialized flush: at most one PUT in flight, and the loop always re-reads the
+  // latest pending payload — so a slow response can never revert a newer edit, and
+  // callers can await the single in-flight run.
+  const flush = useCallback(() => {
+    if (flushingRef.current) return flushingRef.current;
+    const run = (async () => {
+      try {
+        while (pendingRef.current && pendingRef.current !== lastSavedRef.current) {
+          const snapshot = pendingRef.current;
+          setAutosaveIfMounted('saving');
+          try {
+            const updated = await updateWorkout(id, JSON.parse(snapshot));
+            qc.setQueryData(['workout', id], updated); // keep the persisted cache in sync for reloads
+            lastSavedRef.current = snapshot;
+            setAutosaveIfMounted('saved');
+          } catch {
+            setAutosaveIfMounted('error');
+            break; // leave pending unsaved; a later edit or Finish retries
+          }
+        }
+      } finally {
+        flushingRef.current = null;
+      }
+    })();
+    flushingRef.current = run;
+    return run;
+  }, [id, qc, setAutosaveIfMounted]);
+
+  // Debounced autosave: record the latest payload, then flush after a pause.
+  useEffect(() => {
+    if (!hydrated) return;
+    pendingRef.current = JSON.stringify(serializePayload(exercises, notes));
+    if (pendingRef.current === lastSavedRef.current) return;
+    const t = setTimeout(flush, 1200);
+    return () => clearTimeout(t);
+  }, [exercises, notes, hydrated, flush]);
+
+  const saveNow = useCallback(() => {
+    pendingRef.current = JSON.stringify(serializePayload(exercises, notes));
+    return flush();
+  }, [exercises, notes, flush]);
 
   const finish = useMutation({
-    mutationFn: async (payload) => {
-      await updateWorkout(id, payload);
+    mutationFn: async () => {
+      await saveNow(); // ensure the latest edits are persisted before completing
+      if (pendingRef.current !== lastSavedRef.current) {
+        throw new Error('Could not save your latest changes — check your connection and try again.');
+      }
       return completeWorkout(id);
     },
     onSuccess: () => {
@@ -193,29 +278,20 @@ export default function WorkoutSession() {
     },
   });
 
+  if (isError && !workout) {
+    return (
+      <div className="max-w-2xl mx-auto py-20 text-center space-y-3">
+        <p className="text-neutral-500 dark:text-neutral-400">Couldn’t load this workout. Check your connection and try again.</p>
+        <button onClick={() => navigate(-1)} className="btn-secondary">← Back</button>
+      </div>
+    );
+  }
   if (isLoading || !workout) return <WorkoutSessionSkeleton />;
   if (workout.status === 'completed') {
     navigate(`/workouts/${id}`, { replace: true });
     return null;
   }
-
-  const buildPayload = () => ({
-    notes: notes || null,
-    exercises: exercises
-      .filter((ex) => ex.exercise_id)
-      .map((ex) => ({
-        exercise_id: ex.exercise_id,
-        notes: ex.notes || null,
-        sets: ex.sets
-          .filter((s) => s.reps !== '' && s.reps != null)
-          .map((s) => ({
-            set_number: s.set_number,
-            reps: parseInt(s.reps),
-            weight_kg: s.weight_kg !== '' && s.weight_kg != null ? parseFloat(s.weight_kg) : null,
-            rir: s.rir !== '' && s.rir != null ? parseInt(s.rir) : null,
-          })),
-      })),
-  });
+  if (!hydrated) return <WorkoutSessionSkeleton />;
 
   const handlePickerSelect = (ex) => {
     if (picker?.mode === 'replace') {
@@ -259,6 +335,11 @@ export default function WorkoutSession() {
           {workout.program_week && `Week ${workout.program_week} · `}
           {new Date(workout.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
         </p>
+        {autosave !== 'idle' && (
+          <p className={`text-xs mt-0.5 ${autosave === 'error' ? 'text-red-600 dark:text-red-400' : 'text-neutral-400 dark:text-neutral-500'}`}>
+            {autosave === 'saving' ? 'Saving…' : autosave === 'saved' ? 'All changes saved' : 'Autosave failed — tap Save now'}
+          </p>
+        )}
       </div>
 
       <div className="space-y-3">
@@ -294,17 +375,22 @@ export default function WorkoutSession() {
 
       <div className="h-20" aria-hidden="true" />
       <div className="fixed bottom-0 inset-x-0 z-20 bg-white dark:bg-neutral-950 border-t border-neutral-200 dark:border-neutral-900 pb-[env(safe-area-inset-bottom)]">
+        {finish.isError && (
+          <p className="max-w-2xl mx-auto px-4 pt-2 text-xs text-red-600 dark:text-red-400">
+            {finish.error?.message || 'Could not finish the workout.'}
+          </p>
+        )}
         <div className="max-w-2xl mx-auto px-4 py-3 flex gap-2">
           <button
-            onClick={() => saveDraft.mutate(buildPayload())}
-            disabled={saveDraft.isPending}
+            onClick={() => saveNow()}
+            disabled={autosave === 'saving' || finish.isPending}
             className="btn-secondary flex-1 justify-center"
           >
-            {saveDraft.isPending ? 'Saving…' : 'Save draft'}
+            {autosave === 'saving' ? 'Saving…' : 'Save now'}
           </button>
           <button
             onClick={() => {
-              if (confirm('Finish this workout?')) finish.mutate(buildPayload());
+              if (confirm('Finish this workout?')) finish.mutate();
             }}
             disabled={finish.isPending}
             className="btn-primary flex-1 justify-center"

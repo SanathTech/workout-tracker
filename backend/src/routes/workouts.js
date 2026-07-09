@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const { serverError } = require('../util/errors');
 
 async function maybeCompleteProgram(client, programId) {
   if (!programId) return;
@@ -116,7 +117,11 @@ async function fetchWorkout(client, id) {
 }
 
 router.get('/', async (req, res) => {
-  const { limit = 50, offset = 0, status } = req.query;
+  const { status } = req.query;
+  const rawLimit = parseInt(req.query.limit, 10);
+  const limit = Number.isNaN(rawLimit) ? 50 : Math.min(Math.max(rawLimit, 1), 200);
+  const rawOffset = parseInt(req.query.offset, 10);
+  const offset = Number.isNaN(rawOffset) ? 0 : Math.min(Math.max(rawOffset, 0), 100000);
   const params = [limit, offset];
   let where = '';
   if (status) {
@@ -140,7 +145,7 @@ router.get('/', async (req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    serverError(res, err);
   }
 });
 
@@ -159,7 +164,7 @@ router.get('/recent', async (req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    serverError(res, err);
   }
 });
 
@@ -175,7 +180,7 @@ router.get('/in-progress', async (req, res) => {
     );
     res.json(rows[0] || null);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    serverError(res, err);
   }
 });
 
@@ -206,7 +211,7 @@ router.get('/last-by-exercise/:exerciseId', async (req, res) => {
     );
     res.json({ date: wRes.rows[0].date, sets: sRes.rows });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    serverError(res, err);
   }
 });
 
@@ -217,7 +222,7 @@ router.get('/:id', async (req, res) => {
     if (!workout) return res.status(404).json({ error: 'Workout not found' });
     res.json(workout);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    serverError(res, err);
   } finally {
     client.release();
   }
@@ -311,7 +316,7 @@ router.post('/', async (req, res) => {
     res.status(201).json(full);
   } catch (err) {
     await client.query('ROLLBACK');
-    res.status(500).json({ error: err.message });
+    serverError(res, err);
   } finally {
     client.release();
   }
@@ -358,7 +363,7 @@ router.put('/:id', async (req, res) => {
     res.json(full);
   } catch (err) {
     await client.query('ROLLBACK');
-    res.status(500).json({ error: err.message });
+    serverError(res, err);
   } finally {
     client.release();
   }
@@ -382,7 +387,7 @@ router.post('/:id/complete', async (req, res) => {
     res.json(rows[0]);
   } catch (err) {
     await client.query('ROLLBACK');
-    res.status(500).json({ error: err.message });
+    serverError(res, err);
   } finally {
     client.release();
   }
@@ -394,7 +399,7 @@ router.delete('/:id', async (req, res) => {
     if (!rowCount) return res.status(404).json({ error: 'Workout not found' });
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    serverError(res, err);
   }
 });
 

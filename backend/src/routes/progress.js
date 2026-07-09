@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const { serverError } = require('../util/errors');
 
 // GET /api/progress/exercise/:exerciseId — per-date max weight and volume
 router.get('/exercise/:exerciseId', async (req, res) => {
@@ -12,6 +13,7 @@ router.get('/exercise/:exerciseId', async (req, res) => {
          MAX(ws.weight_kg) AS max_weight,
          SUM(ws.weight_kg * ws.reps) AS volume,
          SUM(ws.reps) AS total_reps,
+         ROUND(AVG(ws.rir), 1) AS avg_rir,
          COUNT(*)::int AS set_count
        FROM workout_sets ws
        JOIN workout_exercises we ON we.id = ws.workout_exercise_id
@@ -25,7 +27,7 @@ router.get('/exercise/:exerciseId', async (req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    serverError(res, err);
   }
 });
 
@@ -49,7 +51,7 @@ router.get('/volume', async (req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    serverError(res, err);
   }
 });
 
@@ -85,27 +87,35 @@ router.get('/stats', async (req, res) => {
       workouts_this_week: thisWeek.rows[0].count,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    serverError(res, err);
   }
 });
 
 // GET /api/progress/personal-bests — heaviest set per exercise
 router.get('/personal-bests', async (req, res) => {
   try {
+    // One row per exercise: prefer the weighted set with the best estimated 1RM
+    // (Epley); for exercises only ever done at bodyweight, fall back to most reps.
     const { rows } = await db.query(
       `SELECT DISTINCT ON (we.exercise_id)
          we.exercise_id, e.name AS exercise_name, e.muscle_group,
-         ws.weight_kg AS best_weight, ws.reps, w.date
+         ws.weight_kg AS best_weight, ws.reps, w.date,
+         CASE WHEN ws.weight_kg IS NOT NULL
+           THEN ROUND(ws.weight_kg * (1 + ws.reps::numeric / 30), 1)
+         END AS est_1rm
        FROM workout_sets ws
        JOIN workout_exercises we ON we.id = ws.workout_exercise_id
        JOIN workouts w ON w.id = we.workout_id
        JOIN exercises e ON e.id = we.exercise_id
-       WHERE ws.weight_kg IS NOT NULL AND w.status = 'completed'
-       ORDER BY we.exercise_id, ws.weight_kg DESC, ws.reps DESC`
+       WHERE w.status = 'completed' AND ws.reps IS NOT NULL
+       ORDER BY we.exercise_id,
+         (ws.weight_kg IS NOT NULL) DESC,
+         COALESCE(ws.weight_kg * (1 + ws.reps::numeric / 30), 0) DESC,
+         ws.reps DESC`
     );
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    serverError(res, err);
   }
 });
 
