@@ -45,6 +45,7 @@ export default function ProgramEditor({ initial, onCancel, onSaved }) {
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['active-program'] });
       qc.invalidateQueries({ queryKey: ['programs'] });
+      qc.invalidateQueries({ queryKey: ['program', data.id] });
       onSaved(data);
     },
   });

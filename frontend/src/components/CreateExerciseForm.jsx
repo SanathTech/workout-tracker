@@ -23,7 +23,7 @@ export default function CreateExerciseForm({
     onSuccess: (created) => {
       qc.invalidateQueries({ queryKey: ['exercises'] });
       qc.invalidateQueries({ queryKey: ['exercise-groups'] });
-      onCreated(created);
+      onCreated?.(created);
     },
   });
 
@@ -90,7 +90,7 @@ export default function CreateExerciseForm({
       <button type="button" onClick={submit} disabled={!canSubmit} className="btn-primary w-full justify-center">
         {mutation.isPending ? 'Creating…' : submitLabel}
       </button>
-      <button type="button" onClick={onCancel} className="btn-ghost w-full justify-center">
+      <button type="button" onClick={() => onCancel?.()} className="btn-ghost w-full justify-center">
         Cancel
       </button>
     </div>

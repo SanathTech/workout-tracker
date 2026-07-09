@@ -48,9 +48,16 @@ export default function Program() {
 
   const stillResolving = activeLoading || allLoading;
   const noPrograms = !stillResolving && allPrograms.length === 0;
-  const displayed = selected && active && selected.id === active.id
-    ? { ...selected, progress: active.progress }
-    : (selected || active);
+  // Show the program the user selected. While a newly-selected program is still
+  // loading, show a skeleton rather than falling back to the active program
+  // (which would flash the wrong program). Merge live progress for the active one.
+  const displayed = (() => {
+    if (!viewingId) return active;
+    if (selected) {
+      return active && selected.id === active.id ? { ...selected, progress: active.progress } : selected;
+    }
+    return viewingId === active?.id ? active : undefined;
+  })();
 
   return (
     <div className="space-y-6">
@@ -74,7 +81,7 @@ export default function Program() {
               key={p.id}
               onClick={() => setViewingId(p.id)}
               className={
-                (displayed?.id === p.id)
+                (viewingId === p.id)
                   ? 'badge-solid cursor-pointer'
                   : 'badge cursor-pointer hover:text-neutral-900 dark:hover:text-neutral-100'
               }
