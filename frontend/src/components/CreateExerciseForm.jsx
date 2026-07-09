@@ -54,6 +54,7 @@ export default function CreateExerciseForm({
               <button
                 key={g}
                 type="button"
+                aria-pressed={selected}
                 onClick={() => setGroup(g)}
                 className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
                   selected

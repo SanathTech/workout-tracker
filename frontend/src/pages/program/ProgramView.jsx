@@ -50,21 +50,23 @@ export default function ProgramView({ program, onEdit, onDeleted }) {
           <div className="flex flex-col gap-2 shrink-0">
             <button onClick={onEdit} className="btn-secondary">Edit</button>
             {!isActive && program.status !== 'completed' && (
-              <button onClick={() => startMut.mutate()} className="btn-primary">
+              <button onClick={() => startMut.mutate()} disabled={startMut.isPending} className="btn-primary">
                 {startMut.isPending ? '…' : 'Start program'}
               </button>
             )}
             {isActive && (
               <button
                 onClick={() => { if (confirm('End this program early? It will be archived.')) endMut.mutate(); }}
+                disabled={endMut.isPending}
                 className="btn-secondary"
-              >End</button>
+              >{endMut.isPending ? 'Ending…' : 'End'}</button>
             )}
             {program.status !== 'active' && (
               <button
                 onClick={() => { if (confirm(`Delete "${program.name}"? Any unfinished workout will be discarded. Completed history is kept.`)) deleteMut.mutate(); }}
+                disabled={deleteMut.isPending}
                 className="btn-ghost"
-              >Delete</button>
+              >{deleteMut.isPending ? 'Deleting…' : 'Delete'}</button>
             )}
           </div>
         </div>
