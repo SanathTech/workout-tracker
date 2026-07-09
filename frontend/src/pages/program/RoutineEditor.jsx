@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { CloseIcon } from '../../components/icons';
+import { CloseIcon, ChevronIcon } from '../../components/icons';
 import ExerciseEditor from './ExerciseEditor';
 import { emptyExercise, dashedAddBtn, iconBtn } from './helpers';
 
-export default function RoutineEditor({ routine, allExercises, onChange, onRemove }) {
+export default function RoutineEditor({ routine, allExercises, onChange, onRemove, onMoveUp, onMoveDown }) {
   const [expandedIdx, setExpandedIdx] = useState(() => {
     const i = routine.exercises.findIndex((ex) => !ex.exercise_id);
     return i >= 0 ? i : null;
@@ -42,6 +42,24 @@ export default function RoutineEditor({ routine, allExercises, onChange, onRemov
           placeholder="Routine name (e.g. Upper 1)"
           onChange={(e) => onChange({ ...routine, name: e.target.value })}
         />
+        <button
+          type="button"
+          onClick={onMoveUp}
+          disabled={!onMoveUp}
+          aria-label="Move routine up"
+          className={`${iconBtn} disabled:opacity-30 disabled:hover:text-neutral-400`}
+        >
+          <ChevronIcon open />
+        </button>
+        <button
+          type="button"
+          onClick={onMoveDown}
+          disabled={!onMoveDown}
+          aria-label="Move routine down"
+          className={`${iconBtn} disabled:opacity-30 disabled:hover:text-neutral-400`}
+        >
+          <ChevronIcon />
+        </button>
         <button type="button" onClick={onRemove} aria-label="Remove routine" className={iconBtn}>
           <CloseIcon />
         </button>
