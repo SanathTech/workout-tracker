@@ -31,78 +31,130 @@ async function maybeCompleteProgram(client, programId) {
   }
 }
 
-async function fetchWorkout(client, id) {
-  const wRes = await client.query(
-    `SELECT w.*, p.name AS program_name
-       FROM workouts w
-       LEFT JOIN programs p ON p.id = w.program_id
-      WHERE w.id = $1`,
-    [id]
+// Rewrites a workout's exercise+set tree in two batched statements (a DELETE and
+// a single CTE INSERT) instead of one query per exercise and one per set. This is
+// what the autosave PUT hits on every keystroke, so collapsing the round-trips
+// matters — especially with the DB a region away.
+async function writeWorkoutExercises(client, workoutId, exercises) {
+  // Only an array applies. A non-array (e.g. null) is "not provided" — never wipe
+  // existing rows for it. An empty array is a valid "clear all exercises".
+  if (!Array.isArray(exercises)) return;
+  await client.query('DELETE FROM workout_exercises WHERE workout_id = $1', [workoutId]);
+  if (!exercises.length) return;
+
+  const exPayload = exercises.map((ex, i) => ({
+    idx: i,
+    exercise_id: ex.exercise_id,
+    notes: ex.notes || null,
+  }));
+  const setPayload = [];
+  exercises.forEach((ex, i) => {
+    for (const s of ex.sets || []) {
+      setPayload.push({
+        ex_idx: i,
+        set_number: s.set_number,
+        reps: s.reps ?? null,
+        weight_kg: s.weight_kg ?? null,
+        rir: s.rir ?? null,
+      });
+    }
+  });
+
+  // ins_ex is a data-modifying CTE, so it always inserts every exercise even when
+  // there are no sets to join to; sets attach by matching sort_order to ex_idx.
+  await client.query(
+    `WITH ins_ex AS (
+       INSERT INTO workout_exercises (workout_id, exercise_id, sort_order, notes)
+       SELECT $1, exercise_id, idx, notes
+         FROM jsonb_to_recordset($2::jsonb) AS x(idx int, exercise_id int, notes text)
+       RETURNING id, sort_order
+     )
+     INSERT INTO workout_sets (workout_exercise_id, set_number, reps, weight_kg, rir)
+     SELECT ins_ex.id, s.set_number, s.reps, s.weight_kg, s.rir
+       FROM jsonb_to_recordset($3::jsonb)
+              AS s(ex_idx int, set_number int, reps int, weight_kg numeric, rir int)
+       JOIN ins_ex ON ins_ex.sort_order = s.ex_idx`,
+    [workoutId, JSON.stringify(exPayload), JSON.stringify(setPayload)]
   );
+}
+
+async function fetchWorkout(id) {
+  // The workout row and its exercise rows both key off the id param, so fetch them
+  // together; then sets and routine targets together; then substitutes.
+  const [wRes, exRes] = await Promise.all([
+    db.query(
+      `SELECT w.*, p.name AS program_name
+         FROM workouts w
+         LEFT JOIN programs p ON p.id = w.program_id
+        WHERE w.id = $1`,
+      [id]
+    ),
+    db.query(
+      `SELECT we.*, e.name AS exercise_name, e.muscle_group
+         FROM workout_exercises we
+         JOIN exercises e ON e.id = we.exercise_id
+        WHERE we.workout_id = $1
+        ORDER BY we.sort_order, we.id`,
+      [id]
+    ),
+  ]);
   if (!wRes.rows.length) return null;
+  const workout = wRes.rows[0];
+  const exRows = exRes.rows;
+  const exIds = exRows.map((r) => r.id);
 
-  const exRes = await client.query(
-    `SELECT we.*, e.name AS exercise_name, e.muscle_group
-       FROM workout_exercises we
-       JOIN exercises e ON e.id = we.exercise_id
-      WHERE we.workout_id = $1
-      ORDER BY we.sort_order, we.id`,
-    [id]
-  );
+  const [setRows, targetRows] = await Promise.all([
+    exIds.length
+      ? db.query(
+          `SELECT * FROM workout_sets
+            WHERE workout_exercise_id = ANY($1::int[])
+            ORDER BY workout_exercise_id, set_number`,
+          [exIds]
+        ).then((r) => r.rows)
+      : Promise.resolve([]),
+    workout.routine_id
+      ? db.query(
+          `SELECT id, exercise_id, target_sets, rep_range_low, rep_range_high, target_rir_per_set, rest_seconds, notes
+             FROM routine_exercises
+            WHERE routine_id = $1`,
+          [workout.routine_id]
+        ).then((r) => r.rows)
+      : Promise.resolve([]),
+  ]);
 
-  const exIds = exRes.rows.map((r) => r.id);
-  let setRows = [];
-  if (exIds.length) {
-    const sRes = await client.query(
-      `SELECT * FROM workout_sets
-        WHERE workout_exercise_id = ANY($1::int[])
-        ORDER BY workout_exercise_id, set_number`,
-      [exIds]
-    );
-    setRows = sRes.rows;
-  }
   const setsByEx = {};
   for (const s of setRows) {
     (setsByEx[s.workout_exercise_id] = setsByEx[s.workout_exercise_id] || []).push(s);
   }
 
-  let targetsByEx = {};
-  if (wRes.rows[0].routine_id) {
-    const tRes = await client.query(
-      `SELECT id, exercise_id, target_sets, rep_range_low, rep_range_high, target_rir_per_set, rest_seconds, notes
-         FROM routine_exercises
-        WHERE routine_id = $1`,
-      [wRes.rows[0].routine_id]
+  const targetsByEx = {};
+  for (const t of targetRows) targetsByEx[t.exercise_id] = { ...t, substitutes: [] };
+  const reIds = targetRows.map((r) => r.id);
+  if (reIds.length) {
+    const subRes = await db.query(
+      `SELECT s.routine_exercise_id, s.exercise_id, e.name AS exercise_name, e.muscle_group
+         FROM routine_exercise_subs s
+         JOIN exercises e ON e.id = s.exercise_id
+        WHERE s.routine_exercise_id = ANY($1::int[])
+        ORDER BY s.sort_order, s.id`,
+      [reIds]
     );
-    for (const t of tRes.rows) targetsByEx[t.exercise_id] = { ...t, substitutes: [] };
-
-    const reIds = tRes.rows.map((r) => r.id);
-    if (reIds.length) {
-      const subRes = await client.query(
-        `SELECT s.routine_exercise_id, s.exercise_id, e.name AS exercise_name, e.muscle_group
-           FROM routine_exercise_subs s
-           JOIN exercises e ON e.id = s.exercise_id
-          WHERE s.routine_exercise_id = ANY($1::int[])
-          ORDER BY s.sort_order, s.id`,
-        [reIds]
-      );
-      const reIdToExId = Object.fromEntries(tRes.rows.map((r) => [r.id, r.exercise_id]));
-      for (const s of subRes.rows) {
-        const exId = reIdToExId[s.routine_exercise_id];
-        if (targetsByEx[exId]) {
-          targetsByEx[exId].substitutes.push({
-            exercise_id: s.exercise_id,
-            exercise_name: s.exercise_name,
-            muscle_group: s.muscle_group,
-          });
-        }
+    const reIdToExId = Object.fromEntries(targetRows.map((r) => [r.id, r.exercise_id]));
+    for (const s of subRes.rows) {
+      const exId = reIdToExId[s.routine_exercise_id];
+      if (targetsByEx[exId]) {
+        targetsByEx[exId].substitutes.push({
+          exercise_id: s.exercise_id,
+          exercise_name: s.exercise_name,
+          muscle_group: s.muscle_group,
+        });
       }
     }
   }
 
   return {
-    ...wRes.rows[0],
-    exercises: exRes.rows.map((e) => ({
+    ...workout,
+    exercises: exRows.map((e) => ({
       ...e,
       target: targetsByEx[e.exercise_id] || null,
       sets: (setsByEx[e.id] || []).map((s) => ({
@@ -216,21 +268,19 @@ router.get('/last-by-exercise/:exerciseId', async (req, res) => {
 });
 
 router.get('/:id', async (req, res) => {
-  const client = await db.pool.connect();
   try {
-    const workout = await fetchWorkout(client, req.params.id);
+    const workout = await fetchWorkout(req.params.id);
     if (!workout) return res.status(404).json({ error: 'Workout not found' });
     res.json(workout);
   } catch (err) {
     serverError(res, err);
-  } finally {
-    client.release();
   }
 });
 
 router.post('/', async (req, res) => {
   const { routine_id, program_id, date, notes, exercises } = req.body;
   const client = await db.pool.connect();
+  let workoutId;
   try {
     await client.query('BEGIN');
 
@@ -294,31 +344,21 @@ router.post('/', async (req, res) => {
     );
     const workout = rows[0];
 
-    if (templateExercises && templateExercises.length) {
-      for (let i = 0; i < templateExercises.length; i++) {
-        const ex = templateExercises[i];
-        const weRes = await client.query(
-          'INSERT INTO workout_exercises (workout_id, exercise_id, sort_order, notes) VALUES ($1, $2, $3, $4) RETURNING id',
-          [workout.id, ex.exercise_id, i, ex.notes || null]
-        );
-        const weId = weRes.rows[0].id;
-        for (const s of ex.sets || []) {
-          await client.query(
-            'INSERT INTO workout_sets (workout_exercise_id, set_number, reps, weight_kg, rir) VALUES ($1, $2, $3, $4, $5)',
-            [weId, s.set_number, s.reps ?? null, s.weight_kg ?? null, s.rir ?? null]
-          );
-        }
-      }
-    }
+    await writeWorkoutExercises(client, workout.id, templateExercises);
 
     await client.query('COMMIT');
-    const full = await fetchWorkout(client, workout.id);
-    res.status(201).json(full);
+    workoutId = workout.id;
   } catch (err) {
-    await client.query('ROLLBACK');
-    serverError(res, err);
+    await client.query('ROLLBACK').catch(() => {});
+    return serverError(res, err);
   } finally {
     client.release();
+  }
+  try {
+    const full = await fetchWorkout(workoutId);
+    res.status(201).json(full);
+  } catch (err) {
+    serverError(res, err);
   }
 });
 
@@ -341,31 +381,21 @@ router.put('/:id', async (req, res) => {
     }
 
     if (exercises !== undefined) {
-      await client.query('DELETE FROM workout_exercises WHERE workout_id = $1', [req.params.id]);
-      for (let i = 0; i < exercises.length; i++) {
-        const ex = exercises[i];
-        const weRes = await client.query(
-          'INSERT INTO workout_exercises (workout_id, exercise_id, sort_order, notes) VALUES ($1, $2, $3, $4) RETURNING id',
-          [req.params.id, ex.exercise_id, i, ex.notes || null]
-        );
-        const weId = weRes.rows[0].id;
-        for (const s of ex.sets || []) {
-          await client.query(
-            'INSERT INTO workout_sets (workout_exercise_id, set_number, reps, weight_kg, rir) VALUES ($1, $2, $3, $4, $5)',
-            [weId, s.set_number, s.reps ?? null, s.weight_kg ?? null, s.rir ?? null]
-          );
-        }
-      }
+      await writeWorkoutExercises(client, req.params.id, exercises);
     }
 
     await client.query('COMMIT');
-    const full = await fetchWorkout(client, req.params.id);
-    res.json(full);
   } catch (err) {
-    await client.query('ROLLBACK');
-    serverError(res, err);
+    await client.query('ROLLBACK').catch(() => {});
+    return serverError(res, err);
   } finally {
     client.release();
+  }
+  try {
+    const full = await fetchWorkout(req.params.id);
+    res.json(full);
+  } catch (err) {
+    serverError(res, err);
   }
 });
 

@@ -70,53 +70,86 @@ async function fetchProgramTree(client, programId) {
 
 async function writeRoutines(client, programId, routines) {
   // Wipes and rewrites the routine tree for this program. Used by POST and PUT.
+  // Each of the three levels (routines → exercises → substitutes) is written in a
+  // single batched INSERT rather than a query per row, so saving a full program is
+  // a handful of round-trips instead of dozens.
   await client.query('DELETE FROM routines WHERE program_id = $1', [programId]);
   if (!routines || !routines.length) return;
 
-  for (let i = 0; i < routines.length; i++) {
-    const r = routines[i];
-    const { rows } = await client.query(
-      'INSERT INTO routines (program_id, name, sort_order) VALUES ($1, $2, $3) RETURNING id',
-      [programId, r.name, i]
-    );
-    const routineId = rows[0].id;
+  // 1) Routines.
+  const routinePayload = routines.map((r, i) => ({ idx: i, name: r.name }));
+  const rRes = await client.query(
+    `INSERT INTO routines (program_id, name, sort_order)
+     SELECT $1, name, idx FROM jsonb_to_recordset($2::jsonb) AS x(idx int, name text)
+     RETURNING id, sort_order`,
+    [programId, JSON.stringify(routinePayload)]
+  );
+  const routineIdByIdx = {};
+  for (const row of rRes.rows) routineIdByIdx[row.sort_order] = row.id;
 
-    const exs = r.exercises || [];
-    for (let j = 0; j < exs.length; j++) {
-      const ex = exs[j];
+  // 2) Exercises across all routines, flattened. sort_order carries the per-routine
+  //    index so substitutes can be reattached by (routine_id, sort_order).
+  const rePayload = [];
+  routines.forEach((r, ri) => {
+    (r.exercises || []).forEach((ex, ei) => {
       const targetSets = ex.target_sets ?? 3;
       const rirArr = Array.isArray(ex.target_rir_per_set) ? ex.target_rir_per_set : [];
-      const normalizedRir = Array.from({ length: targetSets }, (_, i) => {
-        const n = Number(rirArr[i]);
+      const normalizedRir = Array.from({ length: targetSets }, (_, k) => {
+        const n = Number(rirArr[k]);
         return Number.isFinite(n) ? n : null;
       });
-      const reRes = await client.query(
-        `INSERT INTO routine_exercises
-          (routine_id, exercise_id, sort_order, target_sets, rep_range_low, rep_range_high, target_rir_per_set, rest_seconds, notes)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
-        [
-          routineId,
-          ex.exercise_id,
-          j,
-          targetSets,
-          ex.rep_range_low ?? null,
-          ex.rep_range_high ?? null,
-          normalizedRir,
-          ex.rest_seconds ?? null,
-          ex.notes ?? null,
-        ]
-      );
-      const reId = reRes.rows[0].id;
+      rePayload.push({
+        routine_id: routineIdByIdx[ri],
+        sort_order: ei,
+        exercise_id: ex.exercise_id,
+        target_sets: targetSets,
+        rep_range_low: ex.rep_range_low ?? null,
+        rep_range_high: ex.rep_range_high ?? null,
+        target_rir_per_set: normalizedRir,
+        rest_seconds: ex.rest_seconds ?? null,
+        notes: ex.notes ?? null,
+      });
+    });
+  });
+  if (!rePayload.length) return;
 
-      const subs = ex.substitutes || [];
-      for (let k = 0; k < subs.length; k++) {
-        const subExId = typeof subs[k] === 'object' ? subs[k].exercise_id : subs[k];
-        await client.query(
-          'INSERT INTO routine_exercise_subs (routine_exercise_id, exercise_id, sort_order) VALUES ($1, $2, $3)',
-          [reId, subExId, k]
-        );
-      }
-    }
+  const reRes = await client.query(
+    `INSERT INTO routine_exercises
+       (routine_id, exercise_id, sort_order, target_sets, rep_range_low, rep_range_high, target_rir_per_set, rest_seconds, notes)
+     SELECT x.routine_id, x.exercise_id, x.sort_order, x.target_sets, x.rep_range_low, x.rep_range_high,
+            COALESCE((
+              SELECT array_agg(elem::int ORDER BY ord)
+                FROM jsonb_array_elements_text(x.target_rir_per_set) WITH ORDINALITY AS a(elem, ord)
+            ), ARRAY[]::int[]),
+            x.rest_seconds, x.notes
+       FROM jsonb_to_recordset($1::jsonb) AS x(
+         routine_id int, exercise_id int, sort_order int, target_sets int,
+         rep_range_low int, rep_range_high int, target_rir_per_set jsonb,
+         rest_seconds int, notes text)
+     RETURNING id, routine_id, sort_order`,
+    [JSON.stringify(rePayload)]
+  );
+  const reIdByKey = {};
+  for (const row of reRes.rows) reIdByKey[`${row.routine_id}:${row.sort_order}`] = row.id;
+
+  // 3) Preset substitutes.
+  const subPayload = [];
+  routines.forEach((r, ri) => {
+    (r.exercises || []).forEach((ex, ei) => {
+      const reId = reIdByKey[`${routineIdByIdx[ri]}:${ei}`];
+      (ex.substitutes || []).forEach((sub, si) => {
+        const subExId = typeof sub === 'object' ? sub.exercise_id : sub;
+        subPayload.push({ routine_exercise_id: reId, exercise_id: subExId, sort_order: si });
+      });
+    });
+  });
+  if (subPayload.length) {
+    await client.query(
+      `INSERT INTO routine_exercise_subs (routine_exercise_id, exercise_id, sort_order)
+       SELECT routine_exercise_id, exercise_id, sort_order
+         FROM jsonb_to_recordset($1::jsonb) AS x(routine_exercise_id int, exercise_id int, sort_order int)`,
+      [JSON.stringify(subPayload)]
+    );
   }
 }
 
