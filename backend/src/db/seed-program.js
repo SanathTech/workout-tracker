@@ -85,9 +85,34 @@ const EXERCISES = {
   'Lying Leg Raise': ['Core', 'Lie on your back and raise the legs to 90 degrees.'],
 };
 
-// The three sessions. rir arrays are per working set; "2 → 1" main-lift targets
-// ramp across sets, single/near-failure targets repeat. rest is in seconds.
+// The three sessions, in training-cycle order (Mon Day C → Tue Day A → Thu Day B).
+// The app is sequence-driven, so this order is what "next workout" cycles through.
+// rir arrays are per working set; "2 → 1" main-lift targets ramp across sets,
+// single/near-failure targets repeat. rest is in seconds.
 const SESSIONS = [
+  {
+    name: 'Day C — Overhead / Upper',
+    exercises: [
+      { name: 'Barbell Overhead Press', sets: 3, repLow: 4, repHigh: 6, rir: [2, 2, 1], rest: 180,
+        subs: ['Seated DB Shoulder Press', 'Machine Shoulder Press'],
+        notes: 'Main vertical press. Brace, press in a straight line past the forehead.' },
+      { name: 'Weighted Pull-Up', sets: 3, repLow: 6, repHigh: 10, rir: [1, 1, 1], rest: 150,
+        subs: ['Lat Pulldown', 'Neutral-Grip Pull-Up'],
+        notes: '2nd vertical-pull exposure of the week (weighted pull-up or lat pulldown). Full ROM.' },
+      { name: 'Flat DB Press', sets: 2, repLow: 8, repHigh: 12, rir: [1, 1], rest: 120,
+        subs: ['Machine Chest Press', 'Bench Press'],
+        notes: 'Flat or incline — 2nd press exposure, chase reps here.' },
+      { name: 'Lying Leg Curl', sets: 3, repLow: 8, repHigh: 12, rir: [1, 1, 1], rest: 90,
+        subs: ['Seated Leg Curl', 'Nordic Ham Curl'],
+        notes: 'Hamstring health for runners; balances the RDL. Big stretch at the bottom.' },
+      { name: 'EZ-Bar Curl', sets: 2, repLow: 8, repHigh: 12, rir: [1, 1], rest: 60,
+        subs: ['DB Curl', 'Cable Curl'],
+        notes: 'Keep some direct arm work. Target 0–1 RIR.' },
+      { name: 'Triceps Pressdown', sets: 2, repLow: 10, repHigh: 15, rir: [1, 1], rest: 60,
+        subs: ['Overhead Cable Extension', 'Close-Grip Dip'],
+        notes: 'Rope or bar, whichever feels better. Target 0–1 RIR.' },
+    ],
+  },
   {
     name: 'Day A — Squat / Push',
     exercises: [
@@ -132,29 +157,6 @@ const SESSIONS = [
       { name: 'Face Pull', sets: 2, repLow: 15, repHigh: 20, rir: [1, 1], rest: 60,
         subs: ['Reverse Pec Deck', 'Band Pull-Apart'],
         notes: 'Optional. Shoulder health — worth keeping given swim volume.' },
-    ],
-  },
-  {
-    name: 'Day C — Overhead / Upper',
-    exercises: [
-      { name: 'Barbell Overhead Press', sets: 3, repLow: 4, repHigh: 6, rir: [2, 2, 1], rest: 180,
-        subs: ['Seated DB Shoulder Press', 'Machine Shoulder Press'],
-        notes: 'Main vertical press. Brace, press in a straight line past the forehead.' },
-      { name: 'Weighted Pull-Up', sets: 3, repLow: 6, repHigh: 10, rir: [1, 1, 1], rest: 150,
-        subs: ['Lat Pulldown', 'Neutral-Grip Pull-Up'],
-        notes: '2nd vertical-pull exposure of the week (weighted pull-up or lat pulldown). Full ROM.' },
-      { name: 'Flat DB Press', sets: 2, repLow: 8, repHigh: 12, rir: [1, 1], rest: 120,
-        subs: ['Machine Chest Press', 'Bench Press'],
-        notes: 'Flat or incline — 2nd press exposure, chase reps here.' },
-      { name: 'Lying Leg Curl', sets: 3, repLow: 8, repHigh: 12, rir: [1, 1, 1], rest: 90,
-        subs: ['Seated Leg Curl', 'Nordic Ham Curl'],
-        notes: 'Hamstring health for runners; balances the RDL. Big stretch at the bottom.' },
-      { name: 'EZ-Bar Curl', sets: 2, repLow: 8, repHigh: 12, rir: [1, 1], rest: 60,
-        subs: ['DB Curl', 'Cable Curl'],
-        notes: 'Keep some direct arm work. Target 0–1 RIR.' },
-      { name: 'Triceps Pressdown', sets: 2, repLow: 10, repHigh: 15, rir: [1, 1], rest: 60,
-        subs: ['Overhead Cable Extension', 'Close-Grip Dip'],
-        notes: 'Rope or bar, whichever feels better. Target 0–1 RIR.' },
     ],
   },
 ];
