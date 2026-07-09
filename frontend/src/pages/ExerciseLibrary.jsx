@@ -1,61 +1,18 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getExercises, getExerciseGroups, createExercise, deleteExercise } from '../api/client';
+import { getExercises, getExerciseGroups, deleteExercise } from '../api/client';
 import { Skeleton } from '../components/Skeleton';
+import CreateExerciseForm from '../components/CreateExerciseForm';
 
 function AddExerciseModal({ onClose }) {
-  const qc = useQueryClient();
-  const [name, setName] = useState('');
-  const [muscle_group, setMuscleGroup] = useState('');
-  const [description, setDescription] = useState('');
-
-  const { data: groups = [] } = useQuery({ queryKey: ['exercise-groups'], queryFn: getExerciseGroups });
-
-  const { mutate: save, isPending } = useMutation({
-    mutationFn: createExercise,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['exercises'] });
-      onClose();
-    },
-  });
-
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 w-full max-w-md p-6 space-y-4">
-        <div className="flex items-center justify-between">
+      <div className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 w-full max-w-md">
+        <div className="flex items-center justify-between px-4 pt-4">
           <h2 className="font-semibold">Add exercise</h2>
-          <button onClick={onClose} className="btn-ghost px-2">×</button>
+          <button onClick={onClose} className="btn-ghost px-2" aria-label="Close">×</button>
         </div>
-        <div>
-          <label className="label">Exercise name</label>
-          <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Cable Fly" required />
-        </div>
-        <div>
-          <label className="label">Muscle group</label>
-          <div className="flex gap-2">
-            <select className="input flex-1" value={muscle_group} onChange={(e) => setMuscleGroup(e.target.value)}>
-              <option value="">Select…</option>
-              {groups.map((g) => <option key={g} value={g}>{g}</option>)}
-            </select>
-            <input className="input flex-1" placeholder="Or new…" value={muscle_group}
-              onChange={(e) => setMuscleGroup(e.target.value)} />
-          </div>
-        </div>
-        <div>
-          <label className="label">Description</label>
-          <textarea className="input resize-none" rows={3} value={description}
-            onChange={(e) => setDescription(e.target.value)} placeholder="Optional" />
-        </div>
-        <div className="flex gap-2 pt-2">
-          <button onClick={onClose} className="btn-secondary flex-1 justify-center">Cancel</button>
-          <button
-            disabled={!name || !muscle_group || isPending}
-            onClick={() => save({ name, muscle_group, description })}
-            className="btn-primary flex-1 justify-center"
-          >
-            {isPending ? 'Saving…' : 'Add'}
-          </button>
-        </div>
+        <CreateExerciseForm showDescription submitLabel="Add" onCancel={onClose} onCreated={onClose} />
       </div>
     </div>
   );
