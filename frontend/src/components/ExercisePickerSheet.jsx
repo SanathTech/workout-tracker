@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getExercises, createExercise } from '../api/client';
+import { useQuery } from '@tanstack/react-query';
+import { getExercises } from '../api/client';
 import { CloseIcon } from './icons';
-
-const MUSCLE_GROUPS = ['Chest', 'Back', 'Shoulders', 'Legs', 'Arms', 'Core'];
+import CreateExerciseForm from './CreateExerciseForm';
 
 function groupByMuscle(exercises) {
   return exercises.reduce((acc, ex) => {
@@ -26,79 +25,6 @@ function PlusIcon({ size = 16 }) {
       <line x1="12" y1="5" x2="12" y2="19" strokeLinecap="round" />
       <line x1="5" y1="12" x2="19" y2="12" strokeLinecap="round" />
     </svg>
-  );
-}
-
-function CreateExerciseForm({ initialName, onCancel, onCreated }) {
-  const qc = useQueryClient();
-  const [name, setName] = useState(initialName || '');
-  const [group, setGroup] = useState('');
-
-  const mutation = useMutation({
-    mutationFn: () => createExercise({ name: name.trim(), muscle_group: group }),
-    onSuccess: (created) => {
-      qc.invalidateQueries({ queryKey: ['exercises'] });
-      qc.invalidateQueries({ queryKey: ['exercise-groups'] });
-      onCreated(created);
-    },
-  });
-
-  const canSubmit = name.trim().length > 0 && group && !mutation.isPending;
-  const submit = () => { if (canSubmit) mutation.mutate(); };
-
-  return (
-    <div className="flex-1 overflow-y-auto overscroll-contain">
-      <div className="p-4 space-y-4">
-        <div>
-          <label className="label">Name</label>
-          <input
-            autoFocus
-            type="text"
-            className="input"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submit(); } }}
-            placeholder="e.g. Bulgarian Split Squat"
-          />
-        </div>
-
-        <div>
-          <label className="label">Muscle group</label>
-          <div className="flex flex-wrap gap-2">
-            {MUSCLE_GROUPS.map((g) => {
-              const selected = group === g;
-              return (
-                <button
-                  key={g}
-                  type="button"
-                  onClick={() => setGroup(g)}
-                  className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
-                    selected
-                      ? 'bg-neutral-900 text-white border-neutral-900 dark:bg-neutral-200 dark:text-neutral-900 dark:border-neutral-200'
-                      : 'bg-transparent text-neutral-700 dark:text-neutral-300 border-neutral-200 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-900'
-                  }`}
-                >
-                  {g}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {mutation.isError && (
-          <p className="text-sm text-red-600 dark:text-red-400">
-            {mutation.error?.response?.data?.error || 'Could not create exercise.'}
-          </p>
-        )}
-
-        <button type="button" onClick={submit} disabled={!canSubmit} className="btn-primary w-full justify-center">
-          {mutation.isPending ? 'Creating…' : 'Save & pick'}
-        </button>
-        <button type="button" onClick={onCancel} className="btn-ghost w-full justify-center">
-          Cancel
-        </button>
-      </div>
-    </div>
   );
 }
 
@@ -203,11 +129,13 @@ export default function ExercisePickerSheet({
         </div>
 
         {inCreate ? (
-          <CreateExerciseForm
-            initialName={createPrefill}
-            onCancel={() => setMode('list')}
-            onCreated={handleCreated}
-          />
+          <div className="flex-1 overflow-y-auto overscroll-contain">
+            <CreateExerciseForm
+              initialName={createPrefill}
+              onCancel={() => setMode('list')}
+              onCreated={handleCreated}
+            />
+          </div>
         ) : (
           <>
             {/* Search */}
