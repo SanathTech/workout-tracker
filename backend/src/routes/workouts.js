@@ -36,8 +36,11 @@ async function maybeCompleteProgram(client, programId) {
 // what the autosave PUT hits on every keystroke, so collapsing the round-trips
 // matters — especially with the DB a region away.
 async function writeWorkoutExercises(client, workoutId, exercises) {
+  // Only an array applies. A non-array (e.g. null) is "not provided" — never wipe
+  // existing rows for it. An empty array is a valid "clear all exercises".
+  if (!Array.isArray(exercises)) return;
   await client.query('DELETE FROM workout_exercises WHERE workout_id = $1', [workoutId]);
-  if (!exercises || !exercises.length) return;
+  if (!exercises.length) return;
 
   const exPayload = exercises.map((ex, i) => ({
     idx: i,
@@ -351,8 +354,12 @@ router.post('/', async (req, res) => {
   } finally {
     client.release();
   }
-  const full = await fetchWorkout(workoutId);
-  res.status(201).json(full);
+  try {
+    const full = await fetchWorkout(workoutId);
+    res.status(201).json(full);
+  } catch (err) {
+    serverError(res, err);
+  }
 });
 
 router.put('/:id', async (req, res) => {
@@ -384,8 +391,12 @@ router.put('/:id', async (req, res) => {
   } finally {
     client.release();
   }
-  const full = await fetchWorkout(req.params.id);
-  res.json(full);
+  try {
+    const full = await fetchWorkout(req.params.id);
+    res.json(full);
+  } catch (err) {
+    serverError(res, err);
+  }
 });
 
 router.post('/:id/complete', async (req, res) => {
