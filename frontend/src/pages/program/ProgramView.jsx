@@ -39,13 +39,13 @@ export default function ProgramView({ program, onEdit, onDeleted }) {
   const nextRoutine = isActive ? program.progress?.next_routine : null;
 
   // Collapse routines by default so the page stays scannable on mobile; open the
-  // one that's up next (or the first, when nothing is queued). Reset per program.
+  // one that's up next (or the first, when nothing is queued). Follows the next
+  // routine as it advances so the open card stays aligned with the "Next" badge.
+  const defaultOpenId = nextRoutine?.id ?? program.routines[0]?.id;
   const [openRoutines, setOpenRoutines] = useState(() => new Set());
   useEffect(() => {
-    const defaultOpen = nextRoutine?.id ?? program.routines[0]?.id;
-    setOpenRoutines(defaultOpen != null ? new Set([defaultOpen]) : new Set());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [program.id]);
+    setOpenRoutines(defaultOpenId != null ? new Set([defaultOpenId]) : new Set());
+  }, [defaultOpenId]);
   const toggleRoutine = (id) => setOpenRoutines((prev) => {
     const next = new Set(prev);
     if (next.has(id)) next.delete(id); else next.add(id);
@@ -152,10 +152,12 @@ function ClampedDescription({ text }) {
   const [overflows, setOverflows] = useState(false);
   const ref = useRef(null);
 
+  useEffect(() => { setExpanded(false); }, [text]);
   useEffect(() => {
+    if (expanded) return; // only measure while clamped, or scrollHeight === clientHeight
     const el = ref.current;
     if (el) setOverflows(el.scrollHeight > el.clientHeight + 1);
-  }, [text]);
+  }, [text, expanded]);
 
   return (
     <div>
