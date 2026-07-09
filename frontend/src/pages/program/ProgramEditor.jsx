@@ -40,6 +40,14 @@ export default function ProgramEditor({ initial, onCancel, onSaved }) {
 
   const { data: allExercises = [] } = useQuery({ queryKey: ['exercises'], queryFn: getExercises });
 
+  const moveRoutine = (i, dir) => {
+    const j = i + dir;
+    if (j < 0 || j >= routines.length) return;
+    const next = [...routines];
+    [next[i], next[j]] = [next[j], next[i]];
+    setRoutines(next);
+  };
+
   const save = useMutation({
     mutationFn: (payload) => initial?.id ? updateProgram(initial.id, payload) : createProgram(payload),
     onSuccess: (data) => {
@@ -121,6 +129,8 @@ export default function ProgramEditor({ initial, onCancel, onSaved }) {
             allExercises={allExercises}
             onChange={(u) => setRoutines(routines.map((x, j) => j === i ? u : x))}
             onRemove={() => setRoutines(routines.filter((_, j) => j !== i))}
+            onMoveUp={i > 0 ? () => moveRoutine(i, -1) : undefined}
+            onMoveDown={i < routines.length - 1 ? () => moveRoutine(i, 1) : undefined}
           />
         ))}
         <button
