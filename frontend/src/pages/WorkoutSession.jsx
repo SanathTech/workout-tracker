@@ -61,6 +61,8 @@ function SetRow({ set, previousSet, targetRir, onChange, onRemove }) {
 
 function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove }) {
   const [showNote, setShowNote] = useState(false);
+  // Collapse the note when the exercise is swapped for a different one.
+  useEffect(() => { setShowNote(false); }, [block.exercise_id]);
   const { data: previous } = useQuery({
     queryKey: ['last-by-exercise', block.exercise_id, workoutId],
     queryFn: () => getLastByExercise(block.exercise_id, { exclude: workoutId }),
@@ -225,6 +227,7 @@ export default function WorkoutSession() {
   useEffect(() => {
     if (!workout || (!isFetchedAfterMount && !isError) || hydrated) return;
     const rows = workout.exercises.map((e) => ({
+      client_id: crypto.randomUUID(),
       exercise_id: e.exercise_id,
       exercise_name: e.exercise_name,
       muscle_group: e.muscle_group,
@@ -322,6 +325,7 @@ export default function WorkoutSession() {
       ));
     } else if (picker?.mode === 'add') {
       setExercises((prev) => [...prev, {
+        client_id: crypto.randomUUID(),
         exercise_id: ex.id,
         exercise_name: ex.name,
         muscle_group: ex.muscle_group,
@@ -365,7 +369,7 @@ export default function WorkoutSession() {
       <div className="space-y-3">
         {exercises.map((ex, i) => (
           <ExerciseBlock
-            key={i}
+            key={ex.client_id}
             block={ex}
             workoutId={id}
             onOpenPicker={() => setPicker({ mode: 'replace', forIndex: i })}
