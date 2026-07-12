@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { getWorkout, updateWorkout, completeWorkout, getLastByExercise } from '../api/client';
 import { Skeleton } from '../components/Skeleton';
 import ExercisePickerSheet from '../components/ExercisePickerSheet';
-import { CloseIcon, ChevronIcon } from '../components/icons';
+import { CloseIcon, ChevronIcon, InfoIcon } from '../components/icons';
 import { formatRest } from '../utils/format';
 
 function TargetChip({ children }) {
@@ -60,6 +60,7 @@ function SetRow({ set, previousSet, targetRir, onChange, onRemove }) {
 }
 
 function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove }) {
+  const [showNote, setShowNote] = useState(false);
   const { data: previous } = useQuery({
     queryKey: ['last-by-exercise', block.exercise_id, workoutId],
     queryFn: () => getLastByExercise(block.exercise_id, { exclude: workoutId }),
@@ -102,13 +103,26 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove }) {
             <ChevronIcon open={false} />
           </span>
         </button>
-        <button
-          onClick={onRemove}
-          aria-label="Remove exercise"
-          className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 p-1 shrink-0"
-        >
-          <CloseIcon />
-        </button>
+        <div className="flex items-center gap-1 shrink-0">
+          {target?.notes && (
+            <button
+              type="button"
+              onClick={() => setShowNote((v) => !v)}
+              aria-label={showNote ? 'Hide exercise notes' : 'Show exercise notes'}
+              aria-expanded={showNote}
+              className={`p-1 transition-colors ${showNote ? 'text-neutral-900 dark:text-neutral-200' : 'text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'}`}
+            >
+              <InfoIcon />
+            </button>
+          )}
+          <button
+            onClick={onRemove}
+            aria-label="Remove exercise"
+            className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 p-1"
+          >
+            <CloseIcon />
+          </button>
+        </div>
       </div>
 
       {target && (
@@ -117,6 +131,12 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove }) {
           {repRange && <TargetChip>{repRange} reps</TargetChip>}
           {target.rest_seconds != null && <TargetChip>{formatRest(target.rest_seconds)} rest</TargetChip>}
         </div>
+      )}
+
+      {target?.notes && showNote && (
+        <p className="text-xs text-neutral-600 dark:text-neutral-400 bg-neutral-50 dark:bg-neutral-900 rounded p-2 border border-neutral-200 dark:border-neutral-800 whitespace-pre-line">
+          {target.notes}
+        </p>
       )}
 
       {block.notes && (
