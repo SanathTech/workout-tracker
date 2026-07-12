@@ -207,18 +207,26 @@ function serializePayload(exercises, notes) {
     notes: notes || null,
     exercises: exercises
       .filter((ex) => ex.exercise_id)
-      .map((ex) => ({
-        exercise_id: ex.exercise_id,
-        notes: ex.notes || null,
-        sets: ex.sets
-          .map((s) => ({
-            set_number: s.set_number,
-            reps: toInt(s.reps),
-            weight_kg: toFloat(s.weight_kg),
-            rir: toInt(s.rir),
-          }))
-          .filter((s) => s.reps !== null || s.weight_kg !== null || s.rir !== null),
-      })),
+      .map((ex) => {
+        const targetRir = Array.isArray(ex.target?.target_rir_per_set) ? ex.target.target_rir_per_set : [];
+        return {
+          exercise_id: ex.exercise_id,
+          notes: ex.notes || null,
+          sets: ex.sets
+            .map((s, i) => {
+              const reps = toInt(s.reps);
+              const weight_kg = toFloat(s.weight_kg);
+              const enteredRir = toInt(s.rir);
+              const logged = reps !== null || weight_kg !== null || enteredRir !== null;
+              // A blank RIR on a set you've actually logged records the routine's
+              // target RIR for that set position; fully-empty sets stay dropped.
+              const rir = enteredRir !== null ? enteredRir : (logged ? (targetRir[i] ?? null) : null);
+              return { set_number: s.set_number, reps, weight_kg, rir, logged };
+            })
+            .filter((s) => s.logged)
+            .map(({ logged, ...s }) => s),
+        };
+      }),
   };
 }
 
@@ -238,13 +246,24 @@ export default function WorkoutSession() {
   const [exercises, setExercises] = useState([]);
   const [notes, setNotes] = useState('');
   const [picker, setPicker] = useState(null); // { mode: 'replace' | 'add', forIndex?: number }
-  const [autosave, setAutosave] = useState('idle'); // idle | saving | saved | error
+  const [autosave, setAutosave] = useState('idle'); // idle | unsaved | saving | saved | error
   const [hydrated, setHydrated] = useState(false);
   const lastSavedRef = useRef(null);   // JSON of the last payload the server confirmed
   const pendingRef = useRef(null);     // JSON of the latest payload wanting to be saved
   const flushingRef = useRef(null);    // in-flight flush promise, or null
+  const retryRef = useRef(null);       // pending auto-retry timeout, or null
+  const flushRef = useRef(null);       // latest flush(), for the retry timer to call
   const mountedRef = useRef(true);
-  useEffect(() => () => { mountedRef.current = false; }, []);
+  useEffect(() => {
+    // Set on mount too, not just the ref initializer — otherwise a remount (React
+    // StrictMode, or any re-mount) leaves it false and silently freezes the save
+    // status, so a later failed save never surfaces as an error.
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      if (retryRef.current) { clearTimeout(retryRef.current); retryRef.current = null; }
+    };
+  }, []);
   const setAutosaveIfMounted = useCallback((v) => { if (mountedRef.current) setAutosave(v); }, []);
 
   // Hydrate local state once from the fresh mount-fetch. If that fetch errored but
@@ -273,6 +292,7 @@ export default function WorkoutSession() {
   // callers can await the single in-flight run.
   const flush = useCallback(() => {
     if (flushingRef.current) return flushingRef.current;
+    if (retryRef.current) { clearTimeout(retryRef.current); retryRef.current = null; }
     const run = (async () => {
       try {
         while (pendingRef.current && pendingRef.current !== lastSavedRef.current) {
@@ -280,14 +300,20 @@ export default function WorkoutSession() {
           setAutosaveIfMounted('saving');
           try {
             const updated = await updateWorkout(id, JSON.parse(snapshot));
-            qc.setQueryData(['workout', id], updated); // keep the persisted cache in sync for reloads
+            qc.setQueryData(['workout', id], updated); // keep the in-memory cache in sync
             lastSavedRef.current = snapshot;
-            setAutosaveIfMounted('saved');
           } catch {
             setAutosaveIfMounted('error');
-            break; // leave pending unsaved; a later edit or Finish retries
+            // Auto-retry so a transient failure heals itself instead of silently
+            // leaving data unsaved until the next manual edit.
+            if (mountedRef.current && !retryRef.current) {
+              retryRef.current = setTimeout(() => { retryRef.current = null; flushRef.current?.(); }, 3000);
+            }
+            return; // stop this run; the retry (or a new edit/Finish) will resume
           }
         }
+        // Only report "saved" once the server truly has the latest payload.
+        if (pendingRef.current === lastSavedRef.current) setAutosaveIfMounted('saved');
       } finally {
         flushingRef.current = null;
       }
@@ -295,15 +321,31 @@ export default function WorkoutSession() {
     flushingRef.current = run;
     return run;
   }, [id, qc, setAutosaveIfMounted]);
+  flushRef.current = flush;
 
-  // Debounced autosave: record the latest payload, then flush after a pause.
+  // Debounced autosave: record the latest payload, mark it unsaved right away so the
+  // status is honest during the debounce window, then flush after a pause.
   useEffect(() => {
     if (!hydrated) return;
     pendingRef.current = JSON.stringify(serializePayload(exercises, notes));
     if (pendingRef.current === lastSavedRef.current) return;
+    if (autosave !== 'saving') setAutosaveIfMounted('unsaved');
     const t = setTimeout(flush, 1200);
     return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exercises, notes, hydrated, flush]);
+
+  // Guard against losing unsaved edits to a refresh or accidental navigation.
+  useEffect(() => {
+    const handler = (e) => {
+      if (pendingRef.current && pendingRef.current !== lastSavedRef.current) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, []);
 
   const saveNow = useCallback(() => {
     pendingRef.current = JSON.stringify(serializePayload(exercises, notes));
@@ -386,8 +428,15 @@ export default function WorkoutSession() {
           {new Date(workout.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
         </p>
         {autosave !== 'idle' && (
-          <p className={`text-xs mt-0.5 ${autosave === 'error' ? 'text-red-600 dark:text-red-400' : 'text-neutral-400 dark:text-neutral-500'}`}>
-            {autosave === 'saving' ? 'Saving…' : autosave === 'saved' ? 'All changes saved' : 'Autosave failed — tap Save now'}
+          <p className={`text-xs mt-0.5 ${
+            autosave === 'error' ? 'text-red-600 dark:text-red-400'
+              : autosave === 'unsaved' ? 'text-amber-600 dark:text-amber-500'
+              : 'text-neutral-400 dark:text-neutral-500'
+          }`}>
+            {autosave === 'saving' ? 'Saving…'
+              : autosave === 'saved' ? 'All changes saved'
+              : autosave === 'unsaved' ? 'Unsaved changes…'
+              : 'Couldn’t save — retrying…'}
           </p>
         )}
       </div>

@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-import { QueryClient } from '@tanstack/react-query';
+import { QueryClient, defaultShouldDehydrateQuery } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister';
 import App from './App';
@@ -35,7 +35,17 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <PersistQueryClientProvider
       client={queryClient}
-      persistOptions={{ persister, maxAge: 24 * 60 * 60_000 }}
+      persistOptions={{
+        persister,
+        maxAge: 24 * 60 * 60_000,
+        // Never persist the in-progress workout. It's edited live and kept on the
+        // server by autosave, so a reload must fetch it fresh — persisting it risks
+        // hydrating stale/partial data over real logged sets.
+        dehydrateOptions: {
+          shouldDehydrateQuery: (query) =>
+            defaultShouldDehydrateQuery(query) && query.queryKey[0] !== 'workout',
+        },
+      }}
     >
       <BrowserRouter>
         <App />
