@@ -114,7 +114,7 @@ async function fetchWorkout(id) {
       : Promise.resolve([]),
     workout.routine_id
       ? db.query(
-          `SELECT id, exercise_id, target_sets, rep_range_low, rep_range_high, target_rir_per_set, rest_seconds, notes
+          `SELECT id, exercise_id, target_sets, rep_range_low, rep_range_high, target_rir_per_set, rest_seconds, notes, warmup_sets_low, warmup_sets_high
              FROM routine_exercises
             WHERE routine_id = $1`,
           [workout.routine_id]

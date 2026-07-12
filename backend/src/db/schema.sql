@@ -53,7 +53,9 @@ CREATE TABLE routine_exercises (
   rep_range_high INTEGER,
   target_rir_per_set INTEGER[] NOT NULL DEFAULT '{}',
   rest_seconds INTEGER,
-  notes TEXT
+  notes TEXT,
+  warmup_sets_low INTEGER,
+  warmup_sets_high INTEGER
 );
 
 CREATE INDEX idx_routine_exercises_routine ON routine_exercises(routine_id);

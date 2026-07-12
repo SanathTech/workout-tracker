@@ -13,6 +13,8 @@ BEGIN;
   ALTER TABLE routine_exercises ADD COLUMN IF NOT EXISTS target_rir_per_set INTEGER[] NOT NULL DEFAULT '{}';
   ALTER TABLE routine_exercises ADD COLUMN IF NOT EXISTS rest_seconds INTEGER;
   ALTER TABLE routine_exercises ADD COLUMN IF NOT EXISTS notes TEXT;
+  ALTER TABLE routine_exercises ADD COLUMN IF NOT EXISTS warmup_sets_low INTEGER;
+  ALTER TABLE routine_exercises ADD COLUMN IF NOT EXISTS warmup_sets_high INTEGER;
   ALTER TABLE routine_exercises DROP COLUMN IF EXISTS target_rir;
   DO $$
 DECLARE d RECORD;
