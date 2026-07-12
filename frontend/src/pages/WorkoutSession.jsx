@@ -261,7 +261,7 @@ export default function WorkoutSession() {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
-      if (retryRef.current) clearTimeout(retryRef.current);
+      if (retryRef.current) { clearTimeout(retryRef.current); retryRef.current = null; }
     };
   }, []);
   const setAutosaveIfMounted = useCallback((v) => { if (mountedRef.current) setAutosave(v); }, []);
