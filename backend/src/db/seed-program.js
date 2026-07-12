@@ -88,21 +88,22 @@ const EXERCISES = {
 // The three sessions, in training-cycle order (Mon Day C → Tue Day A → Thu Day B).
 // The app is sequence-driven, so this order is what "next workout" cycles through.
 // rir arrays are per working set; "2 → 1" main-lift targets ramp across sets,
-// single/near-failure targets repeat. rest is in seconds.
+// single/near-failure targets repeat. rest is in seconds. warmup is [low, high]
+// ramp-up sets (shown as a chip); omit for exercises that need none.
 const SESSIONS = [
   {
     name: 'Day C — Overhead / Upper',
     exercises: [
-      { name: 'Barbell Overhead Press', sets: 3, repLow: 4, repHigh: 6, rir: [2, 2, 1], rest: 180,
+      { name: 'Barbell Overhead Press', sets: 3, repLow: 4, repHigh: 6, rir: [2, 2, 1], rest: 180, warmup: [2, 3],
         subs: ['Seated DB Shoulder Press', 'Machine Shoulder Press'],
         notes: 'Main vertical press. Brace, press in a straight line past the forehead.' },
-      { name: 'Weighted Pull-Up', sets: 3, repLow: 6, repHigh: 10, rir: [1, 1, 1], rest: 150,
+      { name: 'Weighted Pull-Up', sets: 3, repLow: 6, repHigh: 10, rir: [1, 1, 1], rest: 150, warmup: [1, 2],
         subs: ['Lat Pulldown', 'Neutral-Grip Pull-Up'],
-        notes: '2nd vertical-pull exposure of the week (weighted pull-up or lat pulldown). Full ROM.' },
-      { name: 'Flat DB Press', sets: 2, repLow: 8, repHigh: 12, rir: [1, 1], rest: 120,
+        notes: 'First vertical pull of the week. Add load once bodyweight is easy; full ROM, control the negative.' },
+      { name: 'Flat DB Press', sets: 2, repLow: 8, repHigh: 12, rir: [1, 1], rest: 120, warmup: [1, 2],
         subs: ['Machine Chest Press', 'Bench Press'],
-        notes: 'Flat or incline — 2nd press exposure, chase reps here.' },
-      { name: 'Lying Leg Curl', sets: 3, repLow: 8, repHigh: 12, rir: [1, 1, 1], rest: 90,
+        notes: 'First horizontal press of the week. Flat or incline; chase reps in the range before adding load.' },
+      { name: 'Lying Leg Curl', sets: 3, repLow: 8, repHigh: 12, rir: [1, 1, 1], rest: 90, warmup: [1, 1],
         subs: ['Seated Leg Curl', 'Nordic Ham Curl'],
         notes: 'Hamstring health for runners; balances the RDL. Big stretch at the bottom.' },
       { name: 'EZ-Bar Curl', sets: 2, repLow: 8, repHigh: 12, rir: [1, 1], rest: 60,
@@ -116,19 +117,19 @@ const SESSIONS = [
   {
     name: 'Day A — Squat / Push',
     exercises: [
-      { name: 'Barbell Back Squat', sets: 3, repLow: 4, repHigh: 6, rir: [2, 2, 1], rest: 180,
+      { name: 'Barbell Back Squat', sets: 3, repLow: 4, repHigh: 6, rir: [2, 2, 1], rest: 180, warmup: [2, 3],
         subs: ['Front Squat', 'Hack Squat'],
-        notes: 'Main strength lift. 2–3 ramping warm-up sets. Brace hard, full depth.' },
-      { name: 'Weighted Dips', sets: 3, repLow: 6, repHigh: 8, rir: [1, 1, 1], rest: 150,
+        notes: 'Main lower-body strength lift. Brace hard, controlled descent, full depth.' },
+      { name: 'Weighted Dips', sets: 3, repLow: 6, repHigh: 8, rir: [1, 1, 1], rest: 150, warmup: [1, 2],
         subs: ['Machine Chest Press', 'Incline DB Press'],
         notes: 'Lean forward = chest bias, upright = triceps. Add load at top of range.' },
-      { name: 'Weighted Pull-Up', sets: 3, repLow: 6, repHigh: 8, rir: [1, 1, 1], rest: 150,
+      { name: 'Weighted Pull-Up', sets: 3, repLow: 6, repHigh: 8, rir: [1, 1, 1], rest: 150, warmup: [1, 2],
         subs: ['Lat Pulldown', 'Assisted Pull-Up'],
-        notes: 'Add load once bodyweight 3x8 is easy. Full ROM, control the negative.' },
-      { name: 'Seated DB Shoulder Press', sets: 2, repLow: 8, repHigh: 10, rir: [1, 1], rest: 120,
+        notes: 'Second vertical pull of the week. Add load once bodyweight is easy; full ROM.' },
+      { name: 'Seated DB Shoulder Press', sets: 2, repLow: 8, repHigh: 10, rir: [1, 1], rest: 120, warmup: [1, 2],
         subs: ['Barbell Overhead Press', 'Machine Shoulder Press'],
         notes: 'Secondary press (OHP is the Day C main).' },
-      { name: 'Standing Calf Raise', sets: 2, repLow: 8, repHigh: 12, rir: [1, 1], rest: 90,
+      { name: 'Standing Calf Raise', sets: 2, repLow: 8, repHigh: 12, rir: [1, 1], rest: 90, warmup: [1, 1],
         subs: ['Leg Press Calf Press', 'Seated Calf Raise'],
         notes: '1–2 s pause at the bottom, full stretch. Target 0–1 RIR.' },
       { name: 'Hanging Leg Raise', sets: 2, repLow: 10, repHigh: 15, rir: [1, 1], rest: 60,
@@ -139,21 +140,21 @@ const SESSIONS = [
   {
     name: 'Day B — Hinge / Row',
     exercises: [
-      { name: 'Barbell RDL', sets: 3, repLow: 5, repHigh: 8, rir: [2, 2, 1], rest: 180,
+      { name: 'Barbell RDL', sets: 3, repLow: 5, repHigh: 8, rir: [2, 2, 1], rest: 180, warmup: [2, 3],
         subs: ['DB RDL', 'Trap-Bar RDL'],
         notes: 'Main hinge. Hips back, bar over mid-foot, neutral spine, deep stretch.' },
-      { name: 'Incline DB Press', sets: 3, repLow: 6, repHigh: 10, rir: [1, 1, 1], rest: 150,
+      { name: 'Incline DB Press', sets: 3, repLow: 6, repHigh: 10, rir: [1, 1, 1], rest: 150, warmup: [1, 2],
         subs: ['Barbell Incline Press', 'Machine Incline Press'],
         notes: '30–45° bench. 1 s pause at the bottom.' },
-      { name: 'Chest-Supported Row', sets: 3, repLow: 8, repHigh: 10, rir: [1, 1, 1], rest: 120,
+      { name: 'Chest-Supported Row', sets: 3, repLow: 8, repHigh: 10, rir: [1, 1, 1], rest: 120, warmup: [1, 2],
         subs: ['Barbell Row', 'Seated Cable Row'],
         notes: 'Squeeze shoulder blades, elbows ~45°. Balances the pressing.' },
-      { name: 'Bulgarian Split Squat', sets: 2, repLow: 8, repHigh: 12, rir: [1, 1], rest: 120,
+      { name: 'Bulgarian Split Squat', sets: 2, repLow: 8, repHigh: 12, rir: [1, 1], rest: 120, warmup: [1, 2],
         subs: ['Walking Lunge', 'Leg Press'],
         notes: '8–12 per leg. Single-leg strength & stability — carries over to running.' },
       { name: 'Lateral Raise', sets: 3, repLow: 12, repHigh: 15, rir: [0, 0, 0], rest: 60,
         subs: ['Cable Lateral Raise', 'Machine Lateral Raise'],
-        notes: '2–3 sets. Lead with the elbow, smooth reps.' },
+        notes: 'Lead with the elbow; smooth, controlled reps.' },
       { name: 'Face Pull', sets: 2, repLow: 15, repHigh: 20, rir: [1, 1], rest: 60,
         subs: ['Reverse Pec Deck', 'Band Pull-Apart'],
         notes: 'Optional. Shoulder health — worth keeping given swim volume.' },
@@ -206,9 +207,9 @@ async function run() {
         const exerciseId = await ensureExercise(client, ex.name);
         const reRes = await client.query(
           `INSERT INTO routine_exercises
-             (routine_id, exercise_id, sort_order, target_sets, rep_range_low, rep_range_high, target_rir_per_set, rest_seconds, notes)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
-          [routineId, exerciseId, e, ex.sets, ex.repLow, ex.repHigh, ex.rir, ex.rest, ex.notes]
+             (routine_id, exercise_id, sort_order, target_sets, rep_range_low, rep_range_high, target_rir_per_set, rest_seconds, notes, warmup_sets_low, warmup_sets_high)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
+          [routineId, exerciseId, e, ex.sets, ex.repLow, ex.repHigh, ex.rir, ex.rest, ex.notes, ex.warmup?.[0] ?? null, ex.warmup?.[1] ?? null]
         );
         const reId = reRes.rows[0].id;
 

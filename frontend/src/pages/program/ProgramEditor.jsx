@@ -31,6 +31,9 @@ export default function ProgramEditor({ initial, onCancel, onSaved }) {
               target_rir_per_set: rir,
               rest_seconds: re.rest_seconds,
               notes: re.notes || '',
+              // Carried through unchanged (no editor UI yet) so program edits don't drop it.
+              warmup_sets_low: re.warmup_sets_low ?? null,
+              warmup_sets_high: re.warmup_sets_high ?? null,
               substitutes: (re.substitutes || []).map((s) => ({ exercise_id: String(s.exercise_id) })),
             };
           }),
@@ -81,6 +84,8 @@ export default function ProgramEditor({ initial, onCancel, onSaved }) {
             target_rir_per_set,
             rest_seconds: ex.rest_seconds,
             notes: ex.notes || null,
+            warmup_sets_low: ex.warmup_sets_low ?? null,
+            warmup_sets_high: ex.warmup_sets_high ?? null,
             substitutes: ex.substitutes
               .filter((s) => s.exercise_id)
               .map((s) => ({ exercise_id: parseInt(s.exercise_id) })),

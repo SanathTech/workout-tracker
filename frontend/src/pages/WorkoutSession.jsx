@@ -5,7 +5,7 @@ import { getWorkout, updateWorkout, completeWorkout, getLastByExercise } from '.
 import { Skeleton } from '../components/Skeleton';
 import ExercisePickerSheet from '../components/ExercisePickerSheet';
 import { CloseIcon, ChevronIcon, InfoIcon } from '../components/icons';
-import { formatRest } from '../utils/format';
+import { formatRest, formatWarmup } from '../utils/format';
 
 function TargetChip({ children }) {
   return (
@@ -133,6 +133,9 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove }) {
 
       {target && (
         <div className="flex flex-wrap gap-1.5">
+          {formatWarmup(target.warmup_sets_low, target.warmup_sets_high) && (
+            <TargetChip>{formatWarmup(target.warmup_sets_low, target.warmup_sets_high)}</TargetChip>
+          )}
           {target.target_sets && <TargetChip>{target.target_sets} sets</TargetChip>}
           {repRange && <TargetChip>{repRange} reps</TargetChip>}
           {target.rest_seconds != null && <TargetChip>{formatRest(target.rest_seconds)} rest</TargetChip>}

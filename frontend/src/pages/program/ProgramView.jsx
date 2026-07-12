@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { startProgram, endProgram, deleteProgram, startWorkout } from '../../api/client';
-import { formatRest } from '../../utils/format';
+import { formatRest, formatWarmup } from '../../utils/format';
 import { ChevronIcon } from '../../components/icons';
 
 export default function ProgramView({ program, onEdit, onDeleted }) {
@@ -124,6 +124,7 @@ export default function ProgramView({ program, onEdit, onDeleted }) {
                     <div className="flex-1">
                       <p className="font-medium text-neutral-900 dark:text-neutral-100">{ex.exercise_name}</p>
                       <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                        {formatWarmup(ex.warmup_sets_low, ex.warmup_sets_high) && `${formatWarmup(ex.warmup_sets_low, ex.warmup_sets_high)} · `}
                         {ex.target_sets} sets
                         {(ex.rep_range_low || ex.rep_range_high) && ` · ${ex.rep_range_low || '?'}–${ex.rep_range_high || '?'} reps`}
                         {Array.isArray(ex.target_rir_per_set) && ex.target_rir_per_set.some((v) => v != null) && ` · RIR ${ex.target_rir_per_set.map((v) => v == null ? '–' : v).join('/')}`}

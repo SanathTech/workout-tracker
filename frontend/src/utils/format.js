@@ -6,6 +6,14 @@ export function formatRest(seconds) {
   return `${mins.toFixed(2).replace(/\.?0+$/, '')}m`;
 }
 
+// Warm-up ramp-up sets, shown as a chip. Returns null when there are none.
+export function formatWarmup(low, high) {
+  if (low == null && high == null) return null;
+  const lo = low ?? high;
+  const hi = high ?? low;
+  return lo === hi ? `${lo} warm-up` : `${lo}–${hi} warm-up`;
+}
+
 export function parseIntOrNull(value) {
   if (value === '' || value == null) return null;
   const n = parseInt(value);
