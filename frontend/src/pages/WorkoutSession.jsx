@@ -380,11 +380,15 @@ export default function WorkoutSession() {
     );
   }
   if (isLoading || !workout) return <WorkoutSessionSkeleton />;
-  if (workout.status === 'completed') {
-    navigate(`/workouts/${id}`, { replace: true });
-    return null;
-  }
   if (!hydrated) return <WorkoutSessionSkeleton />;
+
+  // A completed workout can be reopened for editing (from its detail page). Edits
+  // save in place without changing its completed status or the program sequence.
+  const isCompleted = workout.status === 'completed';
+  const doneEditing = async () => {
+    await saveNow();
+    navigate(`/workouts/${id}`);
+  };
 
   const handlePickerSelect = (ex) => {
     if (picker?.mode === 'replace') {
@@ -429,6 +433,9 @@ export default function WorkoutSession() {
           {workout.program_week && `Week ${workout.program_week} · `}
           {new Date(workout.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
         </p>
+        {isCompleted && (
+          <p className="text-xs mt-0.5 text-neutral-500 dark:text-neutral-400">Editing a completed workout — changes save automatically.</p>
+        )}
         {autosave !== 'idle' && (
           <p className={`text-xs mt-0.5 ${
             autosave === 'error' ? 'text-red-600 dark:text-red-400'
@@ -489,15 +496,23 @@ export default function WorkoutSession() {
           >
             {autosave === 'saving' ? 'Saving…' : 'Save now'}
           </button>
-          <button
-            onClick={() => {
-              if (confirm('Finish this workout?')) finish.mutate();
-            }}
-            disabled={finish.isPending}
-            className="btn-primary flex-1 justify-center"
-          >
-            {finish.isPending ? '…' : 'Finish workout'}
-          </button>
+          {isCompleted ? (
+            <button
+              onClick={doneEditing}
+              disabled={autosave === 'saving'}
+              className="btn-primary flex-1 justify-center"
+            >
+              {autosave === 'saving' ? 'Saving…' : 'Done'}
+            </button>
+          ) : (
+            <button
+              onClick={() => { if (confirm('Finish this workout?')) finish.mutate(); }}
+              disabled={finish.isPending}
+              className="btn-primary flex-1 justify-center"
+            >
+              {finish.isPending ? '…' : 'Finish workout'}
+            </button>
+          )}
         </div>
       </div>
 

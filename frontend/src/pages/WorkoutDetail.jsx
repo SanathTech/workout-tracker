@@ -48,6 +48,9 @@ export default function WorkoutDetail() {
           {workout.status === 'in_progress' && (
             <Link to={`/session/${id}`} className="btn-primary">Resume</Link>
           )}
+          {workout.status === 'completed' && (
+            <Link to={`/session/${id}`} className="btn-secondary">Edit</Link>
+          )}
           <button
             onClick={() => { if (confirm('Delete this workout?')) remove(); }}
             className="btn-danger"

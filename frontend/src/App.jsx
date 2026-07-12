@@ -4,6 +4,7 @@ import Dashboard from './pages/Dashboard';
 import Program from './pages/Program';
 import WorkoutSession from './pages/WorkoutSession';
 import WorkoutDetail from './pages/WorkoutDetail';
+import History from './pages/History';
 import Progress from './pages/Progress';
 import ExerciseLibrary from './pages/ExerciseLibrary';
 
@@ -15,6 +16,7 @@ export default function App() {
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="program" element={<Program />} />
         <Route path="workouts/:id" element={<WorkoutDetail />} />
+        <Route path="history" element={<History />} />
         <Route path="session/:id" element={<WorkoutSession />} />
         <Route path="progress" element={<Progress />} />
         <Route path="exercises" element={<ExerciseLibrary />} />
