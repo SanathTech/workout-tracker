@@ -15,9 +15,10 @@ function TargetChip({ children }) {
   );
 }
 
-function SetRow({ set, previousSet, targetRir, onChange, onRemove }) {
-  const prevLabel = previousSet?.weight_kg != null && previousSet?.reps != null
-    ? `${previousSet.weight_kg}×${previousSet.reps}`
+function SetRow({ set, previousSet, showPrev, targetRir, onChange, onRemove }) {
+  const prevWeight = previousSet?.weight_kg != null ? Number(previousSet.weight_kg) : null;
+  const prevLabel = prevWeight != null && previousSet?.reps != null
+    ? `${prevWeight}×${previousSet.reps}`
     : previousSet?.reps != null
       ? `—×${previousSet.reps}`
       : '—';
@@ -25,7 +26,9 @@ function SetRow({ set, previousSet, targetRir, onChange, onRemove }) {
   return (
     <div className="flex items-center gap-2">
       <span className="text-xs text-neutral-500 dark:text-neutral-500 w-5 text-center">{set.set_number}</span>
-      <span className="text-[11px] text-neutral-500 dark:text-neutral-500 w-14 truncate" title={prevTitle}>{prevLabel}</span>
+      {showPrev && (
+        <span className="text-[11px] text-neutral-500 dark:text-neutral-500 w-14 truncate" title={prevTitle}>{prevLabel}</span>
+      )}
       <input
         type="number" inputMode="decimal" min="0" step="0.5"
         placeholder="kg"
@@ -74,6 +77,7 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove }) {
     for (const s of previous?.sets || []) m[s.set_number] = s;
     return m;
   }, [previous]);
+  const hasPrev = (previous?.sets?.length || 0) > 0;
 
   const target = block.target;
   const repRange = target && (target.rep_range_low || target.rep_range_high)
@@ -153,6 +157,7 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove }) {
               key={i}
               set={s}
               previousSet={prevBySet[s.set_number]}
+              showPrev={hasPrev}
               targetRir={targetRir ?? null}
               onChange={(u) => updateSet(i, u)}
               onRemove={() => removeSet(i)}
@@ -169,6 +174,27 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove }) {
       </div>
     </div>
   );
+}
+
+// Build the editable set rows for an exercise. Empty sets are dropped on save, so
+// a logged-then-reloaded exercise comes back with fewer rows than its target —
+// pad back up to target_sets (or the highest logged set) so every prescribed set
+// is always present. NUMERIC weights ("40.00") are normalized to plain numbers.
+function hydrateSets(e) {
+  const byNum = {};
+  let maxNum = 0;
+  for (const s of e.sets) {
+    byNum[s.set_number] = s;
+    if (s.set_number > maxNum) maxNum = s.set_number;
+  }
+  const count = Math.max(maxNum, e.target?.target_sets || 0, 1);
+  return Array.from({ length: count }, (_, i) => {
+    const num = i + 1;
+    const s = byNum[num];
+    return s
+      ? { set_number: num, reps: s.reps, weight_kg: s.weight_kg == null ? null : Number(s.weight_kg), rir: s.rir }
+      : { set_number: num, reps: null, weight_kg: null, rir: null };
+  });
 }
 
 // Parse to a finite number or null — drops empty and mid-edit values like "." or "-".
@@ -233,7 +259,7 @@ export default function WorkoutSession() {
       muscle_group: e.muscle_group,
       notes: e.notes || '',
       target: e.target,
-      sets: e.sets.length ? e.sets : [{ set_number: 1, reps: null, weight_kg: null, rir: null }],
+      sets: hydrateSets(e),
     }));
     setExercises(rows);
     setNotes(workout.notes || '');
