@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { getWorkouts } from '../api/client';
 import { Skeleton } from '../components/Skeleton';
@@ -30,13 +29,16 @@ function Row({ w }) {
 }
 
 export default function History() {
-  const [limit, setLimit] = useState(PAGE);
-  const { data = [], isLoading, isFetching } = useQuery({
-    queryKey: ['workouts-history', limit],
-    queryFn: () => getWorkouts({ limit }),
-    placeholderData: (prev) => prev,
+  // Offset-based paging so history is unbounded (the backend clamps `limit` to 200).
+  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
+    queryKey: ['workouts-history'],
+    queryFn: ({ pageParam }) => getWorkouts({ limit: PAGE, offset: pageParam }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.length === PAGE ? allPages.length * PAGE : undefined,
     staleTime: 60_000,
   });
+  const items = data?.pages.flat() ?? [];
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -55,23 +57,23 @@ export default function History() {
               </div>
             ))}
           </div>
-        ) : data.length === 0 ? (
+        ) : items.length === 0 ? (
           <p className="text-sm text-neutral-500 py-4">No workouts logged yet.</p>
         ) : (
           <div className="divide-y divide-neutral-200 dark:divide-neutral-800">
-            {data.map((w) => <Row key={w.id} w={w} />)}
+            {items.map((w) => <Row key={w.id} w={w} />)}
           </div>
         )}
       </div>
 
-      {data.length >= limit && (
+      {hasNextPage && (
         <button
           type="button"
-          onClick={() => setLimit((l) => l + PAGE)}
-          disabled={isFetching}
+          onClick={() => fetchNextPage()}
+          disabled={isFetchingNextPage}
           className="btn-secondary w-full justify-center"
         >
-          {isFetching ? 'Loading…' : 'Load more'}
+          {isFetchingNextPage ? 'Loading…' : 'Load more'}
         </button>
       )}
     </div>
