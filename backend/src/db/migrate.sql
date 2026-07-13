@@ -15,6 +15,7 @@ BEGIN;
   ALTER TABLE routine_exercises ADD COLUMN IF NOT EXISTS notes TEXT;
   ALTER TABLE routine_exercises ADD COLUMN IF NOT EXISTS warmup_sets_low INTEGER;
   ALTER TABLE routine_exercises ADD COLUMN IF NOT EXISTS warmup_sets_high INTEGER;
+  ALTER TABLE routine_exercises ADD COLUMN IF NOT EXISTS is_main BOOLEAN NOT NULL DEFAULT false;
   ALTER TABLE routine_exercises DROP COLUMN IF EXISTS target_rir;
   DO $$
 DECLARE d RECORD;

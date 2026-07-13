@@ -110,6 +110,7 @@ async function writeRoutines(client, programId, routines) {
         notes: ex.notes ?? null,
         warmup_sets_low: ex.warmup_sets_low ?? null,
         warmup_sets_high: ex.warmup_sets_high ?? null,
+        is_main: ex.is_main === true,
       });
     });
   });
@@ -117,17 +118,17 @@ async function writeRoutines(client, programId, routines) {
 
   const reRes = await client.query(
     `INSERT INTO routine_exercises
-       (routine_id, exercise_id, sort_order, target_sets, rep_range_low, rep_range_high, target_rir_per_set, rest_seconds, notes, warmup_sets_low, warmup_sets_high)
+       (routine_id, exercise_id, sort_order, target_sets, rep_range_low, rep_range_high, target_rir_per_set, rest_seconds, notes, warmup_sets_low, warmup_sets_high, is_main)
      SELECT x.routine_id, x.exercise_id, x.sort_order, x.target_sets, x.rep_range_low, x.rep_range_high,
             COALESCE((
               SELECT array_agg(elem::int ORDER BY ord)
                 FROM jsonb_array_elements_text(x.target_rir_per_set) WITH ORDINALITY AS a(elem, ord)
             ), ARRAY[]::int[]),
-            x.rest_seconds, x.notes, x.warmup_sets_low, x.warmup_sets_high
+            x.rest_seconds, x.notes, x.warmup_sets_low, x.warmup_sets_high, x.is_main
        FROM jsonb_to_recordset($1::jsonb) AS x(
          routine_id int, exercise_id int, sort_order int, target_sets int,
          rep_range_low int, rep_range_high int, target_rir_per_set jsonb,
-         rest_seconds int, notes text, warmup_sets_low int, warmup_sets_high int)
+         rest_seconds int, notes text, warmup_sets_low int, warmup_sets_high int, is_main boolean)
      RETURNING id, routine_id, sort_order`,
     [JSON.stringify(rePayload)]
   );

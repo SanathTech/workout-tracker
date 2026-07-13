@@ -15,6 +15,7 @@ export function emptyExercise() {
     target_rir_per_set: [],
     rest_seconds: null,
     notes: '',
+    is_main: false,
     substitutes: [],
   };
 }

@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { startProgram, endProgram, deleteProgram, startWorkout } from '../../api/client';
 import { formatRest, formatWarmup } from '../../utils/format';
 import { ChevronIcon } from '../../components/icons';
+import MainBadge from '../../components/MainBadge';
 
 export default function ProgramView({ program, onEdit, onDeleted }) {
   const qc = useQueryClient();
@@ -122,9 +123,12 @@ export default function ProgramView({ program, onEdit, onDeleted }) {
                 {r.exercises.map((ex) => {
                   const warmup = formatWarmup(ex.warmup_sets_low, ex.warmup_sets_high);
                   return (
-                  <div key={ex.id} className="flex items-start gap-3 text-sm border-t border-neutral-200 dark:border-neutral-800 pt-2">
+                  <div key={ex.id} className={`flex items-start gap-3 text-sm border-t border-neutral-200 dark:border-neutral-800 pt-2 ${ex.is_main ? 'pl-2 border-l-2 border-l-amber-400 dark:border-l-amber-500/60' : ''}`}>
                     <div className="flex-1">
-                      <p className="font-medium text-neutral-900 dark:text-neutral-100">{ex.exercise_name}</p>
+                      <p className="font-medium text-neutral-900 dark:text-neutral-100 flex items-center gap-1.5">
+                        <span className="truncate">{ex.exercise_name}</span>
+                        {ex.is_main && <MainBadge className="shrink-0" />}
+                      </p>
                       <p className="text-xs text-neutral-500 dark:text-neutral-400">
                         {warmup && `${warmup} · `}
                         {ex.target_sets} sets

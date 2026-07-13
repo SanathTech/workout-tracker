@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { getWorkout, deleteWorkout } from '../api/client';
 import { Skeleton } from '../components/Skeleton';
+import MainBadge from '../components/MainBadge';
 
 export default function WorkoutDetail() {
   const { id } = useParams();
@@ -83,9 +84,12 @@ export default function WorkoutDetail() {
 
       <div className="space-y-3">
         {workout.exercises?.map((ex) => (
-          <div key={ex.exercise_id} className="card space-y-3">
+          <div key={ex.exercise_id} className={`card space-y-3 ${ex.target?.is_main ? 'border-l-2 border-l-amber-400 dark:border-l-amber-500/60' : ''}`}>
             <div>
-              <h3 className="font-semibold">{ex.exercise_name}</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="font-semibold">{ex.exercise_name}</h3>
+                {ex.target?.is_main && <MainBadge />}
+              </div>
               <p className="text-xs text-neutral-500 dark:text-neutral-400">{ex.muscle_group}</p>
             </div>
             <table className="w-full text-sm">

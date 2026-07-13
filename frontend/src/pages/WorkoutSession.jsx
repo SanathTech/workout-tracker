@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { getWorkout, updateWorkout, completeWorkout, getLastByExercise } from '../api/client';
 import { Skeleton } from '../components/Skeleton';
 import ExercisePickerSheet from '../components/ExercisePickerSheet';
+import MainBadge from '../components/MainBadge';
 import { CloseIcon, ChevronIcon, InfoIcon } from '../components/icons';
 import { formatRest, formatWarmup } from '../utils/format';
 
@@ -80,6 +81,7 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove }) {
   const hasPrev = (previous?.sets?.length || 0) > 0;
 
   const target = block.target;
+  const isMain = target?.is_main === true;
   const repRange = target && (target.rep_range_low || target.rep_range_high)
     ? `${target.rep_range_low || '?'}–${target.rep_range_high || '?'}`
     : null;
@@ -96,7 +98,7 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove }) {
   });
 
   return (
-    <div className="card space-y-3">
+    <div className={`card space-y-3 ${isMain ? 'border-l-2 border-l-amber-400 dark:border-l-amber-500/60' : ''}`}>
       <div className="flex items-start justify-between gap-2">
         <button
           type="button"
@@ -106,6 +108,7 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove }) {
           <span className="font-semibold text-neutral-900 dark:text-neutral-200 truncate">
             {block.exercise_name || 'Pick an exercise'}
           </span>
+          {isMain && <MainBadge className="shrink-0" />}
           <span className="text-neutral-400 dark:text-neutral-500 shrink-0">
             <ChevronIcon open={false} />
           </span>
