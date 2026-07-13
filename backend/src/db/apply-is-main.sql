@@ -8,12 +8,12 @@ BEGIN;
 UPDATE routine_exercises re SET is_main = false
 FROM routines r
 WHERE re.routine_id = r.id
-  AND r.program_id = (SELECT id FROM programs WHERE name = $tag$Strength + Endurance — 3-day full-body strength block$tag$);
+  AND r.program_id IN (SELECT id FROM programs WHERE name = $tag$Strength + Endurance — 3-day full-body strength block$tag$);
 
 UPDATE routine_exercises re SET is_main = true
 FROM routines r, exercises e
 WHERE re.routine_id = r.id AND re.exercise_id = e.id
-  AND r.program_id = (SELECT id FROM programs WHERE name = $tag$Strength + Endurance — 3-day full-body strength block$tag$)
+  AND r.program_id IN (SELECT id FROM programs WHERE name = $tag$Strength + Endurance — 3-day full-body strength block$tag$)
   AND (
     (r.name = $tag$Day C — Overhead / Upper$tag$ AND e.name = $tag$Barbell Overhead Press$tag$)
     OR (r.name = $tag$Day C — Overhead / Upper$tag$ AND e.name = $tag$Weighted Pull-Up$tag$)
