@@ -55,7 +55,8 @@ CREATE TABLE routine_exercises (
   rest_seconds INTEGER,
   notes TEXT,
   warmup_sets_low INTEGER,
-  warmup_sets_high INTEGER
+  warmup_sets_high INTEGER,
+  is_main BOOLEAN NOT NULL DEFAULT false   -- highlights the routine's key lift(s)
 );
 
 CREATE INDEX idx_routine_exercises_routine ON routine_exercises(routine_id);

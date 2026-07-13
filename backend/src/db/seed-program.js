@@ -94,7 +94,7 @@ const SESSIONS = [
   {
     name: 'Day C — Overhead / Upper',
     exercises: [
-      { name: 'Barbell Overhead Press', sets: 3, repLow: 4, repHigh: 6, rir: [2, 2, 1], rest: 180, warmup: [2, 3],
+      { name: 'Barbell Overhead Press', sets: 3, repLow: 4, repHigh: 6, rir: [2, 2, 1], rest: 180, warmup: [2, 3], main: true,
         subs: ['Seated DB Shoulder Press', 'Machine Shoulder Press'],
         notes: 'Main vertical press. Brace, press in a straight line past the forehead.' },
       { name: 'Weighted Pull-Up', sets: 3, repLow: 6, repHigh: 10, rir: [1, 1, 1], rest: 150, warmup: [1, 2],
@@ -117,7 +117,7 @@ const SESSIONS = [
   {
     name: 'Day A — Squat / Push',
     exercises: [
-      { name: 'Barbell Back Squat', sets: 3, repLow: 4, repHigh: 6, rir: [2, 2, 1], rest: 180, warmup: [2, 3],
+      { name: 'Barbell Back Squat', sets: 3, repLow: 4, repHigh: 6, rir: [2, 2, 1], rest: 180, warmup: [2, 3], main: true,
         subs: ['Front Squat', 'Hack Squat'],
         notes: 'Main lower-body strength lift. Brace hard, controlled descent, full depth.' },
       { name: 'Weighted Dips', sets: 3, repLow: 6, repHigh: 8, rir: [1, 1, 1], rest: 150, warmup: [1, 2],
@@ -140,7 +140,7 @@ const SESSIONS = [
   {
     name: 'Day B — Hinge / Row',
     exercises: [
-      { name: 'Barbell RDL', sets: 3, repLow: 5, repHigh: 8, rir: [2, 2, 1], rest: 180, warmup: [2, 3],
+      { name: 'Barbell RDL', sets: 3, repLow: 5, repHigh: 8, rir: [2, 2, 1], rest: 180, warmup: [2, 3], main: true,
         subs: ['DB RDL', 'Trap-Bar RDL'],
         notes: 'Main hinge. Hips back, bar over mid-foot, neutral spine, deep stretch.' },
       { name: 'Incline DB Press', sets: 3, repLow: 6, repHigh: 10, rir: [1, 1, 1], rest: 150, warmup: [1, 2],
@@ -207,9 +207,9 @@ async function run() {
         const exerciseId = await ensureExercise(client, ex.name);
         const reRes = await client.query(
           `INSERT INTO routine_exercises
-             (routine_id, exercise_id, sort_order, target_sets, rep_range_low, rep_range_high, target_rir_per_set, rest_seconds, notes, warmup_sets_low, warmup_sets_high)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
-          [routineId, exerciseId, e, ex.sets, ex.repLow, ex.repHigh, ex.rir, ex.rest, ex.notes, ex.warmup?.[0] ?? null, ex.warmup?.[1] ?? null]
+             (routine_id, exercise_id, sort_order, target_sets, rep_range_low, rep_range_high, target_rir_per_set, rest_seconds, notes, warmup_sets_low, warmup_sets_high, is_main)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id`,
+          [routineId, exerciseId, e, ex.sets, ex.repLow, ex.repHigh, ex.rir, ex.rest, ex.notes, ex.warmup?.[0] ?? null, ex.warmup?.[1] ?? null, ex.main === true]
         );
         const reId = reRes.rows[0].id;
 

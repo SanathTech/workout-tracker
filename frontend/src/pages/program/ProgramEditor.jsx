@@ -31,6 +31,7 @@ export default function ProgramEditor({ initial, onCancel, onSaved }) {
               target_rir_per_set: rir,
               rest_seconds: re.rest_seconds,
               notes: re.notes || '',
+              is_main: re.is_main === true,
               // Carried through unchanged (no editor UI yet) so program edits don't drop it.
               warmup_sets_low: re.warmup_sets_low ?? null,
               warmup_sets_high: re.warmup_sets_high ?? null,
@@ -84,6 +85,7 @@ export default function ProgramEditor({ initial, onCancel, onSaved }) {
             target_rir_per_set,
             rest_seconds: ex.rest_seconds,
             notes: ex.notes || null,
+            is_main: ex.is_main === true,
             warmup_sets_low: ex.warmup_sets_low ?? null,
             warmup_sets_high: ex.warmup_sets_high ?? null,
             substitutes: ex.substitutes

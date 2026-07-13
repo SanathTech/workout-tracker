@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import ExercisePickerSheet from '../../components/ExercisePickerSheet';
+import MainBadge from '../../components/MainBadge';
 import { CloseIcon, ChevronIcon } from '../../components/icons';
 import { parseIntOrNull } from '../../utils/format';
 import { dashedAddBtn, iconBtn, selectOnFocus, summarizeExercise, handleEditorEnter } from './helpers';
@@ -41,8 +42,9 @@ export default function ExerciseEditor({ ex, allExercises, expanded, onToggle, o
             <ChevronIcon open={expanded} />
           </span>
           <div className="flex-1 min-w-0">
-            <div className={`truncate ${primary ? 'font-medium text-neutral-900 dark:text-neutral-200' : 'text-neutral-500 dark:text-neutral-500'}`}>
-              {primary ? primary.name : 'Pick an exercise'}
+            <div className={`flex items-center gap-1.5 ${primary ? 'font-medium text-neutral-900 dark:text-neutral-200' : 'text-neutral-500 dark:text-neutral-500'}`}>
+              <span className="truncate">{primary ? primary.name : 'Pick an exercise'}</span>
+              {ex.is_main && <MainBadge className="shrink-0" />}
             </div>
             {!expanded && chips.length > 0 && (
               <div className="text-xs text-neutral-500 dark:text-neutral-500 mt-0.5 truncate">
@@ -129,6 +131,15 @@ export default function ExerciseEditor({ ex, allExercises, expanded, onToggle, o
                 }}
               />
             </div>
+            <label className="flex items-end gap-2 pb-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                className="w-4 h-4 rounded border-neutral-300 dark:border-neutral-700 accent-amber-500"
+                checked={ex.is_main === true}
+                onChange={(e) => onChange({ ...ex, is_main: e.target.checked })}
+              />
+              <span className="text-sm text-neutral-700 dark:text-neutral-300">Main lift</span>
+            </label>
           </div>
 
           <div className="space-y-1.5">
