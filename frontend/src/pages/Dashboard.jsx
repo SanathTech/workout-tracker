@@ -183,7 +183,12 @@ export default function Dashboard() {
       </div>
 
       <div className="card">
-        <h2 className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400 mb-2">Recent workouts</h2>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Recent workouts</h2>
+          {recent?.length > 0 && (
+            <Link to="/history" className="text-xs font-medium text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100">See all →</Link>
+          )}
+        </div>
         {recentLoading ? (
           <div className="divide-y divide-neutral-200 dark:divide-neutral-800">
             <WorkoutRowSkeleton />

@@ -249,6 +249,7 @@ export default function WorkoutSession() {
   const [notes, setNotes] = useState('');
   const [picker, setPicker] = useState(null); // { mode: 'replace' | 'add', forIndex?: number }
   const [autosave, setAutosave] = useState('idle'); // idle | unsaved | saving | saved | error
+  const [doneError, setDoneError] = useState('');
   const [hydrated, setHydrated] = useState(false);
   const lastSavedRef = useRef(null);   // JSON of the last payload the server confirmed
   const pendingRef = useRef(null);     // JSON of the latest payload wanting to be saved
@@ -380,11 +381,22 @@ export default function WorkoutSession() {
     );
   }
   if (isLoading || !workout) return <WorkoutSessionSkeleton />;
-  if (workout.status === 'completed') {
-    navigate(`/workouts/${id}`, { replace: true });
-    return null;
-  }
   if (!hydrated) return <WorkoutSessionSkeleton />;
+
+  // A completed workout can be reopened for editing (from its detail page). Edits
+  // save in place without changing its completed status or the program sequence.
+  const isCompleted = workout.status === 'completed';
+  const doneEditing = async () => {
+    setDoneError('');
+    await saveNow();
+    // flush() swallows errors, so confirm the server actually has the latest
+    // payload before leaving — otherwise the user would exit with unsaved edits.
+    if (pendingRef.current !== lastSavedRef.current) {
+      setDoneError('Could not save your latest changes — check your connection and try again.');
+      return;
+    }
+    navigate(`/workouts/${id}`);
+  };
 
   const handlePickerSelect = (ex) => {
     if (picker?.mode === 'replace') {
@@ -429,6 +441,9 @@ export default function WorkoutSession() {
           {workout.program_week && `Week ${workout.program_week} · `}
           {new Date(workout.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
         </p>
+        {isCompleted && (
+          <p className="text-xs mt-0.5 text-neutral-500 dark:text-neutral-400">Editing a completed workout — changes save automatically.</p>
+        )}
         {autosave !== 'idle' && (
           <p className={`text-xs mt-0.5 ${
             autosave === 'error' ? 'text-red-600 dark:text-red-400'
@@ -476,9 +491,9 @@ export default function WorkoutSession() {
 
       <div className="h-20" aria-hidden="true" />
       <div className="fixed bottom-0 inset-x-0 z-20 bg-white dark:bg-neutral-950 border-t border-neutral-200 dark:border-neutral-900 pb-[env(safe-area-inset-bottom)]">
-        {finish.isError && (
+        {(finish.isError || doneError) && (
           <p className="max-w-2xl mx-auto px-4 pt-2 text-xs text-red-600 dark:text-red-400">
-            {finish.error?.message || 'Could not finish the workout.'}
+            {doneError || finish.error?.message || 'Could not finish the workout.'}
           </p>
         )}
         <div className="max-w-2xl mx-auto px-4 py-3 flex gap-2">
@@ -489,15 +504,23 @@ export default function WorkoutSession() {
           >
             {autosave === 'saving' ? 'Saving…' : 'Save now'}
           </button>
-          <button
-            onClick={() => {
-              if (confirm('Finish this workout?')) finish.mutate();
-            }}
-            disabled={finish.isPending}
-            className="btn-primary flex-1 justify-center"
-          >
-            {finish.isPending ? '…' : 'Finish workout'}
-          </button>
+          {isCompleted ? (
+            <button
+              onClick={doneEditing}
+              disabled={autosave === 'saving'}
+              className="btn-primary flex-1 justify-center"
+            >
+              {autosave === 'saving' ? 'Saving…' : 'Done'}
+            </button>
+          ) : (
+            <button
+              onClick={() => { if (confirm('Finish this workout?')) finish.mutate(); }}
+              disabled={finish.isPending}
+              className="btn-primary flex-1 justify-center"
+            >
+              {finish.isPending ? '…' : 'Finish workout'}
+            </button>
+          )}
         </div>
       </div>
 
