@@ -32,7 +32,7 @@ export default function ProgramEditor({ initial, onCancel, onSaved }) {
               rest_seconds: re.rest_seconds,
               notes: re.notes || '',
               is_main: re.is_main === true,
-              // Carried through unchanged (no editor UI yet) so program edits don't drop it.
+              // Warm-up sets have no editor UI yet — carry them through unchanged so edits don't drop them.
               warmup_sets_low: re.warmup_sets_low ?? null,
               warmup_sets_high: re.warmup_sets_high ?? null,
               substitutes: (re.substitutes || []).map((s) => ({ exercise_id: String(s.exercise_id) })),
