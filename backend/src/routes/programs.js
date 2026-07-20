@@ -98,6 +98,12 @@ async function writeRoutines(client, programId, routines) {
         const n = Number(rirArr[k]);
         return Number.isFinite(n) ? n : null;
       });
+      // Keep rest consistent with the "low is the minimum" model: a lone upper
+      // bound becomes the minimum, and an upper bound not above the minimum is dropped.
+      let restLow = ex.rest_seconds ?? null;
+      let restHigh = ex.rest_seconds_high ?? null;
+      if (restHigh != null && restLow == null) { restLow = restHigh; restHigh = null; }
+      if (restHigh != null && restLow != null && restHigh <= restLow) restHigh = null;
       rePayload.push({
         routine_id: routineIdByIdx[ri],
         sort_order: ei,
@@ -106,8 +112,8 @@ async function writeRoutines(client, programId, routines) {
         rep_range_low: ex.rep_range_low ?? null,
         rep_range_high: ex.rep_range_high ?? null,
         target_rir_per_set: normalizedRir,
-        rest_seconds: ex.rest_seconds ?? null,
-        rest_seconds_high: ex.rest_seconds_high ?? null,
+        rest_seconds: restLow,
+        rest_seconds_high: restHigh,
         notes: ex.notes ?? null,
         warmup_sets_low: ex.warmup_sets_low ?? null,
         warmup_sets_high: ex.warmup_sets_high ?? null,
