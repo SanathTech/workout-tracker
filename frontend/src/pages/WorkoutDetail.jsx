@@ -103,17 +103,23 @@ export default function WorkoutDetail() {
                 </tr>
               </thead>
               <tbody>
-                {ex.sets.map((set) => (
-                  <tr key={set.id} className="border-t border-neutral-200 dark:border-neutral-800">
-                    <td className="py-2 text-neutral-500">{set.set_number}</td>
-                    <td className="py-2">{set.weight_kg != null ? `${set.weight_kg} kg` : '—'}</td>
-                    <td className="py-2">{set.reps ?? '—'}</td>
-                    <td className="py-2">{set.rir ?? '—'}</td>
-                    <td className="py-2 text-right text-neutral-500 dark:text-neutral-400">
-                      {set.weight_kg && set.reps ? `${set.weight_kg * set.reps} kg` : '—'}
-                    </td>
-                  </tr>
-                ))}
+                {ex.sets.map((set) => {
+                  // Fall back to the routine's per-set target RIR when none was
+                  // logged manually, so older workouts don't show a blank RIR.
+                  const targetRir = Array.isArray(ex.target?.target_rir_per_set) ? ex.target.target_rir_per_set : [];
+                  const rir = set.rir ?? targetRir[set.set_number - 1] ?? null;
+                  return (
+                    <tr key={set.id} className="border-t border-neutral-200 dark:border-neutral-800">
+                      <td className="py-2 text-neutral-500">{set.set_number}</td>
+                      <td className="py-2">{set.weight_kg != null ? `${set.weight_kg} kg` : '—'}</td>
+                      <td className="py-2">{set.reps ?? '—'}</td>
+                      <td className="py-2">{rir ?? '—'}</td>
+                      <td className="py-2 text-right text-neutral-500 dark:text-neutral-400">
+                        {set.weight_kg && set.reps ? `${set.weight_kg * set.reps} kg` : '—'}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
