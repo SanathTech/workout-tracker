@@ -1,4 +1,4 @@
-import { formatRest } from '../../utils/format';
+import { formatRestRange } from '../../utils/format';
 
 export const dashedAddBtn = 'w-full text-center py-2 text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200 border border-dashed border-neutral-200 dark:border-neutral-800 rounded hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors';
 export const iconBtn = 'text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 p-1 shrink-0';
@@ -14,6 +14,7 @@ export function emptyExercise() {
     rep_range_high: null,
     target_rir_per_set: [],
     rest_seconds: null,
+    rest_seconds_high: null,
     notes: '',
     is_main: false,
     substitutes: [],
@@ -40,7 +41,9 @@ export function summarizeExercise(ex) {
   }
   const rirStr = formatRirArray(ex.target_rir_per_set);
   if (rirStr) chips.push(`RIR ${rirStr}`);
-  if (ex.rest_seconds != null) chips.push(`${formatRest(ex.rest_seconds)} rest`);
+  if (ex.rest_seconds != null || ex.rest_seconds_high != null) {
+    chips.push(`${formatRestRange(ex.rest_seconds, ex.rest_seconds_high)} rest`);
+  }
   return chips;
 }
 

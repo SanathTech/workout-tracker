@@ -98,6 +98,12 @@ async function writeRoutines(client, programId, routines) {
         const n = Number(rirArr[k]);
         return Number.isFinite(n) ? n : null;
       });
+      // Keep rest consistent with the "low is the minimum" model: a lone upper
+      // bound becomes the minimum, and an upper bound not above the minimum is dropped.
+      let restLow = ex.rest_seconds ?? null;
+      let restHigh = ex.rest_seconds_high ?? null;
+      if (restHigh != null && restLow == null) { restLow = restHigh; restHigh = null; }
+      if (restHigh != null && restLow != null && restHigh <= restLow) restHigh = null;
       rePayload.push({
         routine_id: routineIdByIdx[ri],
         sort_order: ei,
@@ -106,7 +112,8 @@ async function writeRoutines(client, programId, routines) {
         rep_range_low: ex.rep_range_low ?? null,
         rep_range_high: ex.rep_range_high ?? null,
         target_rir_per_set: normalizedRir,
-        rest_seconds: ex.rest_seconds ?? null,
+        rest_seconds: restLow,
+        rest_seconds_high: restHigh,
         notes: ex.notes ?? null,
         warmup_sets_low: ex.warmup_sets_low ?? null,
         warmup_sets_high: ex.warmup_sets_high ?? null,
@@ -118,17 +125,17 @@ async function writeRoutines(client, programId, routines) {
 
   const reRes = await client.query(
     `INSERT INTO routine_exercises
-       (routine_id, exercise_id, sort_order, target_sets, rep_range_low, rep_range_high, target_rir_per_set, rest_seconds, notes, warmup_sets_low, warmup_sets_high, is_main)
+       (routine_id, exercise_id, sort_order, target_sets, rep_range_low, rep_range_high, target_rir_per_set, rest_seconds, rest_seconds_high, notes, warmup_sets_low, warmup_sets_high, is_main)
      SELECT x.routine_id, x.exercise_id, x.sort_order, x.target_sets, x.rep_range_low, x.rep_range_high,
             COALESCE((
               SELECT array_agg(elem::int ORDER BY ord)
                 FROM jsonb_array_elements_text(x.target_rir_per_set) WITH ORDINALITY AS a(elem, ord)
             ), ARRAY[]::int[]),
-            x.rest_seconds, x.notes, x.warmup_sets_low, x.warmup_sets_high, x.is_main
+            x.rest_seconds, x.rest_seconds_high, x.notes, x.warmup_sets_low, x.warmup_sets_high, x.is_main
        FROM jsonb_to_recordset($1::jsonb) AS x(
          routine_id int, exercise_id int, sort_order int, target_sets int,
          rep_range_low int, rep_range_high int, target_rir_per_set jsonb,
-         rest_seconds int, notes text, warmup_sets_low int, warmup_sets_high int, is_main boolean)
+         rest_seconds int, rest_seconds_high int, notes text, warmup_sets_low int, warmup_sets_high int, is_main boolean)
      RETURNING id, routine_id, sort_order`,
     [JSON.stringify(rePayload)]
   );

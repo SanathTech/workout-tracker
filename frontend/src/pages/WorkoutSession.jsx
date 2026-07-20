@@ -6,7 +6,7 @@ import { Skeleton } from '../components/Skeleton';
 import ExercisePickerSheet from '../components/ExercisePickerSheet';
 import MainBadge from '../components/MainBadge';
 import { CloseIcon, ChevronIcon, InfoIcon } from '../components/icons';
-import { formatRest, formatWarmup } from '../utils/format';
+import { formatRestRange, formatWarmup } from '../utils/format';
 
 function TargetChip({ children }) {
   return (
@@ -140,7 +140,7 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove }) {
           {warmupLabel && <TargetChip>{warmupLabel}</TargetChip>}
           {target.target_sets && <TargetChip>{target.target_sets} sets</TargetChip>}
           {repRange && <TargetChip>{repRange} reps</TargetChip>}
-          {target.rest_seconds != null && <TargetChip>{formatRest(target.rest_seconds)} rest</TargetChip>}
+          {(target.rest_seconds != null || target.rest_seconds_high != null) && <TargetChip>{formatRestRange(target.rest_seconds, target.rest_seconds_high)} rest</TargetChip>}
         </div>
       )}
 

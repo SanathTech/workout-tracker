@@ -116,9 +116,9 @@ export default function ExerciseEditor({ ex, allExercises, expanded, onToggle, o
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             <div>
-              <label className="label">Rest (min)</label>
+              <label className="label">Rest low (min)</label>
               <input
                 data-editor-input="true"
                 type="number" inputMode="decimal" min="0" step="0.25" placeholder="2" className="input"
@@ -128,6 +128,20 @@ export default function ExerciseEditor({ ex, allExercises, expanded, onToggle, o
                   if (e.target.value === '') return onChange({ ...ex, rest_seconds: null });
                   const mins = parseFloat(e.target.value);
                   onChange({ ...ex, rest_seconds: Number.isFinite(mins) ? Math.round(mins * 60) : null });
+                }}
+              />
+            </div>
+            <div>
+              <label className="label">Rest high (min)</label>
+              <input
+                data-editor-input="true"
+                type="number" inputMode="decimal" min="0" step="0.25" placeholder="3" className="input"
+                value={ex.rest_seconds_high == null ? '' : (ex.rest_seconds_high / 60)}
+                onFocus={selectOnFocus}
+                onChange={(e) => {
+                  if (e.target.value === '') return onChange({ ...ex, rest_seconds_high: null });
+                  const mins = parseFloat(e.target.value);
+                  onChange({ ...ex, rest_seconds_high: Number.isFinite(mins) ? Math.round(mins * 60) : null });
                 }}
               />
             </div>

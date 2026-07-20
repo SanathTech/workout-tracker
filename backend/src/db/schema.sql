@@ -53,6 +53,7 @@ CREATE TABLE routine_exercises (
   rep_range_high INTEGER,
   target_rir_per_set INTEGER[] NOT NULL DEFAULT '{}',
   rest_seconds INTEGER,
+  rest_seconds_high INTEGER,
   notes TEXT,
   warmup_sets_low INTEGER,
   warmup_sets_high INTEGER,
