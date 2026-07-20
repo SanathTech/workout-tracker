@@ -30,6 +30,7 @@ export default function ProgramEditor({ initial, onCancel, onSaved }) {
               rep_range_high: re.rep_range_high,
               target_rir_per_set: rir,
               rest_seconds: re.rest_seconds,
+              rest_seconds_high: re.rest_seconds_high ?? null,
               notes: re.notes || '',
               is_main: re.is_main === true,
               // Warm-up sets have no editor UI yet — carry them through unchanged so edits don't drop them.
@@ -84,6 +85,7 @@ export default function ProgramEditor({ initial, onCancel, onSaved }) {
             rep_range_high: ex.rep_range_high,
             target_rir_per_set,
             rest_seconds: ex.rest_seconds,
+            rest_seconds_high: ex.rest_seconds_high ?? null,
             notes: ex.notes || null,
             is_main: ex.is_main === true,
             warmup_sets_low: ex.warmup_sets_low ?? null,

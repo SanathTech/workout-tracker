@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { startProgram, endProgram, deleteProgram, startWorkout } from '../../api/client';
-import { formatRest, formatWarmup } from '../../utils/format';
+import { formatRestRange, formatWarmup } from '../../utils/format';
 import { ChevronIcon } from '../../components/icons';
 import MainBadge from '../../components/MainBadge';
 
@@ -134,7 +134,7 @@ export default function ProgramView({ program, onEdit, onDeleted }) {
                         {ex.target_sets} sets
                         {(ex.rep_range_low || ex.rep_range_high) && ` · ${ex.rep_range_low || '?'}–${ex.rep_range_high || '?'} reps`}
                         {Array.isArray(ex.target_rir_per_set) && ex.target_rir_per_set.some((v) => v != null) && ` · RIR ${ex.target_rir_per_set.map((v) => v == null ? '–' : v).join('/')}`}
-                        {ex.rest_seconds != null && ` · ${formatRest(ex.rest_seconds)} rest`}
+                        {(ex.rest_seconds != null || ex.rest_seconds_high != null) && ` · ${formatRestRange(ex.rest_seconds, ex.rest_seconds_high)} rest`}
                       </p>
                       {ex.notes && <p className="text-xs text-neutral-500 italic mt-0.5">{ex.notes}</p>}
                       {ex.substitutes?.length > 0 && (
