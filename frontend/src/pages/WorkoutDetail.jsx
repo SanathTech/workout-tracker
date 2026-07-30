@@ -21,8 +21,10 @@ export default function WorkoutDetail() {
       qc.invalidateQueries({ queryKey: ['recent-workouts'] });
       qc.invalidateQueries({ queryKey: ['workouts-history'] });
       qc.invalidateQueries({ queryKey: ['stats'] });
-      // Removing a workout frees its slot, so the next-up routine shifts back.
+      // Removing a workout frees its slot, so the next-up routine shifts back —
+      // and a program that auto-completed on that session becomes active again.
       qc.invalidateQueries({ queryKey: ['active-program'] });
+      qc.invalidateQueries({ queryKey: ['programs'] });
       navigate('/dashboard');
     },
   });
@@ -83,7 +85,7 @@ export default function WorkoutDetail() {
         </div>
       )}
 
-      {hasExercises && (
+      {hasExercises && !isSkipped && (
         <div className="grid grid-cols-3 gap-3">
           {[
             { label: 'Exercises', value: workout.exercises.length },

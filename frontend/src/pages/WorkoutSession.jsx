@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { getWorkout, updateWorkout, completeWorkout, skipWorkout, getLastByExercise } from '../api/client';
 import { Skeleton } from '../components/Skeleton';
 import ExercisePickerSheet from '../components/ExercisePickerSheet';
@@ -396,6 +396,10 @@ export default function WorkoutSession() {
   }
   if (isLoading || !workout) return <WorkoutSessionSkeleton />;
   if (!hydrated) return <WorkoutSessionSkeleton />;
+
+  // A skipped session logs nothing, so there's nothing to edit or finish here —
+  // reachable by going back after skipping, or from a stale link.
+  if (workout.status === 'skipped') return <Navigate to={`/workouts/${id}`} replace />;
 
   // A completed workout can be reopened for editing (from its detail page). Edits
   // save in place without changing its completed status or the program sequence.
