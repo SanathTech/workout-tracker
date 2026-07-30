@@ -80,7 +80,7 @@ CREATE TABLE workouts (
   date DATE NOT NULL DEFAULT CURRENT_DATE,
   duration_minutes INTEGER,
   notes TEXT,
-  status VARCHAR(20) NOT NULL DEFAULT 'in_progress',  -- in_progress | completed
+  status VARCHAR(20) NOT NULL DEFAULT 'in_progress',  -- in_progress | completed | skipped
   completed_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );

@@ -35,6 +35,8 @@ export const getWorkout = (id) => api.get(`/workouts/${id}`).then((r) => r.data)
 export const startWorkout = (data) => api.post('/workouts', data).then((r) => r.data);
 export const updateWorkout = (id, data) => api.put(`/workouts/${id}`, data).then((r) => r.data);
 export const completeWorkout = (id) => api.post(`/workouts/${id}/complete`).then((r) => r.data);
+export const skipUpcomingWorkout = (data) => api.post('/workouts/skip', data).then((r) => r.data);
+export const skipWorkout = (id) => api.post(`/workouts/${id}/skip`).then((r) => r.data);
 export const deleteWorkout = (id) => api.delete(`/workouts/${id}`).then((r) => r.data);
 export const getLastByExercise = (exerciseId, params) =>
   api.get(`/workouts/last-by-exercise/${exerciseId}`, { params }).then((r) => r.data);

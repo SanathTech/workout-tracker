@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { startProgram, endProgram, deleteProgram, startWorkout } from '../../api/client';
+import { startProgram, endProgram, deleteProgram, startWorkout, skipUpcomingWorkout } from '../../api/client';
 import { formatRestRange, formatWarmup } from '../../utils/format';
 import { ChevronIcon } from '../../components/icons';
 import MainBadge from '../../components/MainBadge';
@@ -36,6 +36,15 @@ export default function ProgramView({ program, onEdit, onDeleted }) {
     },
   });
 
+  const skipWorkoutMut = useMutation({
+    mutationFn: (routineId) => skipUpcomingWorkout({ routine_id: routineId }),
+    onSuccess: () => {
+      invalidateAll();
+      qc.invalidateQueries({ queryKey: ['recent-workouts'] });
+      qc.invalidateQueries({ queryKey: ['workouts-history'] });
+    },
+  });
+
   const isActive = program.status === 'active';
   const nextRoutine = isActive ? program.progress?.next_routine : null;
 
@@ -65,13 +74,26 @@ export default function ProgramView({ program, onEdit, onDeleted }) {
         </div>
 
         {isActive && nextRoutine && (
-          <button
-            onClick={() => startWorkoutMut.mutate(nextRoutine.id)}
-            disabled={startWorkoutMut.isPending}
-            className="btn-primary w-full justify-center py-3"
-          >
-            {startWorkoutMut.isPending ? 'Starting…' : `Start ${nextRoutine.name} · Week ${program.progress.week}`}
-          </button>
+          <div className="space-y-2">
+            <button
+              onClick={() => startWorkoutMut.mutate(nextRoutine.id)}
+              disabled={startWorkoutMut.isPending || skipWorkoutMut.isPending}
+              className="btn-primary w-full justify-center py-3"
+            >
+              {startWorkoutMut.isPending ? 'Starting…' : `Start ${nextRoutine.name} · Week ${program.progress.week}`}
+            </button>
+            <button
+              onClick={() => {
+                if (confirm(`Skip ${nextRoutine.name}? Nothing gets logged, and the next routine moves up.`)) {
+                  skipWorkoutMut.mutate(nextRoutine.id);
+                }
+              }}
+              disabled={startWorkoutMut.isPending || skipWorkoutMut.isPending}
+              className="btn-ghost w-full justify-center"
+            >
+              {skipWorkoutMut.isPending ? 'Skipping…' : 'Skip this workout'}
+            </button>
+          </div>
         )}
 
         <div className="flex flex-wrap gap-2">

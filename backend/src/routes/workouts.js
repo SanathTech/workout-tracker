@@ -3,6 +3,34 @@ const router = express.Router();
 const db = require('../db');
 const { serverError } = require('../util/errors');
 
+// A skipped session logs nothing but still occupies its slot in the routine
+// sequence, so it counts alongside completed ones everywhere position is derived.
+async function countSequencedWorkouts(client, programId) {
+  const { rows } = await client.query(
+    "SELECT COUNT(*)::int AS n FROM workouts WHERE program_id = $1 AND status IN ('completed', 'skipped')",
+    [programId]
+  );
+  return rows[0].n;
+}
+
+// Resolves the snapshot fields a new workout row carries: the routine name, its
+// program, and which week of that program the session lands in. The routine owns
+// the program link — a caller-supplied program_id can't contradict it, which would
+// otherwise file the workout under a program whose sequence it isn't part of.
+async function resolveRoutineContext(client, routineId) {
+  const rRes = await client.query('SELECT id, name, program_id FROM routines WHERE id = $1', [routineId]);
+  if (!rRes.rows.length) return null;
+
+  const programId = rRes.rows[0].program_id;
+  let programWeek = null;
+  if (programId) {
+    const rcRes = await client.query('SELECT COUNT(*)::int AS n FROM routines WHERE program_id = $1', [programId]);
+    const perCycle = rcRes.rows[0].n || 1;
+    programWeek = Math.floor((await countSequencedWorkouts(client, programId)) / perCycle) + 1;
+  }
+  return { routineName: rRes.rows[0].name, programId, programWeek };
+}
+
 async function maybeCompleteProgram(client, programId) {
   if (!programId) return;
   const pRes = await client.query('SELECT total_weeks, status FROM programs WHERE id = $1', [programId]);
@@ -14,21 +42,46 @@ async function maybeCompleteProgram(client, programId) {
     'SELECT COUNT(*)::int AS n FROM routines WHERE program_id = $1',
     [programId]
   );
-  const cRes = await client.query(
-    "SELECT COUNT(*)::int AS n FROM workouts WHERE program_id = $1 AND status = 'completed'",
-    [programId]
-  );
 
   const routinesPerCycle = rRes.rows[0].n;
   if (!routinesPerCycle) return;
   const targetWorkouts = pRes.rows[0].total_weeks * routinesPerCycle;
 
-  if (cRes.rows[0].n >= targetWorkouts) {
+  if ((await countSequencedWorkouts(client, programId)) >= targetWorkouts) {
     await client.query(
       "UPDATE programs SET status = 'completed', completed_at = NOW() WHERE id = $1",
       [programId]
     );
   }
+}
+
+// The mirror of maybeCompleteProgram: deleting a workout frees its slot, so a
+// program that auto-completed on that session goes back to active. Left alone when
+// another program has since taken the single active slot, or when the program was
+// archived by hand — that end was deliberate, not a side effect of the count.
+async function maybeReopenProgram(client, programId) {
+  if (!programId) return;
+  const pRes = await client.query('SELECT total_weeks, status FROM programs WHERE id = $1', [programId]);
+  if (!pRes.rows.length || pRes.rows[0].status !== 'completed') return;
+  if (pRes.rows[0].total_weeks == null) return;
+
+  const rRes = await client.query(
+    'SELECT COUNT(*)::int AS n FROM routines WHERE program_id = $1',
+    [programId]
+  );
+  const routinesPerCycle = rRes.rows[0].n;
+  if (!routinesPerCycle) return;
+  const targetWorkouts = pRes.rows[0].total_weeks * routinesPerCycle;
+  if ((await countSequencedWorkouts(client, programId)) >= targetWorkouts) return;
+
+  // The active-slot check rides along in the UPDATE rather than preceding it, so
+  // there's no window between the two for another program to claim the slot.
+  await client.query(
+    `UPDATE programs SET status = 'active', completed_at = NULL
+       WHERE id = $1
+         AND NOT EXISTS (SELECT 1 FROM programs WHERE status = 'active' AND id <> $1)`,
+    [programId]
+  );
 }
 
 // Rewrites a workout's exercise+set tree in two batched statements (a DELETE and
@@ -209,7 +262,7 @@ router.get('/recent', async (req, res) => {
          FROM workouts w
          LEFT JOIN programs p ON p.id = w.program_id
          LEFT JOIN workout_exercises we ON we.workout_id = w.id
-        WHERE w.status = 'completed'
+        WHERE w.status IN ('completed', 'skipped')
         GROUP BY w.id, p.name
         ORDER BY w.date DESC, w.created_at DESC
         LIMIT 5`
@@ -290,26 +343,14 @@ router.post('/', async (req, res) => {
     let templateExercises = exercises;
 
     if (routine_id) {
-      const rRes = await client.query(
-        'SELECT r.id, r.name, r.program_id FROM routines r WHERE r.id = $1',
-        [routine_id]
-      );
-      if (!rRes.rows.length) {
+      const ctx = await resolveRoutineContext(client, routine_id);
+      if (!ctx) {
         await client.query('ROLLBACK');
         return res.status(404).json({ error: 'Routine not found' });
       }
-      routineName = rRes.rows[0].name;
-      programId = programId || rRes.rows[0].program_id;
-
-      if (programId) {
-        const cRes = await client.query(
-          "SELECT COUNT(*)::int AS n FROM workouts WHERE program_id = $1 AND status = 'completed'",
-          [programId]
-        );
-        const rcRes = await client.query('SELECT COUNT(*)::int AS n FROM routines WHERE program_id = $1', [programId]);
-        const perCycle = rcRes.rows[0].n || 1;
-        programWeek = Math.floor(cRes.rows[0].n / perCycle) + 1;
-      }
+      routineName = ctx.routineName;
+      programId = ctx.programId;
+      programWeek = ctx.programWeek;
 
       if (!templateExercises) {
         const teRes = await client.query(
@@ -359,6 +400,44 @@ router.post('/', async (req, res) => {
     res.status(201).json(full);
   } catch (err) {
     serverError(res, err);
+  }
+});
+
+// POST /api/workouts/skip — bank a session as skipped without ever starting it.
+// It's a real workout row (with no exercises) because rows are what move the
+// routine sequence along, so the next session becomes the one after this routine.
+router.post('/skip', async (req, res) => {
+  const { routine_id, date, notes } = req.body;
+  if (!routine_id) return res.status(400).json({ error: 'routine_id is required' });
+
+  const client = await db.pool.connect();
+  try {
+    await client.query('BEGIN');
+    const ctx = await resolveRoutineContext(client, routine_id);
+    if (!ctx) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Routine not found' });
+    }
+    const { rows } = await client.query(
+      `INSERT INTO workouts (program_id, routine_id, routine_name, program_week, date, notes, status)
+       VALUES ($1, $2, $3, $4, $5, $6, 'skipped') RETURNING *`,
+      [
+        ctx.programId,
+        routine_id,
+        ctx.routineName,
+        ctx.programWeek,
+        date || new Date().toISOString().slice(0, 10),
+        notes || null,
+      ]
+    );
+    await maybeCompleteProgram(client, ctx.programId);
+    await client.query('COMMIT');
+    res.status(201).json(rows[0]);
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    serverError(res, err);
+  } finally {
+    client.release();
   }
 });
 
@@ -423,13 +502,52 @@ router.post('/:id/complete', async (req, res) => {
   }
 });
 
-router.delete('/:id', async (req, res) => {
+// POST /api/workouts/:id/skip — bail out of a session already under way. Anything
+// logged on it stays on the row but stops counting, since stats read completed only.
+router.post('/:id/skip', async (req, res) => {
+  const client = await db.pool.connect();
   try {
-    const { rowCount } = await db.query('DELETE FROM workouts WHERE id = $1', [req.params.id]);
-    if (!rowCount) return res.status(404).json({ error: 'Workout not found' });
+    await client.query('BEGIN');
+    const { rows } = await client.query(
+      `UPDATE workouts SET status = 'skipped'
+         WHERE id = $1 AND status = 'in_progress' RETURNING *`,
+      [req.params.id]
+    );
+    if (!rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Workout not found or already finished' });
+    }
+    await maybeCompleteProgram(client, rows[0].program_id);
+    await client.query('COMMIT');
+    res.json(rows[0]);
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    serverError(res, err);
+  } finally {
+    client.release();
+  }
+});
+
+router.delete('/:id', async (req, res) => {
+  const client = await db.pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query(
+      'DELETE FROM workouts WHERE id = $1 RETURNING program_id',
+      [req.params.id]
+    );
+    if (!rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Workout not found' });
+    }
+    await maybeReopenProgram(client, rows[0].program_id);
+    await client.query('COMMIT');
     res.json({ success: true });
   } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
     serverError(res, err);
+  } finally {
+    client.release();
   }
 });
 

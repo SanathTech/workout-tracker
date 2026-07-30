@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { getWorkout, deleteWorkout } from '../api/client';
 import { Skeleton } from '../components/Skeleton';
 import MainBadge from '../components/MainBadge';
+import StatusBadge from '../components/StatusBadge';
 
 export default function WorkoutDetail() {
   const { id } = useParams();
@@ -18,7 +19,12 @@ export default function WorkoutDetail() {
     mutationFn: () => deleteWorkout(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['recent-workouts'] });
+      qc.invalidateQueries({ queryKey: ['workouts-history'] });
       qc.invalidateQueries({ queryKey: ['stats'] });
+      // Removing a workout frees its slot, so the next-up routine shifts back —
+      // and a program that auto-completed on that session becomes active again.
+      qc.invalidateQueries({ queryKey: ['active-program'] });
+      qc.invalidateQueries({ queryKey: ['programs'] });
       navigate('/dashboard');
     },
   });
@@ -26,6 +32,8 @@ export default function WorkoutDetail() {
   if (isLoading) return <WorkoutDetailSkeleton />;
   if (!workout) return <p className="text-center text-neutral-500 py-20">Workout not found.</p>;
 
+  const isSkipped = workout.status === 'skipped';
+  const hasExercises = workout.exercises?.length > 0;
   const totalVolume = workout.exercises?.reduce(
     (sum, ex) => sum + ex.sets.reduce((s2, set) => s2 + (set.weight_kg || 0) * (set.reps || 0), 0),
     0
@@ -36,7 +44,10 @@ export default function WorkoutDetail() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <Link to="/dashboard" className="text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100">← Back</Link>
-          <h1 className="text-2xl font-semibold tracking-tight mt-1">{workout.routine_name || 'Workout'}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight mt-1">
+            {workout.routine_name || 'Workout'}
+            <StatusBadge status={workout.status} className="ml-2 align-middle" />
+          </h1>
           <p className="text-sm text-neutral-500 dark:text-neutral-400">
             {new Date(workout.date).toLocaleDateString('en-US', {
               weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
@@ -53,27 +64,42 @@ export default function WorkoutDetail() {
             <Link to={`/session/${id}`} className="btn-secondary">Edit</Link>
           )}
           <button
-            onClick={() => { if (confirm('Delete this workout?')) remove(); }}
+            onClick={() => {
+              const prompt = isSkipped
+                ? `Undo this skip? The program sequence moves back to this routine${hasExercises ? ', and anything logged on it is deleted' : ''}.`
+                : 'Delete this workout?';
+              if (confirm(prompt)) remove();
+            }}
             className="btn-danger"
           >
-            Delete
+            {isSkipped ? 'Undo skip' : 'Delete'}
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
-        {[
-          { label: 'Exercises', value: workout.exercises?.length ?? 0 },
-          { label: 'Total sets', value: workout.exercises?.reduce((s, ex) => s + ex.sets.length, 0) ?? 0 },
-          { label: 'Volume (kg)', value: Math.round(totalVolume).toLocaleString() },
-          ...(workout.duration_minutes ? [{ label: 'Duration', value: `${workout.duration_minutes} min` }] : []),
-        ].map((s) => (
-          <div key={s.label} className="card">
-            <p className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">{s.label}</p>
-            <p className="text-xl font-semibold mt-1">{s.value}</p>
-          </div>
-        ))}
-      </div>
+      {isSkipped && (
+        <div className="card">
+          <p className="text-sm text-neutral-600 dark:text-neutral-400">
+            You skipped this session. It holds its place in the program sequence but counts toward no stats.
+          </p>
+        </div>
+      )}
+
+      {hasExercises && !isSkipped && (
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { label: 'Exercises', value: workout.exercises.length },
+            { label: 'Total sets', value: workout.exercises.reduce((s, ex) => s + ex.sets.length, 0) },
+            { label: 'Volume (kg)', value: Math.round(totalVolume).toLocaleString() },
+            ...(workout.duration_minutes ? [{ label: 'Duration', value: `${workout.duration_minutes} min` }] : []),
+          ].map((s) => (
+            <div key={s.label} className="card">
+              <p className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">{s.label}</p>
+              <p className="text-xl font-semibold mt-1">{s.value}</p>
+            </div>
+          ))}
+        </div>
+      )}
 
       {workout.notes && (
         <div className="card">
