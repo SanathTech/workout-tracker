@@ -376,12 +376,19 @@ export default function WorkoutSession() {
   });
 
   const skip = useMutation({
-    mutationFn: () => skipWorkout(id),
+    mutationFn: async () => {
+      // Best-effort flush so sets typed inside the autosave debounce survive on the
+      // row. Unlike Finish this doesn't block on the save landing — you're bailing
+      // out, and the sets count for nothing either way.
+      await saveNow();
+      return skipWorkout(id);
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['active-program'] });
       qc.invalidateQueries({ queryKey: ['recent-workouts'] });
       qc.invalidateQueries({ queryKey: ['workouts-history'] });
       qc.invalidateQueries({ queryKey: ['in-progress-workout'] });
+      qc.invalidateQueries({ queryKey: ['workout', id] });
       navigate('/dashboard');
     },
   });
