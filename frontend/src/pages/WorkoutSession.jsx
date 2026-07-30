@@ -377,9 +377,9 @@ export default function WorkoutSession() {
 
   const skip = useMutation({
     mutationFn: async () => {
-      // Best-effort flush so sets typed inside the autosave debounce survive on the
-      // row. Unlike Finish this doesn't block on the save landing — you're bailing
-      // out, and the sets count for nothing either way.
+      // Flush first so sets typed inside the autosave debounce survive on the row.
+      // Unlike Finish, a failed save doesn't abort the skip — you're bailing out,
+      // and the sets count for nothing either way.
       await saveNow();
       return skipWorkout(id);
     },

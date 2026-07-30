@@ -74,14 +74,12 @@ async function maybeReopenProgram(client, programId) {
   const targetWorkouts = pRes.rows[0].total_weeks * routinesPerCycle;
   if ((await countSequencedWorkouts(client, programId)) >= targetWorkouts) return;
 
-  const otherActive = await client.query(
-    "SELECT 1 FROM programs WHERE status = 'active' AND id <> $1 LIMIT 1",
-    [programId]
-  );
-  if (otherActive.rows.length) return;
-
+  // The active-slot check rides along in the UPDATE rather than preceding it, so
+  // there's no window between the two for another program to claim the slot.
   await client.query(
-    "UPDATE programs SET status = 'active', completed_at = NULL WHERE id = $1",
+    `UPDATE programs SET status = 'active', completed_at = NULL
+       WHERE id = $1
+         AND NOT EXISTS (SELECT 1 FROM programs WHERE status = 'active' AND id <> $1)`,
     [programId]
   );
 }
