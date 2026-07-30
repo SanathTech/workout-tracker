@@ -2,8 +2,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   getStats, getRecentWorkouts, getActiveProgram, getInProgressWorkout, startWorkout,
+  skipUpcomingWorkout,
 } from '../api/client';
 import { Skeleton } from '../components/Skeleton';
+import StatusBadge from '../components/StatusBadge';
 
 function StatCard({ label, value, unit, loading }) {
   return (
@@ -30,6 +32,7 @@ function WorkoutRow({ workout }) {
       <div>
         <p className="font-medium group-hover:underline text-neutral-900 dark:text-neutral-100">
           {workout.routine_name || 'Workout'}
+          <StatusBadge status={workout.status} className="ml-2" />
         </p>
         <p className="text-sm text-neutral-500 dark:text-neutral-400">
           {new Date(workout.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
@@ -63,6 +66,16 @@ function NextWorkoutCard({ program }) {
       navigate(`/session/${w.id}`);
     },
   });
+  const skip = useMutation({
+    mutationFn: (routineId) => skipUpcomingWorkout({ routine_id: routineId }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['active-program'] });
+      qc.invalidateQueries({ queryKey: ['programs'] });
+      qc.invalidateQueries({ queryKey: ['program', program.id] });
+      qc.invalidateQueries({ queryKey: ['recent-workouts'] });
+      qc.invalidateQueries({ queryKey: ['workouts-history'] });
+    },
+  });
 
   const progress = program.progress;
   if (!progress?.next_routine) {
@@ -71,6 +84,7 @@ function NextWorkoutCard({ program }) {
         <p className="text-xs uppercase tracking-wide text-neutral-500">Program complete</p>
         <p className="text-lg font-semibold mt-1">
           {progress?.completed_workouts}{progress?.total_workouts ? `/${progress.total_workouts}` : ''} workouts done
+          {progress?.skipped_workouts ? ` · ${progress.skipped_workouts} skipped` : ''}
         </p>
         <p className="text-sm text-neutral-500 mt-1">Start a new program when you're ready.</p>
         <Link to="/program" className="btn-primary mt-4 inline-flex">New program</Link>
@@ -87,6 +101,7 @@ function NextWorkoutCard({ program }) {
           {program.name} · Week {progress.week}{program.total_weeks ? ` of ${program.total_weeks}` : ''}
           {' · '}
           {progress.completed_workouts}{progress.total_workouts ? `/${progress.total_workouts}` : ''} done
+          {progress.skipped_workouts ? ` · ${progress.skipped_workouts} skipped` : ''}
         </p>
       </div>
 
@@ -96,15 +111,32 @@ function NextWorkoutCard({ program }) {
         {progress.next_routine.exercises.length > 4 && '…'}
       </p>
 
-      <button
-        onClick={() => start.mutate(progress.next_routine.id)}
-        disabled={start.isPending}
-        className="btn-primary w-full justify-center py-3"
-      >
-        {start.isPending ? 'Starting…' : `Start ${progress.next_routine.name}`}
-      </button>
+      <div className="space-y-2">
+        <button
+          onClick={() => start.mutate(progress.next_routine.id)}
+          disabled={start.isPending || skip.isPending}
+          className="btn-primary w-full justify-center py-3"
+        >
+          {start.isPending ? 'Starting…' : `Start ${progress.next_routine.name}`}
+        </button>
+        <button
+          onClick={() => { if (confirm(confirmSkip(program, progress))) skip.mutate(progress.next_routine.id); }}
+          disabled={start.isPending || skip.isPending}
+          className="btn-ghost w-full justify-center"
+        >
+          {skip.isPending ? 'Skipping…' : 'Skip this workout'}
+        </button>
+      </div>
+      {skip.isError && (
+        <p className="text-xs text-red-600 dark:text-red-400">Could not skip this workout. Try again.</p>
+      )}
     </div>
   );
+}
+
+function confirmSkip(program, progress) {
+  const after = program.routines[progress.position_in_cycle % program.routines.length];
+  return `Skip ${progress.next_routine.name}? Nothing gets logged${after ? `, and ${after.name} moves up next` : ''}.`;
 }
 
 function NextWorkoutSkeleton() {

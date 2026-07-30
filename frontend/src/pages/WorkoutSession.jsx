@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getWorkout, updateWorkout, completeWorkout, getLastByExercise } from '../api/client';
+import { getWorkout, updateWorkout, completeWorkout, skipWorkout, getLastByExercise } from '../api/client';
 import { Skeleton } from '../components/Skeleton';
 import ExercisePickerSheet from '../components/ExercisePickerSheet';
 import MainBadge from '../components/MainBadge';
@@ -375,6 +375,17 @@ export default function WorkoutSession() {
     },
   });
 
+  const skip = useMutation({
+    mutationFn: () => skipWorkout(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['active-program'] });
+      qc.invalidateQueries({ queryKey: ['recent-workouts'] });
+      qc.invalidateQueries({ queryKey: ['workouts-history'] });
+      qc.invalidateQueries({ queryKey: ['in-progress-workout'] });
+      navigate('/dashboard');
+    },
+  });
+
   if (isError && !workout) {
     return (
       <div className="max-w-2xl mx-auto py-20 text-center space-y-3">
@@ -437,7 +448,20 @@ export default function WorkoutSession() {
   return (
     <div className="max-w-2xl mx-auto space-y-4">
       <div>
-        <button onClick={() => navigate(-1)} className="text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200">← Back</button>
+        <div className="flex items-center justify-between gap-3">
+          <button onClick={() => navigate(-1)} className="text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200">← Back</button>
+          {!isCompleted && (
+            <button
+              onClick={() => {
+                if (confirm('Skip this workout? It keeps its place in the program sequence, and anything logged here stops counting.')) skip.mutate();
+              }}
+              disabled={skip.isPending || finish.isPending}
+              className="text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200"
+            >
+              {skip.isPending ? 'Skipping…' : 'Skip workout'}
+            </button>
+          )}
+        </div>
         <h1 className="text-2xl font-semibold tracking-tight mt-1">{workout.routine_name || 'Workout'}</h1>
         <p className="text-sm text-neutral-500 dark:text-neutral-500">
           {workout.program_name && `${workout.program_name} · `}
@@ -494,9 +518,12 @@ export default function WorkoutSession() {
 
       <div className="h-20" aria-hidden="true" />
       <div className="fixed bottom-0 inset-x-0 z-20 bg-white dark:bg-neutral-950 border-t border-neutral-200 dark:border-neutral-900 pb-[env(safe-area-inset-bottom)]">
-        {(finish.isError || doneError) && (
+        {(finish.isError || skip.isError || doneError) && (
           <p className="max-w-2xl mx-auto px-4 pt-2 text-xs text-red-600 dark:text-red-400">
-            {doneError || finish.error?.message || 'Could not finish the workout.'}
+            {doneError
+              || (skip.isError ? 'Could not skip the workout.' : null)
+              || finish.error?.message
+              || 'Could not finish the workout.'}
           </p>
         )}
         <div className="max-w-2xl mx-auto px-4 py-3 flex gap-2">
@@ -518,7 +545,7 @@ export default function WorkoutSession() {
           ) : (
             <button
               onClick={() => { if (confirm('Finish this workout?')) finish.mutate(); }}
-              disabled={finish.isPending}
+              disabled={finish.isPending || skip.isPending}
               className="btn-primary flex-1 justify-center"
             >
               {finish.isPending ? '…' : 'Finish workout'}

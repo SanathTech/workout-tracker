@@ -163,19 +163,31 @@ async function writeRoutines(client, programId, routines) {
   }
 }
 
-function computeProgress(program, completedCount) {
+// Skipped sessions fill their slot in the sequence just like completed ones, so
+// position/week/next-routine run off the combined count while the completed count
+// stays a separate figure for display.
+function computeProgress(program, { completed, skipped }) {
+  const sequenced = completed + skipped;
   const routinesPerCycle = program.routines.length;
   if (!routinesPerCycle) {
-    return { completed_workouts: completedCount, week: null, position_in_cycle: null, next_routine: null, total_workouts: program.total_weeks };
+    return {
+      completed_workouts: completed,
+      skipped_workouts: skipped,
+      week: null,
+      position_in_cycle: null,
+      next_routine: null,
+      total_workouts: program.total_weeks,
+    };
   }
   const openEnded = program.total_weeks == null;
   const totalWorkouts = openEnded ? null : program.total_weeks * routinesPerCycle;
-  const week = Math.floor(completedCount / routinesPerCycle) + 1;
-  const positionInCycle = (completedCount % routinesPerCycle) + 1;
-  const finished = !openEnded && completedCount >= totalWorkouts;
-  const nextRoutine = finished ? null : program.routines[completedCount % routinesPerCycle];
+  const week = Math.floor(sequenced / routinesPerCycle) + 1;
+  const positionInCycle = (sequenced % routinesPerCycle) + 1;
+  const finished = !openEnded && sequenced >= totalWorkouts;
+  const nextRoutine = finished ? null : program.routines[sequenced % routinesPerCycle];
   return {
-    completed_workouts: completedCount,
+    completed_workouts: completed,
+    skipped_workouts: skipped,
     total_workouts: totalWorkouts,
     week,
     position_in_cycle: positionInCycle,
@@ -205,7 +217,8 @@ router.get('/', async (req, res) => {
     const { rows } = await db.query(
       `SELECT p.*,
               COUNT(DISTINCT r.id)::int AS routine_count,
-              COUNT(DISTINCT w.id) FILTER (WHERE w.status = 'completed')::int AS completed_workouts
+              COUNT(DISTINCT w.id) FILTER (WHERE w.status = 'completed')::int AS completed_workouts,
+              COUNT(DISTINCT w.id) FILTER (WHERE w.status = 'skipped')::int AS skipped_workouts
          FROM programs p
          LEFT JOIN routines r ON r.program_id = p.id
          LEFT JOIN workouts w ON w.program_id = p.id
@@ -227,10 +240,12 @@ router.get('/active', async (req, res) => {
 
     const program = await fetchProgramTree(client, activeRes.rows[0].id);
     const countRes = await client.query(
-      "SELECT COUNT(*)::int AS n FROM workouts WHERE program_id = $1 AND status = 'completed'",
+      `SELECT COUNT(*) FILTER (WHERE status = 'completed')::int AS completed,
+              COUNT(*) FILTER (WHERE status = 'skipped')::int AS skipped
+         FROM workouts WHERE program_id = $1`,
       [program.id]
     );
-    res.json({ ...program, progress: computeProgress(program, countRes.rows[0].n) });
+    res.json({ ...program, progress: computeProgress(program, countRes.rows[0]) });
   } catch (err) {
     serverError(res, err);
   } finally {

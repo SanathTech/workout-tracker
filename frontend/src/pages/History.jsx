@@ -2,6 +2,7 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { getWorkouts } from '../api/client';
 import { Skeleton } from '../components/Skeleton';
+import StatusBadge from '../components/StatusBadge';
 
 const PAGE = 50;
 
@@ -11,9 +12,7 @@ function Row({ w }) {
       <div className="min-w-0">
         <p className="font-medium group-hover:underline text-neutral-900 dark:text-neutral-100 truncate">
           {w.routine_name || 'Workout'}
-          {w.status === 'in_progress' && (
-            <span className="ml-2 text-[10px] uppercase tracking-wide text-amber-600 dark:text-amber-500">in progress</span>
-          )}
+          <StatusBadge status={w.status} className="ml-2" />
         </p>
         <p className="text-sm text-neutral-500 dark:text-neutral-400 truncate">
           {new Date(w.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}

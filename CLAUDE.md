@@ -48,15 +48,18 @@ frontend/
 
 Program → Routines → Workouts (logged sessions). Set up once, follow forever.
 
-- **programs** — multi-week container with `status: draft | active | completed | archived`. A partial unique index enforces **one active program at a time**. Has `total_weeks`. Completion is automatic: once `total_weeks × routines_per_cycle` workouts are completed, status flips to `completed`.
+- **programs** — multi-week container with `status: draft | active | completed | archived`. A partial unique index enforces **one active program at a time**. Has `total_weeks`. Completion is automatic: once `total_weeks × routines_per_cycle` sessions are completed *or skipped*, status flips to `completed`.
 - **routines** — ordered children of a program (e.g. Upper 1, Lower 1, Upper 2, Lower 2, Arms/Delts). Same template every week; progression is driven by the user lifting heavier over time, not by per-week template variation.
 - **routine_exercises** — per-exercise targets: `target_sets`, `rep_range_low/high`, `target_rir`, `rest_seconds`, `notes`.
 - **routine_exercise_subs** — preset substitutes (per exercise), shown first; users can also pick from the full library mid-workout.
-- **workouts** — `status: in_progress | completed`. Snapshots `routine_name` and `program_week` at start so they survive routine renames/deletes. `POST /api/workouts` with `{ routine_id }` pre-fills `workout_exercises` and empty target sets from the routine template.
+- **workouts** — `status: in_progress | completed | skipped`. Snapshots `routine_name` and `program_week` at start so they survive routine renames/deletes. `POST /api/workouts` with `{ routine_id }` pre-fills `workout_exercises` and empty target sets from the routine template.
 - **workout_exercises** + **workout_sets** — the logged data. `POST /api/workouts/:id/complete` marks done and may auto-complete the program.
 
 ### "Next workout" logic
-Sequence-driven, no day-of-week binding. `next_routine = routines[(completed_count) % routines_per_cycle]`. Skip days freely; the sequence picks up where you left off. Computed server-side in `GET /api/programs/active` as `program.progress`.
+Sequence-driven, no day-of-week binding. `next_routine = routines[(completed_count + skipped_count) % routines_per_cycle]`. Skip days freely; the sequence picks up where you left off. Computed server-side in `GET /api/programs/active` as `program.progress`.
+
+### Skipping a workout
+A skip is a real `workouts` row with `status = 'skipped'` and no logged sets — rows are what advance the sequence, so skipping "Lower 1" makes the next routine come up instead. Two entry points: `POST /api/workouts/skip { routine_id }` skips the upcoming session outright (Dashboard / Program page), `POST /api/workouts/:id/skip` bails out of a session already started (session page). Every stats query filters on `status = 'completed'`, so skips never touch volume, PRs, or counters. Deleting the skipped workout is the undo — it hands the slot back to that routine.
 
 ### "Previous set" hint
 `GET /api/workouts/last-by-exercise/:id?exclude=<current_workout_id>` returns the most recent completed sets for an exercise. Shown under each set input as "prev 27.5kg x 8" — drives progressive overload.
