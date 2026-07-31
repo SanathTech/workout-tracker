@@ -8,6 +8,7 @@ import { getStats, getVolumeProgress, getExerciseProgress, getPersonalBests, get
 import { Skeleton } from '../components/Skeleton';
 import ExercisePickerSheet from '../components/ExercisePickerSheet';
 import { ChevronIcon } from '../components/icons';
+import { formatDay } from '../utils/format';
 
 const ACCENT_LIGHT = '#171717';   // neutral-900
 const ACCENT_DARK = '#e5e5e5';    // neutral-200
@@ -67,10 +68,7 @@ export default function Progress() {
   });
   const { data: pbs = [], isLoading: pbsLoading } = useQuery({ queryKey: ['personal-bests'], queryFn: getPersonalBests });
 
-  const formatDate = (dateStr) => {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  };
+  const formatDate = (dateStr) => formatDay(dateStr, { month: 'short', day: 'numeric' });
 
   return (
     <div className="space-y-6">
@@ -187,7 +185,7 @@ export default function Progress() {
                     <td className="py-2">{pb.reps}</td>
                     <td className="py-2 text-neutral-500 dark:text-neutral-400">{pb.est_1rm != null ? `${pb.est_1rm} kg` : '—'}</td>
                     <td className="py-2 text-neutral-500 dark:text-neutral-400">
-                      {new Date(pb.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      {formatDay(pb.date, { month: 'short', day: 'numeric', year: 'numeric' })}
                     </td>
                   </tr>
                 ))}

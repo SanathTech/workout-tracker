@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { getWorkouts } from '../api/client';
 import { Skeleton } from '../components/Skeleton';
 import StatusBadge from '../components/StatusBadge';
+import { formatDay } from '../utils/format';
 
 const PAGE = 50;
 
@@ -15,7 +16,7 @@ function Row({ w }) {
           <StatusBadge status={w.status} className="ml-2" />
         </p>
         <p className="text-sm text-neutral-500 dark:text-neutral-400 truncate">
-          {new Date(w.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+          {formatDay(w.date, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
           {w.exercise_count ? ` · ${w.exercise_count} exercises` : ''}
           {w.program_name ? ` · ${w.program_name}` : ''}
         </p>

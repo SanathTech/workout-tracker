@@ -6,6 +6,7 @@ import {
 } from '../api/client';
 import { Skeleton } from '../components/Skeleton';
 import StatusBadge from '../components/StatusBadge';
+import { formatDay } from '../utils/format';
 
 function StatCard({ label, value, unit, loading }) {
   return (
@@ -35,7 +36,7 @@ function WorkoutRow({ workout }) {
           <StatusBadge status={workout.status} className="ml-2" />
         </p>
         <p className="text-sm text-neutral-500 dark:text-neutral-400">
-          {new Date(workout.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+          {formatDay(workout.date, { weekday: 'short', month: 'short', day: 'numeric' })}
           {workout.exercise_count ? ` · ${workout.exercise_count} exercises` : ''}
           {workout.program_name ? ` · ${workout.program_name}` : ''}
         </p>
@@ -159,7 +160,7 @@ function InProgressCard({ workout }) {
       <p className="text-xs uppercase tracking-wide text-neutral-500">In progress</p>
       <p className="text-lg font-semibold mt-1">{workout.routine_name || 'Workout'}</p>
       <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
-        Started {new Date(workout.created_at).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' })} · tap to continue
+        Started {new Date(workout.created_at).toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' })} · tap to continue
       </p>
     </Link>
   );
@@ -182,7 +183,7 @@ export default function Dashboard() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
         <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
-          {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+          {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
         </p>
       </div>
 

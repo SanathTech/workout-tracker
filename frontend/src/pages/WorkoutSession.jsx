@@ -6,7 +6,7 @@ import { Skeleton } from '../components/Skeleton';
 import ExercisePickerSheet from '../components/ExercisePickerSheet';
 import MainBadge from '../components/MainBadge';
 import { CloseIcon, ChevronIcon, InfoIcon } from '../components/icons';
-import { formatRestRange, formatWarmup } from '../utils/format';
+import { formatRestRange, formatWarmup, formatDay } from '../utils/format';
 
 function TargetChip({ children }) {
   return (
@@ -477,7 +477,7 @@ export default function WorkoutSession() {
         <p className="text-sm text-neutral-500 dark:text-neutral-500">
           {workout.program_name && `${workout.program_name} · `}
           {workout.program_week && `Week ${workout.program_week} · `}
-          {new Date(workout.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+          {formatDay(workout.date, { weekday: 'long', month: 'short', day: 'numeric' })}
         </p>
         {isCompleted && (
           <p className="text-xs mt-0.5 text-neutral-500 dark:text-neutral-400">Editing a completed workout — changes save automatically.</p>

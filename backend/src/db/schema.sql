@@ -38,10 +38,14 @@ CREATE TABLE routines (
   program_id INTEGER NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
   name VARCHAR(255) NOT NULL,
   sort_order INTEGER NOT NULL DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  -- Editing a program retires its routines rather than deleting them. workouts.routine_id
+  -- is ON DELETE SET NULL, so a hard delete would strip the prescribed sets/reps/RIR off
+  -- every workout ever logged against them. Retired rows keep that history resolvable.
+  deleted_at TIMESTAMPTZ
 );
 
-CREATE INDEX idx_routines_program ON routines(program_id);
+CREATE INDEX idx_routines_program ON routines(program_id) WHERE deleted_at IS NULL;
 
 CREATE TABLE routine_exercises (
   id SERIAL PRIMARY KEY,

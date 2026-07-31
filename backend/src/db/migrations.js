@@ -34,6 +34,11 @@ BEGIN
   END LOOP;
 END $$`,
   'CREATE UNIQUE INDEX IF NOT EXISTS exercises_name_key ON exercises (name)',
+  // Retire routines instead of deleting them, so editing a program stops nulling
+  // workouts.routine_id and wiping the prescriptions off past workouts.
+  'ALTER TABLE routines ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ',
+  'DROP INDEX IF EXISTS idx_routines_program',
+  'CREATE INDEX IF NOT EXISTS idx_routines_program ON routines(program_id) WHERE deleted_at IS NULL',
 ];
 
 // Applies all migrations atomically on the given client (BEGIN/COMMIT, ROLLBACK on error).

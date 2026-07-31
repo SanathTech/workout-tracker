@@ -9,7 +9,9 @@
     "db:init": "node src/db/init.js",
     "db:migrate": "node src/db/migrate.js",
     "db:seed": "node src/db/seed.js",
-    "db:seed-program": "node src/db/seed-program.js"
+    "db:seed-program": "node src/db/seed-program.js",
+    "db:backfill-dates": "node src/db/backfill-dates.js",
+    "auth:hash": "node src/util/hash-password.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

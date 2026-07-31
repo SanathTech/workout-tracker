@@ -7,7 +7,37 @@ const baseURL = import.meta.env.VITE_API_URL
 const api = axios.create({
   baseURL,
   headers: { 'Content-Type': 'application/json' },
+  // The session lives in an httpOnly cookie. In production the API is proxied to the
+  // same origin by a Vercel rewrite, so this is a same-site request.
+  withCredentials: true,
 });
+
+// A 401 means the session lapsed. Announce it once so AuthGate can re-check and show
+// the login screen, rather than every caller having to handle it.
+export const UNAUTHENTICATED_EVENT = 'wt:unauthenticated';
+api.interceptors.response.use(
+  (r) => r,
+  (error) => {
+    if (error.response?.status === 401) {
+      window.dispatchEvent(new CustomEvent(UNAUTHENTICATED_EVENT));
+    }
+    return Promise.reject(error);
+  }
+);
+
+// The workout `date` is the calendar day *you* trained, so it has to come from the
+// device. Deriving it server-side put every pre-10am Melbourne session on the
+// previous day, which then skewed the weekly volume buckets.
+function localDate() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+// ── Auth ─────────────────────────────────────────────────────
+export const getAuthStatus = () => api.get('/auth/me').then((r) => r.data);
+export const login = (password) => api.post('/auth/login', { password }).then((r) => r.data);
+export const logout = () => api.post('/auth/logout').then((r) => r.data);
 
 // ── Exercises ───────────────────────────────────────────────
 export const getExercises = (params) => api.get('/exercises', { params }).then((r) => r.data);
@@ -32,10 +62,12 @@ export const getWorkouts = (params) => api.get('/workouts', { params }).then((r)
 export const getRecentWorkouts = () => api.get('/workouts/recent').then((r) => r.data);
 export const getInProgressWorkout = () => api.get('/workouts/in-progress').then((r) => r.data);
 export const getWorkout = (id) => api.get(`/workouts/${id}`).then((r) => r.data);
-export const startWorkout = (data) => api.post('/workouts', data).then((r) => r.data);
+export const startWorkout = (data) =>
+  api.post('/workouts', { date: localDate(), ...data }).then((r) => r.data);
 export const updateWorkout = (id, data) => api.put(`/workouts/${id}`, data).then((r) => r.data);
 export const completeWorkout = (id) => api.post(`/workouts/${id}/complete`).then((r) => r.data);
-export const skipUpcomingWorkout = (data) => api.post('/workouts/skip', data).then((r) => r.data);
+export const skipUpcomingWorkout = (data) =>
+  api.post('/workouts/skip', { date: localDate(), ...data }).then((r) => r.data);
 export const skipWorkout = (id) => api.post(`/workouts/${id}/skip`).then((r) => r.data);
 export const deleteWorkout = (id) => api.delete(`/workouts/${id}`).then((r) => r.data);
 export const getLastByExercise = (exerciseId, params) =>

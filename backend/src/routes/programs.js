@@ -11,7 +11,7 @@ async function fetchProgramTree(client, programId) {
   const program = programRes.rows[0];
 
   const routinesRes = await client.query(
-    'SELECT * FROM routines WHERE program_id = $1 ORDER BY sort_order, id',
+    'SELECT * FROM routines WHERE program_id = $1 AND deleted_at IS NULL ORDER BY sort_order, id',
     [programId]
   );
 
@@ -69,11 +69,19 @@ async function fetchProgramTree(client, programId) {
 }
 
 async function writeRoutines(client, programId, routines) {
-  // Wipes and rewrites the routine tree for this program. Used by POST and PUT.
+  // Rewrites the routine tree for this program. Used by POST and PUT.
   // Each of the three levels (routines → exercises → substitutes) is written in a
   // single batched INSERT rather than a query per row, so saving a full program is
   // a handful of round-trips instead of dozens.
-  await client.query('DELETE FROM routines WHERE program_id = $1', [programId]);
+  //
+  // The old rows are RETIRED, not deleted. workouts.routine_id is ON DELETE SET NULL
+  // and routine_exercises cascades from routines — so deleting here would strip the
+  // prescribed sets/reps/RIR/rest off every workout already logged against this
+  // program. Retired rows are excluded from every read but keep that history intact.
+  await client.query(
+    'UPDATE routines SET deleted_at = NOW() WHERE program_id = $1 AND deleted_at IS NULL',
+    [programId]
+  );
   if (!routines || !routines.length) return;
 
   // 1) Routines.
@@ -220,7 +228,7 @@ router.get('/', async (req, res) => {
               COUNT(DISTINCT w.id) FILTER (WHERE w.status = 'completed')::int AS completed_workouts,
               COUNT(DISTINCT w.id) FILTER (WHERE w.status = 'skipped')::int AS skipped_workouts
          FROM programs p
-         LEFT JOIN routines r ON r.program_id = p.id
+         LEFT JOIN routines r ON r.program_id = p.id AND r.deleted_at IS NULL
          LEFT JOIN workouts w ON w.program_id = p.id
         GROUP BY p.id
         ORDER BY (p.status = 'active') DESC, p.created_at DESC`
@@ -303,16 +311,19 @@ router.put('/:id', async (req, res) => {
   // null for an open-ended program); otherwise it's left untouched.
   const tw = normalizeTotalWeeks(req.body);
   if (tw.present && !tw.valid) return res.status(400).json({ error: TOTAL_WEEKS_ERROR });
+  // Same present-vs-absent distinction for description: COALESCE would read a
+  // cleared field as "not provided" and silently restore the old text.
+  const descPresent = 'description' in req.body;
   const client = await db.pool.connect();
   try {
     await client.query('BEGIN');
     const { rows } = await client.query(
       `UPDATE programs SET
          name = COALESCE($1, name),
-         description = COALESCE($2, description),
-         total_weeks = CASE WHEN $3::boolean THEN $4 ELSE total_weeks END
-       WHERE id = $5 RETURNING *`,
-      [name, description, tw.present, tw.present ? tw.value : null, req.params.id]
+         description = CASE WHEN $2::boolean THEN $3 ELSE description END,
+         total_weeks = CASE WHEN $4::boolean THEN $5 ELSE total_weeks END
+       WHERE id = $6 RETURNING *`,
+      [name, descPresent, descPresent ? (description || null) : null, tw.present, tw.present ? tw.value : null, req.params.id]
     );
     if (!rows.length) {
       await client.query('ROLLBACK');

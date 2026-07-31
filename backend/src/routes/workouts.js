@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const { serverError } = require('../util/errors');
+const { resolveWorkoutDate, isValidDateString } = require('../util/dates');
 
 // A skipped session logs nothing but still occupies its slot in the routine
 // sequence, so it counts alongside completed ones everywhere position is derived.
@@ -18,13 +19,19 @@ async function countSequencedWorkouts(client, programId) {
 // the program link — a caller-supplied program_id can't contradict it, which would
 // otherwise file the workout under a program whose sequence it isn't part of.
 async function resolveRoutineContext(client, routineId) {
-  const rRes = await client.query('SELECT id, name, program_id FROM routines WHERE id = $1', [routineId]);
+  const rRes = await client.query(
+    'SELECT id, name, program_id FROM routines WHERE id = $1 AND deleted_at IS NULL',
+    [routineId]
+  );
   if (!rRes.rows.length) return null;
 
   const programId = rRes.rows[0].program_id;
   let programWeek = null;
   if (programId) {
-    const rcRes = await client.query('SELECT COUNT(*)::int AS n FROM routines WHERE program_id = $1', [programId]);
+    const rcRes = await client.query(
+      'SELECT COUNT(*)::int AS n FROM routines WHERE program_id = $1 AND deleted_at IS NULL',
+      [programId]
+    );
     const perCycle = rcRes.rows[0].n || 1;
     programWeek = Math.floor((await countSequencedWorkouts(client, programId)) / perCycle) + 1;
   }
@@ -39,7 +46,7 @@ async function maybeCompleteProgram(client, programId) {
   if (pRes.rows[0].total_weeks == null) return; // open-ended program never auto-completes
 
   const rRes = await client.query(
-    'SELECT COUNT(*)::int AS n FROM routines WHERE program_id = $1',
+    'SELECT COUNT(*)::int AS n FROM routines WHERE program_id = $1 AND deleted_at IS NULL',
     [programId]
   );
 
@@ -66,7 +73,7 @@ async function maybeReopenProgram(client, programId) {
   if (pRes.rows[0].total_weeks == null) return;
 
   const rRes = await client.query(
-    'SELECT COUNT(*)::int AS n FROM routines WHERE program_id = $1',
+    'SELECT COUNT(*)::int AS n FROM routines WHERE program_id = $1 AND deleted_at IS NULL',
     [programId]
   );
   const routinesPerCycle = rRes.rows[0].n;
@@ -379,7 +386,7 @@ router.post('/', async (req, res) => {
         routine_id || null,
         routineName,
         programWeek,
-        date || new Date().toISOString().slice(0, 10),
+        resolveWorkoutDate(date),
         notes || null,
       ]
     );
@@ -426,7 +433,7 @@ router.post('/skip', async (req, res) => {
         routine_id,
         ctx.routineName,
         ctx.programWeek,
-        date || new Date().toISOString().slice(0, 10),
+        resolveWorkoutDate(date),
         notes || null,
       ]
     );
@@ -443,6 +450,13 @@ router.post('/skip', async (req, res) => {
 
 router.put('/:id', async (req, res) => {
   const { date, duration_minutes, notes, exercises } = req.body;
+  if (date !== undefined && date !== null && !isValidDateString(date)) {
+    return res.status(400).json({ error: 'date must be YYYY-MM-DD' });
+  }
+  // Autosave always sends `notes`, and sends null when you've cleared the field.
+  // COALESCE read that as "not provided" and restored the old text, so a deleted
+  // note came back on the next load. Key present means set it — including to null.
+  const notesPresent = 'notes' in req.body;
   const client = await db.pool.connect();
   try {
     await client.query('BEGIN');
@@ -450,9 +464,9 @@ router.put('/:id', async (req, res) => {
       `UPDATE workouts SET
          date = COALESCE($1, date),
          duration_minutes = COALESCE($2, duration_minutes),
-         notes = COALESCE($3, notes)
-       WHERE id = $4 RETURNING *`,
-      [date, duration_minutes, notes, req.params.id]
+         notes = CASE WHEN $3::boolean THEN $4 ELSE notes END
+       WHERE id = $5 RETURNING *`,
+      [date, duration_minutes, notesPresent, notesPresent ? (notes || null) : null, req.params.id]
     );
     if (!rows.length) {
       await client.query('ROLLBACK');

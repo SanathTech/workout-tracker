@@ -5,6 +5,7 @@ import { QueryClient, defaultShouldDehydrateQuery } from '@tanstack/react-query'
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister';
 import App from './App';
+import AuthGate from './components/AuthGate';
 import {
   getActiveProgram, getInProgressWorkout, getStats, getRecentWorkouts,
 } from './api/client';
@@ -48,7 +49,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       }}
     >
       <BrowserRouter>
-        <App />
+        <AuthGate>
+          <App />
+        </AuthGate>
       </BrowserRouter>
     </PersistQueryClientProvider>
   </React.StrictMode>

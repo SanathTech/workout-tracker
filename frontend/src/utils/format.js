@@ -23,6 +23,23 @@ export function formatWarmup(low, high) {
   return lo === hi ? `${lo} warm-up` : `${lo}–${hi} warm-up`;
 }
 
+// A workout `date` is a calendar day ('2026-08-01'), not an instant. `new Date()` reads
+// a date-only string as UTC midnight, which renders as the previous day anywhere west of
+// Greenwich — so build it from the parts and let it be local midnight instead.
+export function parseDay(value) {
+  if (value instanceof Date) return value;
+  if (typeof value === 'string') {
+    const m = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  }
+  return new Date(value);
+}
+
+// `undefined` locale means "use the device's" — the app was pinned to en-US.
+export function formatDay(value, options) {
+  return parseDay(value).toLocaleDateString(undefined, options);
+}
+
 export function parseIntOrNull(value) {
   if (value === '' || value == null) return null;
   const n = parseInt(value);

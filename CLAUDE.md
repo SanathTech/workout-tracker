@@ -74,6 +74,8 @@ npm run dev                                  # nodemon on :3001 (needs LOCAL_DEV
 npm run db:init                              # WIPE + recreate schema (preserves exercises table)
 npm run db:migrate                           # non-destructive: apply additive column migrations in place (idempotent)
 npm run db:seed                              # seed exercise library
+npm run db:backfill-dates                    # one-shot date repair; dry run. add `-- --apply` to write
+npm run auth:hash                            # generate AUTH_PASSWORD_HASH + SESSION_SECRET (reads stdin)
 
 # Frontend
 cd frontend
@@ -91,8 +93,13 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
 - `workout-tracker-frontend` — Root Directory: `frontend`. Vite framework preset.
 
 **Env vars:**
-- Backend: `DATABASE_URL` (Neon), `NODE_ENV=production`
-- Frontend: `VITE_API_URL` pointing at the deployed backend (e.g. `https://workout-tracker-xxx.vercel.app`)
+- Backend: `DATABASE_URL` (Neon — use the **pooled** `-pooler` host; the pool is capped at
+  `max: 1` per lambda), `NODE_ENV=production`, `AUTH_PASSWORD_HASH`, `SESSION_SECRET`,
+  optional `APP_TIMEZONE` (defaults to `Australia/Melbourne`)
+- Frontend: `VITE_API_URL` must be **empty** in production. `frontend/vercel.json` rewrites
+  `/api/*` to the backend project, so the API is same-origin and the session cookie works.
+  Setting `VITE_API_URL` sends requests cross-origin, where `SameSite=Lax` strips the cookie
+  and every request 401s.
 
 **Custom domain:** `workout.sanathtech.com` → the frontend project. CORS in `backend/src/index.js` allows `workout.sanathtech.com`, `*.vercel.app`, and `localhost`.
 
@@ -122,6 +129,28 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
 - Use `mcp__github__pull_request_read` to check status.
 - Don't create PRs unless asked.
 
+### Invariants that are easy to break
+
+- **Routines are retired, never deleted.** `writeRoutines` sets `deleted_at` instead of
+  `DELETE`, because `workouts.routine_id` is `ON DELETE SET NULL` — a hard delete strips the
+  prescribed sets/reps/RIR off every workout already logged against that program. **Every
+  read of `routines` must filter `deleted_at IS NULL`.**
+- **Dates are calendar days, not instants.** `workouts.date` is a `DATE` meaning "the day you
+  trained". The client sends its own local date (`startWorkout` in `api/client.js`); the
+  server falls back to `todayInAppTimezone()`, never the UTC clock. A `pg` type parser returns
+  `DATE` as a plain `'YYYY-MM-DD'` string so the JSON doesn't shift with the server's TZ, and
+  the frontend renders it via `formatDay()` — `new Date('2026-08-01')` parses as UTC midnight
+  and renders as the previous day west of Greenwich.
+- **Nullable text fields distinguish absent from empty.** `COALESCE(col, $n)` reads a cleared
+  field as "not provided" and restores the old value. Use the `'field' in req.body` +
+  `CASE WHEN $n::boolean THEN ... ELSE col END` pattern (see `workouts.notes`,
+  `programs.description`, `programs.total_weeks`).
+- **Auth fails open when unconfigured.** With `AUTH_PASSWORD_HASH`/`SESSION_SECRET` unset the
+  API stays public and logs a warning; `GET /health` reports `auth: "on" | "off"`. That's
+  deliberate — refusing everything would brick the live app on deploy, before there's any way
+  to log in. Check `/health` after changing env vars.
+- Locale is never hardcoded. Pass `undefined` to `toLocale*String` so it follows the device.
+
 ### Things explicitly chosen
 - RIR (reps in reserve) is a routine *target* only; not captured per logged set, to keep logging fast.
 - One active program at a time. New programs auto-archive the previous active one on start.
@@ -130,7 +159,11 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
 
 ## Known quirks / open follow-ups
 
-- Recharts `CartesianGrid stroke="#f0f0f0"` in `pages/Progress.jsx` is hardcoded — too bright in dark mode. Easy follow-up.
-- Frontend bundle is ~670 kB; Vite warns. Code-splitting Recharts would shave a lot off if it becomes a problem.
-- No auth. Single-user app on a personal domain. Don't add auth unless asked.
+- Frontend bundle is ~719 kB in one chunk; Vite warns. Route-level `React.lazy` + a Recharts
+  `manualChunks` entry is the fix — Recharts is only needed on `/progress`.
+- **Not offline-capable.** There's a manifest and icons, but no service worker, so a gym
+  dead-spot degrades the app to an autosave retry banner. Highest-value open item.
+- No rest timer and no per-set completion state, so `rest_seconds` is captured and displayed
+  but never used. `workouts.duration_minutes` is likewise rendered but never written.
+- No tests, CI, linter or types.
 - The repo owner uses a 12-week Min-Max 5x/week structure (Upper 1, Lower 1, rest, Upper 2, Lower 2, Arms/Delts, rest). The original spreadsheet is the source of truth for routine setup — see chat history if migrating data.

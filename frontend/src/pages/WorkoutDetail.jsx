@@ -4,6 +4,7 @@ import { getWorkout, deleteWorkout } from '../api/client';
 import { Skeleton } from '../components/Skeleton';
 import MainBadge from '../components/MainBadge';
 import StatusBadge from '../components/StatusBadge';
+import { formatDay } from '../utils/format';
 
 export default function WorkoutDetail() {
   const { id } = useParams();
@@ -49,7 +50,7 @@ export default function WorkoutDetail() {
             <StatusBadge status={workout.status} className="ml-2 align-middle" />
           </h1>
           <p className="text-sm text-neutral-500 dark:text-neutral-400">
-            {new Date(workout.date).toLocaleDateString('en-US', {
+            {formatDay(workout.date, {
               weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
             })}
             {workout.program_name && ` · ${workout.program_name}`}

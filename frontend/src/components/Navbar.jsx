@@ -1,7 +1,8 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { useIsFetching } from '@tanstack/react-query';
+import { useIsFetching, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMobileNavHidden } from '../hooks/useMobileNavVisibility';
+import { getAuthStatus, logout } from '../api/client';
 
 const links = [
   { to: '/dashboard', label: 'Dashboard' },
@@ -34,6 +35,42 @@ function SyncingDot() {
       aria-label="Syncing"
       className="w-1.5 h-1.5 rounded-full bg-neutral-400 dark:bg-neutral-500 animate-pulse"
     />
+  );
+}
+
+function SignOutIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" {...props}>
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" strokeLinecap="round" strokeLinejoin="round" />
+      <polyline points="16 17 21 12 16 7" strokeLinecap="round" strokeLinejoin="round" />
+      <line x1="21" y1="12" x2="9" y2="12" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// Only rendered when the server actually has auth configured.
+function SignOutButton() {
+  const qc = useQueryClient();
+  const { data: auth } = useQuery({ queryKey: ['auth'], queryFn: getAuthStatus, staleTime: 5 * 60_000, retry: false });
+
+  const signOut = useMutation({
+    mutationFn: logout,
+    onSuccess: () => qc.clear(),
+  });
+
+  if (!auth?.required || !auth?.authenticated) return null;
+
+  return (
+    <button
+      type="button"
+      onClick={() => signOut.mutate()}
+      disabled={signOut.isPending}
+      aria-label="Sign out"
+      title="Sign out"
+      className="shrink-0 p-2 rounded-md text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-neutral-200 dark:hover:bg-neutral-900 transition-colors"
+    >
+      <SignOutIcon />
+    </button>
   );
 }
 
@@ -88,6 +125,7 @@ export default function Navbar() {
           <div className="ml-auto flex items-center gap-2">
             <SyncingDot />
             <ThemeToggle />
+            <SignOutButton />
           </div>
         </div>
       </header>
