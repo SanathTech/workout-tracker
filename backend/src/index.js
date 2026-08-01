@@ -36,6 +36,19 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// Every /api response depends on the session cookie, but nothing said so: Vercel applies
+// `Cache-Control: public, max-age=0, must-revalidate` by default and Express adds an ETag,
+// while the only `Vary` was on Origin. That advertises per-session data as shared-cacheable
+// and keyed on the wrong thing — /auth/me signed-out and signed-in are the same cache entry
+// to any intermediary. The origin does revalidate correctly, so this wasn't proven to cause
+// the sign-in loop it was found chasing; it's wrong on its own terms regardless.
+app.set('etag', false);
+app.use('/api', (req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('Vary', 'Origin, Cookie');
+  next();
+});
+
 // Health check. `auth` is here so the protection state is verifiable from outside
 // rather than inferred — it reads "off" until both auth env vars are set.
 app.get('/health', (req, res) => res.json({ status: 'ok', auth: isConfigured() ? 'on' : 'off' }));
