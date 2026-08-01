@@ -156,10 +156,16 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
   unsaved work. `['workout', id]` stays out of the persisted query cache (see `main.jsx`) so
   stale server data can't land on live edits — the draft is what makes a cold offline reload
   render, so don't "simplify" by persisting the query instead.
-- **The service worker must never auto-reload.** `registerSW` is called without an update
-  prompt and without `clientsClaim`/`skipWaiting`: a new worker taking over mid-session would
-  remount the page and drop anything typed inside the 1200ms autosave debounce. Updates apply
-  on the next cold start.
+- **The service worker must never auto-reload, but it must not go quiet either.** A worker
+  taking over on its own would remount the page and drop anything typed inside the 1200ms
+  autosave debounce. Waiting for every client to close instead means an installed PWA sits on
+  stale code indefinitely — that is how a deployed auth fix reached the server and never
+  reached the phone, and the symptom ("nothing happens until I refresh") looks exactly like
+  the bug it was meant to fix. `sw-update.js` installs quietly and `UpdatePrompt` offers the
+  reload, so the choice is explicit.
+- **Cache-affecting fixes can't be verified by curling production.** The origin serving new
+  bytes says nothing about what an installed client is running. Check the asset hash in the
+  page, not just the deploy.
 - **Don't add `manualChunks` for Recharts.** Naming it makes Vite treat it as an entry
   dependency and emit a `modulepreload`, so the 525kB downloads on first paint anyway. The
   `React.lazy` import of `/progress` in `App.jsx` is what does the split.
