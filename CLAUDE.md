@@ -164,6 +164,13 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
   reached the phone, and the symptom ("nothing happens until I refresh") looks exactly like
   the bug it was meant to fix. `sw-update.js` installs quietly and `UpdatePrompt` offers the
   reload, so the choice is explicit.
+- **The frontend's `ignoreCommand` compares against `$VERCEL_GIT_PREVIOUS_SHA`, not `HEAD^`.**
+  The project skips builds when nothing under `frontend/` changed. With `HEAD^` that only
+  inspects the *last* commit, so fast-forwarding several commits onto `main` at once skipped
+  a build whose frontend changes were in an earlier commit of the same push — Phase 3's UI
+  never deployed while its API did. `$VERCEL_GIT_PREVIOUS_SHA` is the last *successfully
+  deployed* SHA, which is the correct baseline. The `[ -n ... ] &&` guard makes an absent
+  variable build rather than skip.
 - **Cache-affecting fixes can't be verified by curling production.** The origin serving new
   bytes says nothing about what an installed client is running. Check the asset hash in the
   page, not just the deploy.
