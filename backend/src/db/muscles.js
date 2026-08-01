@@ -67,6 +67,28 @@ const EXERCISES = {
   'hanging leg raise':        [['abs'], ['forearms']],
   'lying leg raise':          [['abs'], []],
 
+  // ── added after a dry run against the live library flagged these as guesses ──
+  'barbell incline bench':    [['chest'], ['triceps', 'front_delts']],
+  'db incline press':         [['chest'], ['triceps', 'front_delts']],
+  'smith machine incline':    [['chest'], ['triceps', 'front_delts']],
+  // Flyes are chest isolation — the elbow angle barely changes, so no triceps credit.
+  'cable flye':               [['chest'], ['front_delts']],
+  'db flye':                  [['chest'], ['front_delts']],
+  'pec deck':                 [['chest'], ['front_delts']],
+  'reverse pec deck':         [['rear_delts'], ['upper_back', 'traps']],
+  'machine shoulder press':   [['front_delts'], ['triceps', 'side_delts']],
+  // A Y-raise is a lower-trap movement with rear-delt involvement, not a side-delt one.
+  'cable y-raise':            [['traps'], ['rear_delts', 'front_delts']],
+  'incline db y-raise':       [['traps'], ['rear_delts', 'front_delts']],
+  // Overhead extension is triceps; the coarse "Arms" fallback had guessed biceps.
+  'overhead cable extension': [['triceps'], []],
+  'neutral-grip pull-up':     [['lats'], ['biceps', 'upper_back', 'forearms']],
+  'nordic ham curl':          [['hamstrings'], ['glutes']],
+  'seated leg curl':          [['hamstrings'], []],
+  'seated calf raise':        [['calves'], []],
+  'trap-bar rdl':             [['hamstrings'], ['glutes', 'lower_back']],
+  'walking lunge':            [['quads'], ['glutes', 'adductors']],
+
   // ── stock library ────────────────────────────────────────────
   'bench press':          [['chest'], ['triceps', 'front_delts']],
   'incline bench press':  [['chest'], ['triceps', 'front_delts']],
@@ -109,7 +131,7 @@ const EXERCISES = {
 // the library UI gets something sensible instead of nothing.
 const KEYWORDS = [
   [/calf|calves/,               [['calves'], []]],
-  [/leg curl|ham(string)? curl/,[['hamstrings'], []]],
+  [/leg curl|ham(string)? curl|nordic/, [['hamstrings'], []]],
   [/leg extension/,             [['quads'], []]],
   [/rdl|romanian|good ?morning/,[['hamstrings'], ['glutes', 'lower_back']]],
   [/deadlift/,                  [['hamstrings', 'lower_back'], ['glutes', 'traps']]],
@@ -119,13 +141,15 @@ const KEYWORDS = [
   [/row/,                       [['upper_back'], ['lats', 'biceps']]],
   [/shrug/,                     [['traps'], []]],
   [/face pull|rear delt|reverse (fly|pec)/, [['rear_delts'], ['upper_back']]],
+  [/y-raise|y raise/,           [['traps'], ['rear_delts', 'front_delts']]],
   [/lateral raise|side raise/,  [['side_delts'], []]],
   [/overhead press|shoulder press|military/, [['front_delts'], ['triceps', 'side_delts']]],
   [/front raise/,               [['front_delts'], []]],
   [/dip/,                       [['triceps'], ['chest', 'front_delts']]],
-  [/pushdown|pressdown|skull|extension.*tricep|tricep/, [['triceps'], []]],
+  [/fly|flye|pec deck/,         [['chest'], ['front_delts']]],
+  [/pushdown|pressdown|skull|tricep|overhead.*extension|french press/, [['triceps'], []]],
   [/curl/,                      [['biceps'], ['forearms']]],
-  [/bench|chest press|fly|push-?up/, [['chest'], ['triceps', 'front_delts']]],
+  [/bench|chest press|push-?up|incline press/, [['chest'], ['triceps', 'front_delts']]],
   [/crunch|sit-?up|plank|leg raise|ab |abs|hollow/, [['abs'], []]],
   [/back extension|hyperextension/, [['lower_back'], ['glutes', 'hamstrings']]],
 ];
