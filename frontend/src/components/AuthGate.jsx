@@ -1,17 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getAuthStatus, login, UNAUTHENTICATED_EVENT } from '../api/client';
 
 function LoginScreen({ onSignedIn }) {
   const [password, setPassword] = useState('');
-  const qc = useQueryClient();
 
   const signIn = useMutation({
     mutationFn: () => login(password),
     onSuccess: () => {
       setPassword('');
-      // Anything cached before signing in was fetched unauthenticated.
-      qc.clear();
       onSignedIn();
     },
   });
@@ -77,13 +74,28 @@ export default function AuthGate({ children }) {
     return () => window.removeEventListener(UNAUTHENTICATED_EVENT, onUnauthenticated);
   }, [refetch]);
 
+  // Everything cached before signing in was fetched unauthenticated, so it has to go —
+  // but NOT via queryClient.clear(). That removes the ['auth'] query this component is
+  // observing, leaving the observer bound to a dead query: it keeps rendering the last
+  // `{authenticated:false}` and a following invalidate is a no-op against a key that no
+  // longer exists. The result was a correct password clearing the field and returning
+  // straight to the login screen while the session was in fact live.
+  // Drop every other key, then write the state the login response just confirmed.
+  const handleSignedIn = useCallback(() => {
+    qc.removeQueries({ predicate: (q) => q.queryKey[0] !== 'auth' });
+    qc.setQueryData(['auth'], { authenticated: true, required: true });
+    // Confirm against the server. If the cookie somehow didn't stick, this puts the login
+    // screen back rather than leaving a shell that 401s on every request.
+    refetch();
+  }, [qc, refetch]);
+
   // Don't flash the login form while the status request is still in flight.
   if (isLoading) return null;
 
   // `required: false` means the server has no auth configured — stay out of the way
   // rather than locking the owner out of their own app.
   if (data && data.required && !data.authenticated) {
-    return <LoginScreen onSignedIn={() => qc.invalidateQueries({ queryKey: ['auth'] })} />;
+    return <LoginScreen onSignedIn={handleSignedIn} />;
   }
 
   return children;

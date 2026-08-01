@@ -55,7 +55,14 @@ function SignOutButton() {
 
   const signOut = useMutation({
     mutationFn: logout,
-    onSuccess: () => qc.clear(),
+    onSuccess: () => {
+      // Mirror of the sign-in path in AuthGate, and wrong for the same reason: clear()
+      // removes the ['auth'] query this button and AuthGate both observe, so they'd keep
+      // rendering `authenticated: true` and the app would sit there looking signed in
+      // against a session the server has already ended.
+      qc.removeQueries({ predicate: (q) => q.queryKey[0] !== 'auth' });
+      qc.setQueryData(['auth'], { authenticated: false, required: true });
+    },
   });
 
   if (!auth?.required || !auth?.authenticated) return null;
