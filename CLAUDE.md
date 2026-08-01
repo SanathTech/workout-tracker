@@ -77,6 +77,8 @@ npm run db:seed                              # seed exercise library
 npm run db:backfill-dates                    # one-shot date repair; dry run. add `-- --apply` to write
 npm run auth:hash                            # generate AUTH_PASSWORD_HASH + SESSION_SECRET (reads stdin)
 npm run db:apply-muscles                     # populate exercise_muscles from muscles.js; dry run. add `-- --apply`
+npm test                                     # 5 suites, 101 assertions. DATABASE_URL must be LOCAL — it truncates
+npm run test:setup                           # schema + seed + muscle mapping for a fresh test database
 
 # Frontend
 cd frontend
@@ -197,6 +199,16 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
   Suggestions read the last *completed* session, so the workout being logged can't move its
   own goalposts.
 
+- **`npm test` truncates tables and refuses any non-local `DATABASE_URL`.** The suites seed
+  their own programs, so each one starts from a reset database; the host allowlist in
+  `tests/run.mjs` is what stops that from ever pointing at Neon. Don't relax it.
+- **Only `working` sets count.** `workout_sets.set_type` is `working | warmup | drop |
+  failure`. Warm-ups are excluded from volume, per-muscle sets, stats, 1RM, personal bests
+  and progression — seven queries in `progress.js` carry the filter, and they have to agree
+  or the same session reports different numbers on different cards. Drop and failure sets
+  DO count: they're working sets taken past the prescribed stopping point. An unrecognised
+  value is stored as `working`, because a typo must not silently delete a set from the totals.
+
 ### Things explicitly chosen
 - RIR (reps in reserve) is a routine *target* only; not captured per logged set, to keep logging fast.
 - One active program at a time. New programs auto-archive the previous active one on start.
@@ -205,8 +217,8 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
 
 ## Known quirks / open follow-ups
 
-- No tests, CI, linter or types. (Integration suites exist but live outside the repo — see
-  the session transcripts; worth committing a `vitest` harness at some point.)
+- No linter or types, and no frontend unit tests — CI builds the frontend, which catches
+  bad imports and syntax but not behaviour.
 - `± steppers` on the set inputs were dropped: the row already holds set number, previous,
   weight, reps, RIR and two buttons, and four more tap targets don't fit at 375px. Would
   need a different interaction (long-press, or steppers revealed on focus).

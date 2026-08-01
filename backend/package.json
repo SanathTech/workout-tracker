@@ -12,7 +12,9 @@
     "db:seed-program": "node src/db/seed-program.js",
     "db:backfill-dates": "node src/db/backfill-dates.js",
     "auth:hash": "node src/util/hash-password.js",
-    "db:apply-muscles": "node src/db/apply-muscles.js"
+    "db:apply-muscles": "node src/db/apply-muscles.js",
+    "test": "node tests/run.mjs",
+    "test:setup": "node src/db/init.js && node src/db/seed.js && node src/db/apply-muscles.js --apply"
   },
   "dependencies": {
     "cors": "^2.8.5",

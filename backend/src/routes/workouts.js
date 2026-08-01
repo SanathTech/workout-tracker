@@ -4,6 +4,11 @@ const db = require('../db');
 const { serverError } = require('../util/errors');
 const { resolveWorkoutDate, isValidDateString } = require('../util/dates');
 
+// Only 'working' counts toward volume, 1RM estimates and personal bests. 'drop' and
+// 'failure' are working sets taken past the prescribed stopping point — they still count
+// as hard sets, so they're stored distinctly but not excluded anywhere.
+const SET_TYPES = new Set(['working', 'warmup', 'drop', 'failure']);
+
 // A skipped session logs nothing but still occupies its slot in the routine
 // sequence, so it counts alongside completed ones everywhere position is derived.
 async function countSequencedWorkouts(client, programId) {
@@ -116,6 +121,9 @@ async function writeWorkoutExercises(client, workoutId, exercises) {
         reps: s.reps ?? null,
         weight_kg: s.weight_kg ?? null,
         rir: s.rir ?? null,
+        // Anything unrecognised is stored as a working set: a typo must not quietly
+        // remove a set from every volume total.
+        set_type: SET_TYPES.has(s.set_type) ? s.set_type : 'working',
       });
     }
   });
@@ -129,10 +137,10 @@ async function writeWorkoutExercises(client, workoutId, exercises) {
          FROM jsonb_to_recordset($2::jsonb) AS x(idx int, exercise_id int, notes text)
        RETURNING id, sort_order
      )
-     INSERT INTO workout_sets (workout_exercise_id, set_number, reps, weight_kg, rir)
-     SELECT ins_ex.id, s.set_number, s.reps, s.weight_kg, s.rir
+     INSERT INTO workout_sets (workout_exercise_id, set_number, reps, weight_kg, rir, set_type)
+     SELECT ins_ex.id, s.set_number, s.reps, s.weight_kg, s.rir, s.set_type
        FROM jsonb_to_recordset($3::jsonb)
-              AS s(ex_idx int, set_number int, reps int, weight_kg numeric, rir int)
+              AS s(ex_idx int, set_number int, reps int, weight_kg numeric, rir int, set_type text)
        JOIN ins_ex ON ins_ex.sort_order = s.ex_idx`,
     [workoutId, JSON.stringify(exPayload), JSON.stringify(setPayload)]
   );
@@ -220,6 +228,7 @@ async function fetchWorkout(id) {
       sets: (setsByEx[e.id] || []).map((s) => ({
         id: s.id,
         set_number: s.set_number,
+        set_type: s.set_type,
         reps: s.reps,
         weight_kg: s.weight_kg,
         rir: s.rir,
@@ -314,7 +323,7 @@ router.get('/last-by-exercise/:exerciseId', async (req, res) => {
     if (!wRes.rows.length) return res.json(null);
 
     const sRes = await db.query(
-      `SELECT ws.set_number, ws.weight_kg, ws.reps, ws.rir
+      `SELECT ws.set_number, ws.weight_kg, ws.reps, ws.rir, ws.set_type
          FROM workout_sets ws
          JOIN workout_exercises we ON we.id = ws.workout_exercise_id
         WHERE we.workout_id = $1 AND we.exercise_id = $2

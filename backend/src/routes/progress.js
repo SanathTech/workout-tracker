@@ -22,6 +22,7 @@ router.get('/exercise/:exerciseId', async (req, res) => {
        JOIN workouts w ON w.id = we.workout_id
        WHERE we.exercise_id = $1
          AND w.status = 'completed'
+         AND ws.set_type <> 'warmup'
          AND w.date >= CURRENT_DATE - ($2 || ' weeks')::INTERVAL
        GROUP BY w.date
        ORDER BY w.date ASC`,
@@ -46,6 +47,7 @@ router.get('/volume', async (req, res) => {
        JOIN workout_exercises we ON we.id = ws.workout_exercise_id
        JOIN workouts w ON w.id = we.workout_id
        WHERE w.status = 'completed'
+         AND ws.set_type <> 'warmup'
          AND w.date >= CURRENT_DATE - ($1 || ' weeks')::INTERVAL
        GROUP BY week_start
        ORDER BY week_start ASC`,
@@ -67,14 +69,14 @@ router.get('/stats', async (req, res) => {
            FROM workout_sets ws
            JOIN workout_exercises we ON we.id = ws.workout_exercise_id
            JOIN workouts w ON w.id = we.workout_id
-          WHERE w.status = 'completed'`
+          WHERE w.status = 'completed' AND ws.set_type <> 'warmup'`
       ),
       db.query(
         `SELECT COUNT(*)::int AS count
            FROM workout_sets ws
            JOIN workout_exercises we ON we.id = ws.workout_exercise_id
            JOIN workouts w ON w.id = we.workout_id
-          WHERE w.status = 'completed'`
+          WHERE w.status = 'completed' AND ws.set_type <> 'warmup'`
       ),
       db.query(
         `SELECT COUNT(DISTINCT id)::int AS count FROM workouts
@@ -118,6 +120,7 @@ router.get('/personal-bests', async (req, res) => {
        JOIN workouts w ON w.id = we.workout_id
        JOIN exercises e ON e.id = we.exercise_id
        WHERE w.status = 'completed' AND ws.reps IS NOT NULL
+         AND ws.set_type <> 'warmup'
        ORDER BY we.exercise_id,
          ws.weight_kg DESC NULLS LAST,
          ws.reps DESC`
@@ -129,9 +132,10 @@ router.get('/personal-bests', async (req, res) => {
 });
 
 
-// A "hard set" is a logged working set. Warm-ups aren't recorded as sets, and a set with
-// no reps was never performed, so counting rows with reps > 0 is the whole definition.
-const HARD_SET = "ws.reps IS NOT NULL AND ws.reps > 0";
+// A "hard set" is a logged set that was actually worked: it has reps, and it isn't a
+// warm-up. Drop and failure sets stay in — they're working sets taken past the prescribed
+// stopping point, not preparation.
+const HARD_SET = "ws.reps IS NOT NULL AND ws.reps > 0 AND ws.set_type <> 'warmup'";
 
 // GET /api/progress/muscle-volume?weeks=8 — weekly hard sets per muscle vs landmarks.
 // Fractional: a set counts 1.0 for what it primarily trains, 0.5 for what it assists.
@@ -275,6 +279,7 @@ router.get('/suggestions', async (req, res) => {
                 ON we2.workout_id = ls.workout_id AND we2.exercise_id = p.exercise_id
          LEFT JOIN workout_sets ws
                 ON ws.workout_exercise_id = we2.id AND ws.reps IS NOT NULL AND ws.reps > 0
+               AND ws.set_type <> 'warmup'
         GROUP BY p.exercise_id, p.rep_range_low, p.rep_range_high, p.target_sets,
                  p.exercise_name, p.is_bodyweight, p.primary_muscle, ls.date
         ORDER BY p.exercise_name`

@@ -112,6 +112,10 @@ CREATE TABLE workout_sets (
   reps INTEGER,
   weight_kg NUMERIC(6, 2),
   rir INTEGER,                     -- actual reps-in-reserve logged for this set (nullable)
+  -- 'working' | 'warmup' | 'drop' | 'failure'. Only working sets count as hard sets for
+  -- volume, and only working sets are eligible for 1RM estimates and personal bests —
+  -- a warm-up single would otherwise read as a PR.
+  set_type VARCHAR(16) NOT NULL DEFAULT 'working',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

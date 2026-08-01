@@ -20,6 +20,19 @@ function TargetChip({ children }) {
 
 const isBlank = (v) => v === '' || v == null;
 
+// The set row is already at capacity on a 375px screen, so the set-number cell doubles as
+// the type control rather than adding a sixth tap target. Tapping cycles it.
+const SET_TYPE_CYCLE = ['working', 'warmup', 'drop', 'failure'];
+const SET_TYPE_LABEL = { working: null, warmup: 'W', drop: 'D', failure: 'F' };
+const SET_TYPE_TITLE = {
+  working: 'Working set — counts toward volume',
+  warmup: 'Warm-up — excluded from volume, 1RM and PRs',
+  drop: 'Drop set — counts as a working set',
+  failure: 'Taken to failure — counts as a working set',
+};
+const nextSetType = (t) =>
+  SET_TYPE_CYCLE[(SET_TYPE_CYCLE.indexOf(t || 'working') + 1) % SET_TYPE_CYCLE.length];
+
 function SetRow({ set, previousSet, showPrev, targetRir, onChange, onRemove, onDone }) {
   const prevWeight = previousSet?.weight_kg != null ? Number(previousSet.weight_kg) : null;
   const prevLabel = prevWeight != null && previousSet?.reps != null
@@ -45,7 +58,21 @@ function SetRow({ set, previousSet, showPrev, targetRir, onChange, onRemove, onD
 
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xs text-neutral-500 dark:text-neutral-500 w-5 text-center">{set.set_number}</span>
+      <button
+        type="button"
+        onClick={() => onChange({ ...set, set_type: nextSetType(set.set_type) })}
+        title={SET_TYPE_TITLE[set.set_type || 'working']}
+        aria-label={`Set ${set.set_number}: ${set.set_type || 'working'} — tap to change type`}
+        className={`text-xs w-5 shrink-0 text-center rounded transition-colors ${
+          set.set_type === 'warmup'
+            ? 'text-amber-600 dark:text-amber-500 font-semibold'
+            : set.set_type === 'drop' || set.set_type === 'failure'
+              ? 'text-purple-600 dark:text-purple-400 font-semibold'
+              : 'text-neutral-500 dark:text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200'
+        }`}
+      >
+        {SET_TYPE_LABEL[set.set_type || 'working'] ?? set.set_number}
+      </button>
       {showPrev && (
         <span className="text-[11px] text-neutral-500 dark:text-neutral-500 w-14 truncate" title={prevTitle}>{prevLabel}</span>
       )}
@@ -121,7 +148,7 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove, onR
 
   const addSet = () => {
     const nextNum = (block.sets[block.sets.length - 1]?.set_number || 0) + 1;
-    onChange({ ...block, sets: [...block.sets, { set_number: nextNum, reps: null, weight_kg: null, rir: null }] });
+    onChange({ ...block, sets: [...block.sets, { set_number: nextNum, reps: null, weight_kg: null, rir: null, set_type: 'working' }] });
   };
   const updateSet = (i, u) => onChange({ ...block, sets: block.sets.map((s, j) => j === i ? u : s) });
   const removeSet = (i) => onChange({
@@ -248,8 +275,8 @@ function hydrateSets(e) {
     const num = i + 1;
     const s = byNum[num];
     return s
-      ? { set_number: num, reps: s.reps, weight_kg: s.weight_kg == null ? null : Number(s.weight_kg), rir: s.rir }
-      : { set_number: num, reps: null, weight_kg: null, rir: null };
+      ? { set_number: num, reps: s.reps, weight_kg: s.weight_kg == null ? null : Number(s.weight_kg), rir: s.rir, set_type: s.set_type || 'working' }
+      : { set_number: num, reps: null, weight_kg: null, rir: null, set_type: 'working' };
   });
 }
 
@@ -277,7 +304,7 @@ function serializePayload(exercises, notes) {
               // A blank RIR on a set you've actually logged records the routine's
               // target RIR for that set position; fully-empty sets stay dropped.
               const rir = enteredRir !== null ? enteredRir : (logged ? (targetRir[i] ?? null) : null);
-              return { set_number: s.set_number, reps, weight_kg, rir, logged };
+              return { set_number: s.set_number, reps, weight_kg, rir, set_type: s.set_type || 'working', logged };
             })
             .filter((s) => s.logged)
             .map(({ logged, ...s }) => s),
@@ -566,7 +593,7 @@ export default function WorkoutSession() {
         muscle_group: ex.muscle_group,
         notes: '',
         target: null,
-        sets: [{ set_number: 1, reps: null, weight_kg: null, rir: null }],
+        sets: [{ set_number: 1, reps: null, weight_kg: null, rir: null, set_type: 'working' }],
       }]);
     }
   };
