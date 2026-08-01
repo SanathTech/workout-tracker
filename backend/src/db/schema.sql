@@ -116,3 +116,29 @@ CREATE TABLE workout_sets (
 );
 
 CREATE INDEX idx_workout_sets_we ON workout_sets(workout_exercise_id);
+
+-- Which muscles an exercise trains, and how much of a set each one gets credited.
+-- 1.0 = primary, 0.5 = assisting. Kept out of `exercises` because it's many-per-exercise;
+-- exercises.muscle_group stays as the coarse label the library UI groups by.
+CREATE TABLE IF NOT EXISTS exercise_muscles (
+  exercise_id INTEGER NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,
+  muscle VARCHAR(32) NOT NULL,
+  contribution NUMERIC(3, 2) NOT NULL DEFAULT 1.0,
+  PRIMARY KEY (exercise_id, muscle)
+);
+
+CREATE INDEX IF NOT EXISTS idx_exercise_muscles_exercise ON exercise_muscles(exercise_id);
+
+-- Bodyweight over time. `date` is a calendar day for the same reason workouts.date is:
+-- it's the day you weighed in, not an instant.
+CREATE TABLE IF NOT EXISTS bodyweight_logs (
+  id SERIAL PRIMARY KEY,
+  date DATE NOT NULL UNIQUE,
+  weight_kg NUMERIC(5, 2) NOT NULL,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_bodyweight_date ON bodyweight_logs(date DESC);
+
+ALTER TABLE exercises ADD COLUMN IF NOT EXISTS is_bodyweight BOOLEAN NOT NULL DEFAULT FALSE;

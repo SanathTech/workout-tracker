@@ -76,6 +76,7 @@ npm run db:migrate                           # non-destructive: apply additive c
 npm run db:seed                              # seed exercise library
 npm run db:backfill-dates                    # one-shot date repair; dry run. add `-- --apply` to write
 npm run auth:hash                            # generate AUTH_PASSWORD_HASH + SESSION_SECRET (reads stdin)
+npm run db:apply-muscles                     # populate exercise_muscles from muscles.js; dry run. add `-- --apply`
 
 # Frontend
 cd frontend
@@ -169,6 +170,25 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
 - **Don't add `manualChunks` for Recharts.** Naming it makes Vite treat it as an entry
   dependency and emit a `modulepreload`, so the 525kB downloads on first paint anyway. The
   `React.lazy` import of `/progress` in `App.jsx` is what does the split.
+
+- **`exercises.muscle_group` is the coarse label; `exercise_muscles` is the analytical one.**
+  The six groups (Chest/Back/Legs/…) are what the library UI groups and filters by and are
+  staying. Volume analysis reads `exercise_muscles`, which credits a set 1.0 to what it
+  primarily trains and 0.5 to what it assists — "Legs: 20 sets" can't tell you whether that's
+  18 quad sets and 2 hamstring, which is the only version of the question worth asking.
+  The mapping lives in `src/db/muscles.js`; edit it and re-run `db:apply-muscles -- --apply`,
+  which rewrites each exercise's rows. The script reports anything it matched by keyword or
+  fell back to a coarse group — those are guesses, and a wrong one silently skews every
+  weekly total that muscle appears in.
+- **Estimated 1RM is omitted above 12 reps, never extrapolated.** Epley inflates badly past
+  that (a 25-rep 40kg set reported as a 73kg "one-rep max"). `/progress/one-rm` returns no
+  point and `/progress/personal-bests` returns `est_1rm: null`. Personal bests are ranked on
+  load, not on the estimate — ranking by 1RM let a lighter high-rep set outrank a heavier one.
+- **Progression is double progression**, driven off the rep range and target RIR the program
+  already stores: every working set at the top of the range means load is no longer the
+  limiter → add weight (2.5kg compound, 1.25kg isolation) and drop back down the range.
+  Suggestions read the last *completed* session, so the workout being logged can't move its
+  own goalposts.
 
 ### Things explicitly chosen
 - RIR (reps in reserve) is a routine *target* only; not captured per logged set, to keep logging fast.

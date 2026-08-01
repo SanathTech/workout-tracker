@@ -79,3 +79,16 @@ export const getVolumeProgress = (params) => api.get('/progress/volume', { param
 export const getExerciseProgress = (id, params) =>
   api.get(`/progress/exercise/${id}`, { params }).then((r) => r.data);
 export const getPersonalBests = () => api.get('/progress/personal-bests').then((r) => r.data);
+
+// ── Training intelligence (Phase 3) ─────────────────────────
+export const getMuscleVolume = (params) =>
+  api.get('/progress/muscle-volume', { params }).then((r) => r.data);
+export const getSuggestions = () => api.get('/progress/suggestions').then((r) => r.data);
+export const getOneRm = (exerciseId, params) =>
+  api.get(`/progress/one-rm/${exerciseId}`, { params }).then((r) => r.data);
+export const getBodyweight = (params) =>
+  api.get('/progress/bodyweight', { params }).then((r) => r.data);
+export const logBodyweight = (data) =>
+  api.post('/progress/bodyweight', { date: localDate(), ...data }).then((r) => r.data);
+export const deleteBodyweight = (id) =>
+  api.delete(`/progress/bodyweight/${id}`).then((r) => r.data);

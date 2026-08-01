@@ -39,6 +39,23 @@ END $$`,
   'ALTER TABLE routines ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ',
   'DROP INDEX IF EXISTS idx_routines_program',
   'CREATE INDEX IF NOT EXISTS idx_routines_program ON routines(program_id) WHERE deleted_at IS NULL',
+  // Phase 3: per-muscle volume + bodyweight
+  `CREATE TABLE IF NOT EXISTS exercise_muscles (
+     exercise_id INTEGER NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,
+     muscle VARCHAR(32) NOT NULL,
+     contribution NUMERIC(3, 2) NOT NULL DEFAULT 1.0,
+     PRIMARY KEY (exercise_id, muscle)
+   )`,
+  'CREATE INDEX IF NOT EXISTS idx_exercise_muscles_exercise ON exercise_muscles(exercise_id)',
+  `CREATE TABLE IF NOT EXISTS bodyweight_logs (
+     id SERIAL PRIMARY KEY,
+     date DATE NOT NULL UNIQUE,
+     weight_kg NUMERIC(5, 2) NOT NULL,
+     notes TEXT,
+     created_at TIMESTAMPTZ DEFAULT NOW()
+   )`,
+  'CREATE INDEX IF NOT EXISTS idx_bodyweight_date ON bodyweight_logs(date DESC)',
+  'ALTER TABLE exercises ADD COLUMN IF NOT EXISTS is_bodyweight BOOLEAN NOT NULL DEFAULT FALSE',
 ];
 
 // Applies all migrations atomically on the given client (BEGIN/COMMIT, ROLLBACK on error).

@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate, Navigate } from 'react-router-dom';
-import { getWorkout, updateWorkout, completeWorkout, skipWorkout, getLastByExercise } from '../api/client';
+import { getWorkout, updateWorkout, completeWorkout, skipWorkout, getLastByExercise, getSuggestions } from '../api/client';
 import { Skeleton } from '../components/Skeleton';
 import ExercisePickerSheet from '../components/ExercisePickerSheet';
 import MainBadge from '../components/MainBadge';
@@ -95,7 +95,7 @@ function SetRow({ set, previousSet, showPrev, targetRir, onChange, onRemove, onD
   );
 }
 
-function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove, onRest }) {
+function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove, onRest, suggestion }) {
   const [showNote, setShowNote] = useState(false);
   // Collapse the note when the exercise is swapped for a different one.
   useEffect(() => { setShowNote(false); }, [block.exercise_id]);
@@ -174,6 +174,22 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove, onR
           {repRange && <TargetChip>{repRange} reps</TargetChip>}
           {(target.rest_seconds != null || target.rest_seconds_high != null) && <TargetChip>{formatRestRange(target.rest_seconds, target.rest_seconds_high)} rest</TargetChip>}
         </div>
+      )}
+
+      {suggestion && suggestion.action !== 'no_history' && suggestion.action !== 'no_target' && (
+        <p className={`text-xs rounded p-2 border ${
+          suggestion.action === 'increase'
+            ? 'text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900'
+            : 'text-neutral-600 dark:text-neutral-400 bg-neutral-50 dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800'
+        }`}>
+          <span className="font-medium">
+            {suggestion.action === 'increase' ? 'Add load' : 'Hold'}
+          </span>
+          {suggestion.suggested_weight_kg != null && (
+            <> · {suggestion.suggested_weight_kg}kg × {suggestion.suggested_reps_low}–{suggestion.suggested_reps_high}</>
+          )}
+          <span className="block mt-0.5 opacity-80">{suggestion.reason}</span>
+        </p>
       )}
 
       {target?.notes && showNote && (
@@ -316,6 +332,18 @@ export default function WorkoutSession() {
     };
   }, []);
   const setAutosaveIfMounted = useCallback((v) => { if (mountedRef.current) setAutosave(v); }, []);
+
+  // Reflects the last *completed* session, so the workout being logged right now doesn't
+  // move the goalposts underneath itself.
+  const { data: suggestions = [] } = useQuery({
+    queryKey: ['suggestions'],
+    queryFn: getSuggestions,
+    staleTime: 5 * 60_000,
+  });
+  const suggestionByExercise = useMemo(
+    () => Object.fromEntries((suggestions || []).map((s) => [s.exercise_id, s])),
+    [suggestions]
+  );
 
   const rest = useRestTimer();
   const [recovered, setRecovered] = useState(false);
@@ -464,6 +492,8 @@ export default function WorkoutSession() {
       qc.invalidateQueries({ queryKey: ['active-program'] });
       qc.invalidateQueries({ queryKey: ['recent-workouts'] });
       qc.invalidateQueries({ queryKey: ['stats'] });
+      qc.invalidateQueries({ queryKey: ['suggestions'] });
+      qc.invalidateQueries({ queryKey: ['muscle-volume'] });
       qc.invalidateQueries({ queryKey: ['in-progress-workout'] });
       navigate(`/workouts/${id}`);
     },
@@ -614,6 +644,7 @@ export default function WorkoutSession() {
             onChange={(u) => setExercises(exercises.map((x, j) => j === i ? u : x))}
             onRemove={() => setExercises(exercises.filter((_, j) => j !== i))}
             onRest={rest.start}
+            suggestion={suggestionByExercise[ex.exercise_id]}
           />
         ))}
 

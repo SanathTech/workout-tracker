@@ -11,7 +11,8 @@
     "db:seed": "node src/db/seed.js",
     "db:seed-program": "node src/db/seed-program.js",
     "db:backfill-dates": "node src/db/backfill-dates.js",
-    "auth:hash": "node src/util/hash-password.js"
+    "auth:hash": "node src/util/hash-password.js",
+    "db:apply-muscles": "node src/db/apply-muscles.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

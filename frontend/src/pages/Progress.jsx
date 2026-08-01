@@ -9,6 +9,8 @@ import { Skeleton } from '../components/Skeleton';
 import ExercisePickerSheet from '../components/ExercisePickerSheet';
 import { ChevronIcon } from '../components/icons';
 import { formatDay } from '../utils/format';
+import MuscleVolume from '../components/MuscleVolume';
+import BodyweightCard from '../components/BodyweightCard';
 
 const ACCENT_LIGHT = '#171717';   // neutral-900
 const ACCENT_DARK = '#e5e5e5';    // neutral-200
@@ -82,6 +84,9 @@ export default function Progress() {
           <option value={52}>Last 52 weeks</option>
         </select>
       </div>
+
+      <MuscleVolume />
+      <BodyweightCard />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard label="Total workouts" value={stats?.total_workouts} loading={statsLoading} />
