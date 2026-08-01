@@ -4,12 +4,19 @@ import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, defaultShouldDehydrateQuery } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister';
+import { registerSW } from 'virtual:pwa-register';
 import App from './App';
 import AuthGate from './components/AuthGate';
+import ErrorBoundary from './components/ErrorBoundary';
 import {
   getActiveProgram, getInProgressWorkout, getStats, getRecentWorkouts,
 } from './api/client';
 import './index.css';
+
+// No auto-reload on update. A new service worker taking over mid-session would remount
+// the page and drop whatever was typed inside the autosave debounce; the update installs
+// quietly and takes effect the next time the app is opened cold.
+registerSW({ immediate: true });
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -48,11 +55,13 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         },
       }}
     >
-      <BrowserRouter>
-        <AuthGate>
-          <App />
-        </AuthGate>
-      </BrowserRouter>
+      <ErrorBoundary>
+        <BrowserRouter>
+          <AuthGate>
+            <App />
+          </AuthGate>
+        </BrowserRouter>
+      </ErrorBoundary>
     </PersistQueryClientProvider>
   </React.StrictMode>
 );

@@ -7,6 +7,14 @@ export function CloseIcon({ size = 14 }) {
   );
 }
 
+export function CheckIcon({ size = 15 }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="3">
+      <polyline points="4.5,12.5 9.5,17.5 19.5,7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export function InfoIcon({ size = 16 }) {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2">

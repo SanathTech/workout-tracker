@@ -496,9 +496,20 @@ router.post('/:id/complete', async (req, res) => {
   const client = await db.pool.connect();
   try {
     await client.query('BEGIN');
+    // Derive the session length from start to finish. Capped at 6 hours because the
+    // common failure is forgetting to hit Finish until the next day — better to record
+    // nothing than a 19-hour "workout". An explicit duration set via PUT always wins.
     const { rows } = await client.query(
-      `UPDATE workouts SET status = 'completed', completed_at = NOW()
-         WHERE id = $1 AND status = 'in_progress' RETURNING *`,
+      `UPDATE workouts
+          SET status = 'completed',
+              completed_at = NOW(),
+              duration_minutes = COALESCE(
+                duration_minutes,
+                CASE WHEN NOW() - created_at <= INTERVAL '6 hours'
+                     THEN GREATEST(1, ROUND(EXTRACT(EPOCH FROM (NOW() - created_at)) / 60))::int
+                END
+              )
+        WHERE id = $1 AND status = 'in_progress' RETURNING *`,
       [req.params.id]
     );
     if (!rows.length) {

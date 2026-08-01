@@ -150,6 +150,19 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
   deliberate — refusing everything would brick the live app on deploy, before there's any way
   to log in. Check `/health` after changing env vars.
 - Locale is never hardcoded. Pass `undefined` to `toLocale*String` so it follows the device.
+- **The session's unsaved edits live in `localStorage`, not the query cache.** `utils/draft.js`
+  writes the pending payload *and* a snapshot of the workout shape on every edit, and clears
+  it only when the server confirms that exact payload. A surviving draft therefore means
+  unsaved work. `['workout', id]` stays out of the persisted query cache (see `main.jsx`) so
+  stale server data can't land on live edits — the draft is what makes a cold offline reload
+  render, so don't "simplify" by persisting the query instead.
+- **The service worker must never auto-reload.** `registerSW` is called without an update
+  prompt and without `clientsClaim`/`skipWaiting`: a new worker taking over mid-session would
+  remount the page and drop anything typed inside the 1200ms autosave debounce. Updates apply
+  on the next cold start.
+- **Don't add `manualChunks` for Recharts.** Naming it makes Vite treat it as an entry
+  dependency and emit a `modulepreload`, so the 525kB downloads on first paint anyway. The
+  `React.lazy` import of `/progress` in `App.jsx` is what does the split.
 
 ### Things explicitly chosen
 - RIR (reps in reserve) is a routine *target* only; not captured per logged set, to keep logging fast.
@@ -159,11 +172,11 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
 
 ## Known quirks / open follow-ups
 
-- Frontend bundle is ~719 kB in one chunk; Vite warns. Route-level `React.lazy` + a Recharts
-  `manualChunks` entry is the fix — Recharts is only needed on `/progress`.
-- **Not offline-capable.** There's a manifest and icons, but no service worker, so a gym
-  dead-spot degrades the app to an autosave retry banner. Highest-value open item.
-- No rest timer and no per-set completion state, so `rest_seconds` is captured and displayed
-  but never used. `workouts.duration_minutes` is likewise rendered but never written.
-- No tests, CI, linter or types.
+- No tests, CI, linter or types. (Integration suites exist but live outside the repo — see
+  the session transcripts; worth committing a `vitest` harness at some point.)
+- `± steppers` on the set inputs were dropped: the row already holds set number, previous,
+  weight, reps, RIR and two buttons, and four more tap targets don't fit at 375px. Would
+  need a different interaction (long-press, or steppers revealed on focus).
+- The service worker precaches the shell only. API responses are never cached — stale sets
+  are worse than an error, and a cached 401 would outlive a re-login.
 - The repo owner uses a 12-week Min-Max 5x/week structure (Upper 1, Lower 1, rest, Upper 2, Lower 2, Arms/Delts, rest). The original spreadsheet is the source of truth for routine setup — see chat history if migrating data.

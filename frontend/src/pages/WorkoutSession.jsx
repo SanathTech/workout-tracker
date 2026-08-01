@@ -5,8 +5,10 @@ import { getWorkout, updateWorkout, completeWorkout, skipWorkout, getLastByExerc
 import { Skeleton } from '../components/Skeleton';
 import ExercisePickerSheet from '../components/ExercisePickerSheet';
 import MainBadge from '../components/MainBadge';
-import { CloseIcon, ChevronIcon, InfoIcon } from '../components/icons';
+import { CloseIcon, ChevronIcon, InfoIcon, CheckIcon } from '../components/icons';
+import RestTimer, { useRestTimer } from '../components/RestTimer';
 import { formatRestRange, formatWarmup, formatDay } from '../utils/format';
+import { saveDraft, saveSnapshot, readDraft, clearDraft, pruneDrafts } from '../utils/draft';
 
 function TargetChip({ children }) {
   return (
@@ -16,7 +18,9 @@ function TargetChip({ children }) {
   );
 }
 
-function SetRow({ set, previousSet, showPrev, targetRir, onChange, onRemove }) {
+const isBlank = (v) => v === '' || v == null;
+
+function SetRow({ set, previousSet, showPrev, targetRir, onChange, onRemove, onDone }) {
   const prevWeight = previousSet?.weight_kg != null ? Number(previousSet.weight_kg) : null;
   const prevLabel = prevWeight != null && previousSet?.reps != null
     ? `${prevWeight}×${previousSet.reps}`
@@ -24,6 +28,21 @@ function SetRow({ set, previousSet, showPrev, targetRir, onChange, onRemove }) {
       ? `—×${previousSet.reps}`
       : '—';
   const prevTitle = previousSet?.rir != null ? `${prevLabel} @ RIR ${previousSet.rir}` : prevLabel;
+
+  // A set counts as done once it carries data — the same test that decides whether it
+  // persists — so the tick survives a reload without needing a column to store it in.
+  const done = !isBlank(set.weight_kg) || !isBlank(set.reps);
+
+  // One tap for the common case: you did the set at last session's numbers, so fill them
+  // in and start the rest. Anything already typed is left alone.
+  const markDone = () => {
+    const next = { ...set };
+    if (isBlank(next.weight_kg) && prevWeight != null) next.weight_kg = prevWeight;
+    if (isBlank(next.reps) && previousSet?.reps != null) next.reps = previousSet.reps;
+    if (next.weight_kg !== set.weight_kg || next.reps !== set.reps) onChange(next);
+    onDone();
+  };
+
   return (
     <div className="flex items-center gap-2">
       <span className="text-xs text-neutral-500 dark:text-neutral-500 w-5 text-center">{set.set_number}</span>
@@ -53,6 +72,19 @@ function SetRow({ set, previousSet, showPrev, targetRir, onChange, onRemove }) {
         className="input w-14 py-1.5 text-center"
       />
       <button
+        type="button"
+        onClick={markDone}
+        aria-label={done ? `Set ${set.set_number} done — restart rest` : `Mark set ${set.set_number} done and start rest`}
+        title={done ? 'Restart rest' : 'Done — start rest'}
+        className={`shrink-0 w-8 h-8 rounded-full border flex items-center justify-center transition-colors ${
+          done
+            ? 'bg-emerald-600 border-emerald-600 text-white hover:bg-emerald-700'
+            : 'border-neutral-300 dark:border-neutral-700 text-neutral-400 hover:border-emerald-500 hover:text-emerald-600'
+        }`}
+      >
+        <CheckIcon />
+      </button>
+      <button
         onClick={onRemove}
         aria-label="Remove set"
         className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 p-1"
@@ -63,7 +95,7 @@ function SetRow({ set, previousSet, showPrev, targetRir, onChange, onRemove }) {
   );
 }
 
-function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove }) {
+function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove, onRest }) {
   const [showNote, setShowNote] = useState(false);
   // Collapse the note when the exercise is swapped for a different one.
   useEffect(() => { setShowNote(false); }, [block.exercise_id]);
@@ -166,6 +198,9 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove }) {
               targetRir={targetRir ?? null}
               onChange={(u) => updateSet(i, u)}
               onRemove={() => removeSet(i)}
+              // Rest the minimum of the prescribed range — the upper bound is a ceiling,
+              // not the thing you wait for. Falls back to 2 min when nothing is set.
+              onDone={() => onRest(target?.rest_seconds ?? target?.rest_seconds_high ?? 120)}
             />
           );
         })}
@@ -242,11 +277,21 @@ export default function WorkoutSession() {
 
   // staleTime 0 + refetch-on-mount so a reload pulls the freshest workout (the
   // persisted localStorage cache may lag the last autosave by the persist throttle).
-  const { data: workout, isLoading, isFetchedAfterMount, isError } = useQuery({
+  const { data: fetched, isLoading, isFetchedAfterMount, isError } = useQuery({
     queryKey: ['workout', id],
     queryFn: () => getWorkout(id),
     staleTime: 0,
   });
+
+  // Offline after a cold start there's no server response and no persisted query cache,
+  // so fall back to the snapshot stored beside the draft. Server data always wins when
+  // it's there; this only fills the gap where there is none.
+  const offlineSnapshot = useMemo(
+    () => (fetched || !isError ? null : readDraft(id)?.workout || null),
+    [fetched, isError, id]
+  );
+  const workout = fetched || offlineSnapshot;
+  const usingSnapshot = !fetched && !!offlineSnapshot;
 
   const [exercises, setExercises] = useState([]);
   const [notes, setNotes] = useState('');
@@ -272,26 +317,66 @@ export default function WorkoutSession() {
   }, []);
   const setAutosaveIfMounted = useCallback((v) => { if (mountedRef.current) setAutosave(v); }, []);
 
+  const rest = useRestTimer();
+  const [recovered, setRecovered] = useState(false);
+
   // Hydrate local state once from the fresh mount-fetch. If that fetch errored but
   // cached data exists (e.g. offline), hydrate from cache instead of hanging on the
   // skeleton. A later background refetch must not clobber in-progress edits.
   useEffect(() => {
     if (!workout || (!isFetchedAfterMount && !isError) || hydrated) return;
-    const rows = workout.exercises.map((e) => ({
-      client_id: crypto.randomUUID(),
-      exercise_id: e.exercise_id,
-      exercise_name: e.exercise_name,
-      muscle_group: e.muscle_group,
-      notes: e.notes || '',
-      target: e.target,
-      sets: hydrateSets(e),
-    }));
+
+    // A draft only outlives its own save when the save never landed, so anything found
+    // here is unsaved work — newer than whatever the server returned. Merge it over the
+    // server rows by set_number rather than replacing them, so the routine's targets and
+    // exercise names (which the draft doesn't carry) survive.
+    const draft = readDraft(id);
+    const draftSets = {};
+    if (draft?.payload) {
+      try {
+        for (const ex of JSON.parse(draft.payload).exercises || []) {
+          draftSets[ex.exercise_id] = ex.sets || [];
+        }
+      } catch { /* corrupt draft — fall through to server data */ }
+    }
+    const usedDraft = Object.keys(draftSets).length > 0;
+
+    const rows = workout.exercises.map((e) => {
+      const base = hydrateSets(e);
+      const fromDraft = draftSets[e.exercise_id];
+      const sets = fromDraft
+        ? base.map((s) => {
+            const d = fromDraft.find((x) => x.set_number === s.set_number);
+            return d ? { ...s, reps: d.reps, weight_kg: d.weight_kg, rir: d.rir } : s;
+          })
+        : base;
+      return {
+        client_id: crypto.randomUUID(),
+        exercise_id: e.exercise_id,
+        exercise_name: e.exercise_name,
+        muscle_group: e.muscle_group,
+        notes: e.notes || '',
+        target: e.target,
+        sets,
+      };
+    });
+
     setExercises(rows);
     setNotes(workout.notes || '');
-    lastSavedRef.current = JSON.stringify(serializePayload(rows, workout.notes || ''));
-    pendingRef.current = lastSavedRef.current;
+    // Baseline is the *server's* state, so recovered edits register as unsaved and get
+    // flushed as soon as there's a connection again.
+    lastSavedRef.current = JSON.stringify(serializePayload(
+      workout.exercises.map((e) => ({ ...e, sets: hydrateSets(e) })),
+      workout.notes || ''
+    ));
+    pendingRef.current = JSON.stringify(serializePayload(rows, workout.notes || ''));
+    setRecovered(usedDraft && pendingRef.current !== lastSavedRef.current);
     setHydrated(true);
-  }, [workout, isFetchedAfterMount, isError, hydrated]);
+    // Keep the shape the page was built from, so a cold reload with no network can render
+    // it. Skipped when this render *is* the snapshot — rewriting it would be a no-op.
+    if (!usingSnapshot) saveSnapshot(id, workout);
+    pruneDrafts();
+  }, [workout, isFetchedAfterMount, isError, hydrated, id, usingSnapshot]);
 
   // Serialized flush: at most one PUT in flight, and the loop always re-reads the
   // latest pending payload — so a slow response can never revert a newer edit, and
@@ -318,8 +403,12 @@ export default function WorkoutSession() {
             return; // stop this run; the retry (or a new edit/Finish) will resume
           }
         }
-        // Only report "saved" once the server truly has the latest payload.
-        if (pendingRef.current === lastSavedRef.current) setAutosaveIfMounted('saved');
+        // Only report "saved" once the server truly has the latest payload — and that's
+        // the one moment the local draft is redundant.
+        if (pendingRef.current === lastSavedRef.current) {
+          setAutosaveIfMounted('saved');
+          clearDraft(id);
+        }
       } finally {
         flushingRef.current = null;
       }
@@ -335,6 +424,9 @@ export default function WorkoutSession() {
     if (!hydrated) return;
     pendingRef.current = JSON.stringify(serializePayload(exercises, notes));
     if (pendingRef.current === lastSavedRef.current) return;
+    // Written before the network is even attempted: the point is to survive the app
+    // being killed while offline, which is exactly when the PUT won't land.
+    saveDraft(id, pendingRef.current);
     if (autosave !== 'saving') setAutosaveIfMounted('unsaved');
     const t = setTimeout(flush, 1200);
     return () => clearTimeout(t);
@@ -367,6 +459,8 @@ export default function WorkoutSession() {
       return completeWorkout(id);
     },
     onSuccess: () => {
+      rest.stop();
+      clearDraft(id);
       qc.invalidateQueries({ queryKey: ['active-program'] });
       qc.invalidateQueries({ queryKey: ['recent-workouts'] });
       qc.invalidateQueries({ queryKey: ['stats'] });
@@ -384,6 +478,10 @@ export default function WorkoutSession() {
       return skipWorkout(id);
     },
     onSuccess: () => {
+      rest.stop();
+      // A skip doesn't block on the save, so a draft can outlive it. Nothing logged here
+      // counts any more, and leaving it would resurrect those sets on a later visit.
+      clearDraft(id);
       qc.invalidateQueries({ queryKey: ['active-program'] });
       qc.invalidateQueries({ queryKey: ['recent-workouts'] });
       qc.invalidateQueries({ queryKey: ['workouts-history'] });
@@ -482,6 +580,16 @@ export default function WorkoutSession() {
         {isCompleted && (
           <p className="text-xs mt-0.5 text-neutral-500 dark:text-neutral-400">Editing a completed workout — changes save automatically.</p>
         )}
+        {usingSnapshot && (
+          <p className="text-xs mt-1 text-amber-700 dark:text-amber-500">
+            Offline — showing this session from your device. Keep logging; it saves when you reconnect.
+          </p>
+        )}
+        {recovered && !usingSnapshot && autosave !== 'saved' && (
+          <p className="text-xs mt-1 text-amber-700 dark:text-amber-500">
+            Restored sets that hadn’t reached the server. They’ll save once you’re back online.
+          </p>
+        )}
         {autosave !== 'idle' && (
           <p className={`text-xs mt-0.5 ${
             autosave === 'error' ? 'text-red-600 dark:text-red-400'
@@ -505,6 +613,7 @@ export default function WorkoutSession() {
             onOpenPicker={() => setPicker({ mode: 'replace', forIndex: i })}
             onChange={(u) => setExercises(exercises.map((x, j) => j === i ? u : x))}
             onRemove={() => setExercises(exercises.filter((_, j) => j !== i))}
+            onRest={rest.start}
           />
         ))}
 
@@ -564,6 +673,13 @@ export default function WorkoutSession() {
           )}
         </div>
       </div>
+
+      <RestTimer
+        remaining={rest.remaining}
+        target={rest.target}
+        onStop={rest.stop}
+        onAdjust={rest.adjust}
+      />
 
       <ExercisePickerSheet
         open={!!picker}
