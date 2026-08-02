@@ -128,17 +128,26 @@ export default function ProgramView({ program, onEdit, onDeleted }) {
             key={r.id}
             className={`card ${isNext ? 'border-neutral-900 dark:border-neutral-100' : ''}`}
           >
+            {/* The routine name is what you're scanning for, so it gets the line to
+                itself — packing the count onto the same row truncated "Day B — Hinge /
+                Row" to "Day B — Hing…" at 390px. */}
             <button
               type="button"
               onClick={() => toggleRoutine(r.id)}
               aria-expanded={open}
-              className="flex items-center gap-2 w-full text-left"
+              className="flex items-center gap-2 w-full text-left min-h-11"
             >
-              <span className="text-sm text-neutral-400 w-6 shrink-0">{String(i + 1).padStart(2, '0')}</span>
-              <h2 className="font-semibold truncate">{r.name}</h2>
-              {isNext && <span className="badge-solid ml-1 shrink-0">Next</span>}
-              <span className="text-xs text-neutral-500 dark:text-neutral-400 ml-auto shrink-0">{r.exercises.length} exercises</span>
-              <span className="text-neutral-400 dark:text-neutral-500 shrink-0"><ChevronIcon open={open} /></span>
+              <span className="text-sm text-neutral-500 dark:text-neutral-400 w-6 shrink-0">{String(i + 1).padStart(2, '0')}</span>
+              <span className="flex-1 min-w-0">
+                <span className="flex items-center gap-2">
+                  <h2 className="font-semibold truncate">{r.name}</h2>
+                  {isNext && <span className="badge-solid shrink-0">Next</span>}
+                </span>
+                <span className="block text-xs text-neutral-500 dark:text-neutral-400">
+                  {r.exercises.length} exercises
+                </span>
+              </span>
+              <span className="text-neutral-400 dark:text-neutral-400 shrink-0"><ChevronIcon open={open} /></span>
             </button>
             {open && (
               <div className="space-y-2 mt-3">
@@ -158,9 +167,9 @@ export default function ProgramView({ program, onEdit, onDeleted }) {
                         {Array.isArray(ex.target_rir_per_set) && ex.target_rir_per_set.some((v) => v != null) && ` · RIR ${ex.target_rir_per_set.map((v) => v == null ? '–' : v).join('/')}`}
                         {(ex.rest_seconds != null || ex.rest_seconds_high != null) && ` · ${formatRestRange(ex.rest_seconds, ex.rest_seconds_high)} rest`}
                       </p>
-                      {ex.notes && <p className="text-xs text-neutral-500 italic mt-0.5">{ex.notes}</p>}
+                      {ex.notes && <p className="text-xs text-neutral-500 dark:text-neutral-400 italic mt-0.5">{ex.notes}</p>}
                       {ex.substitutes?.length > 0 && (
-                        <p className="text-xs text-neutral-500 mt-0.5">
+                        <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
                           Subs: {ex.substitutes.map((s) => s.exercise_name).join(', ')}
                         </p>
                       )}
@@ -201,7 +210,7 @@ function ClampedDescription({ text }) {
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="text-xs font-medium text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 mt-1"
+          className="text-xs font-medium text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 inline-flex items-center min-h-11 md:min-h-0"
         >
           {expanded ? 'Show less' : 'Show more'}
         </button>

@@ -1,12 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { getMuscleVolume } from '../api/client';
+import { formatDay } from '../utils/format';
 import { Skeleton } from './Skeleton';
 
 // The bar is positioned on the MEV→MRV scale, not on "percent of a target", because there
 // isn't a target — there's a productive band. Anything past MRV is drawn as overflow.
-function VolumeBar({ row }) {
-  const scaleMax = Math.max(row.mrv, row.sets);
+function VolumeBar({ row, weeks }) {
+  const scaleMax = Math.max(row.mrv, row.sets, row.avg_sets || 0);
   const pct = (v) => `${Math.min(100, (v / scaleMax) * 100)}%`;
 
   const tone = {
@@ -40,6 +41,14 @@ function VolumeBar({ row }) {
         <div className={`absolute inset-y-0 left-0 rounded-full ${tone}`} style={{ width: pct(row.sets) }} />
         <div className="absolute inset-y-0 w-px bg-neutral-400/70 dark:bg-neutral-500" style={{ left: pct(row.mev) }} />
         <div className="absolute inset-y-0 w-px bg-red-400/70" style={{ left: pct(row.mrv) }} />
+        {/* where the last N weeks have typically landed, so this week reads as up or down */}
+        {row.avg_sets > 0 && (
+          <div
+            className="absolute inset-y-0 w-0.5 bg-neutral-900/60 dark:bg-white/70"
+            style={{ left: pct(row.avg_sets) }}
+            title={`${weeks}-week average: ${row.avg_sets} sets/week`}
+          />
+        )}
       </div>
     </div>
   );
@@ -67,37 +76,41 @@ export default function MuscleVolume() {
   const trained = summary.filter((r) => r.sets > 0);
   const untrained = summary.filter((r) => r.sets === 0);
   const shown = showAll ? summary : trained;
+  const weekLabel = data?.week_start
+    ? formatDay(data.week_start, { day: 'numeric', month: 'short' })
+    : null;
 
   return (
     <div className="card">
-      <div className="flex items-center justify-between mb-1">
-        <div>
+      <div className="flex items-start justify-between gap-3 mb-1">
+        <div className="min-w-0">
           <h2 className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-            This week’s sets per muscle
+            Sets per muscle{weekLabel ? ` · week of ${weekLabel}` : ''}
           </h2>
-          <p className="text-[11px] text-neutral-400 dark:text-neutral-500 mt-0.5">
-            Assisting muscles count as half a set
+          <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">
+            Assisting muscles count as half a set. The marker is the {weeks}-week average.
           </p>
         </div>
         <select
-          className="input w-24 py-1 text-xs"
+          className="input w-28 h-11 py-0 text-xs shrink-0"
           value={weeks}
           onChange={(e) => setWeeks(Number(e.target.value))}
-          aria-label="Weeks of history"
+          aria-label="Weeks of history for the average"
         >
-          <option value={4}>4 weeks</option>
-          <option value={8}>8 weeks</option>
-          <option value={12}>12 weeks</option>
+          <option value={4}>4-wk avg</option>
+          <option value={8}>8-wk avg</option>
+          <option value={12}>12-wk avg</option>
         </select>
       </div>
 
       {trained.length === 0 ? (
-        <p className="text-sm text-neutral-500 py-4">
+        <p className="text-sm text-neutral-500 dark:text-neutral-400 py-4">
           No sets logged this week yet.
+          {untrained.length > 0 && ' Show all to see how the last few weeks compare.'}
         </p>
       ) : (
         <div className="divide-y divide-neutral-100 dark:divide-neutral-900">
-          {shown.map((row) => <VolumeBar key={row.muscle} row={row} />)}
+          {shown.map((row) => <VolumeBar key={row.muscle} row={row} weeks={weeks} />)}
         </div>
       )}
 
@@ -105,7 +118,7 @@ export default function MuscleVolume() {
         <button
           type="button"
           onClick={() => setShowAll((v) => !v)}
-          className="mt-2 text-xs font-medium text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200"
+          className="mt-1 h-11 text-xs font-medium text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200"
         >
           {showAll ? 'Hide untrained' : `Show ${untrained.length} untrained`}
         </button>

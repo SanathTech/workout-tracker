@@ -65,7 +65,7 @@ export default function BodyweightCard() {
           </ResponsiveContainer>
         </div>
       ) : (
-        <p className="text-sm text-neutral-500 py-2">
+        <p className="text-sm text-neutral-500 dark:text-neutral-400 py-2">
           {data.length === 1 ? 'One entry so far — log again to see a trend.' : 'No weigh-ins logged yet.'}
         </p>
       )}
@@ -89,7 +89,7 @@ export default function BodyweightCard() {
       {save.isError && (
         <p className="text-xs text-red-600 dark:text-red-400 mt-1">Couldn’t save that weigh-in.</p>
       )}
-      <p className="text-[11px] text-neutral-400 dark:text-neutral-500 mt-1">
+      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1">
         One entry per day — logging again replaces today’s.
       </p>
     </div>

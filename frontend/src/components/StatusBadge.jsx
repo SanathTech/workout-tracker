@@ -1,6 +1,6 @@
 const STYLES = {
   in_progress: { label: 'in progress', className: 'text-amber-600 dark:text-amber-500' },
-  skipped: { label: 'skipped', className: 'text-neutral-400 dark:text-neutral-500' },
+  skipped: { label: 'skipped', className: 'text-neutral-400 dark:text-neutral-400' },
 };
 
 export default function StatusBadge({ status, className = '' }) {

@@ -40,6 +40,15 @@ export function formatDay(value, options) {
   return parseDay(value).toLocaleDateString(undefined, options);
 }
 
+// Postgres NUMERIC arrives as a string ("40.00"), and rendering it raw put "40.00 kg" in
+// every table — wide enough to force a wrap on a phone, and wrong-looking besides.
+export function formatKg(value, fallback = '—') {
+  if (value == null || value === '') return fallback;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return `${Math.round(n * 100) / 100} kg`;
+}
+
 export function parseIntOrNull(value) {
   if (value === '' || value == null) return null;
   const n = parseInt(value);

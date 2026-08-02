@@ -43,7 +43,7 @@ export default function History() {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div>
-        <Link to="/dashboard" className="text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100">← Back</Link>
+        <Link to="/dashboard" className="text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 inline-flex items-center min-h-11 md:min-h-0 -ml-1 pl-1">← Back</Link>
         <h1 className="text-2xl font-semibold tracking-tight mt-1">Workout history</h1>
       </div>
 
@@ -58,7 +58,7 @@ export default function History() {
             ))}
           </div>
         ) : items.length === 0 ? (
-          <p className="text-sm text-neutral-500 py-4">No workouts logged yet.</p>
+          <p className="text-sm text-neutral-500 dark:text-neutral-400 py-4">No workouts logged yet.</p>
         ) : (
           <div className="divide-y divide-neutral-200 dark:divide-neutral-800">
             {items.map((w) => <Row key={w.id} w={w} />)}

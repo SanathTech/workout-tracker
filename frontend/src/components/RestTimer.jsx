@@ -5,6 +5,50 @@ import { CloseIcon } from './icons';
 // timers, so counting down a stored `remaining` drifts badly over a 3-minute rest.
 // Storing the target timestamp means the display is correct the instant the screen
 // wakes, however long it was asleep.
+// Vibration alone is inaudible in a pocket and a no-op on iOS, so a rest that ends while
+// the screen is off used to pass unannounced. The context is created on the tap that
+// starts the rest — a user gesture — which is what lets it make sound later.
+let audioCtx = null;
+function primeAudio() {
+  try {
+    const Ctor = window.AudioContext || window.webkitAudioContext;
+    if (!Ctor) return;
+    if (!audioCtx) audioCtx = new Ctor();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  } catch { /* audio unavailable — vibration and the visible timer still work */ }
+}
+
+function beep() {
+  try {
+    if (!audioCtx || audioCtx.state !== 'running') return;
+    const at = audioCtx.currentTime;
+    for (const [i, freq] of [880, 1174].entries()) {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      // Ramped, not switched: a square-edged gain change clicks.
+      const start = at + i * 0.18;
+      gain.gain.setValueAtTime(0, start);
+      gain.gain.linearRampToValueAtTime(0.25, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.16);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start(start);
+      osc.stop(start + 0.18);
+    }
+  } catch { /* best effort */ }
+}
+
+// Only when permission is already granted — a rest timer is the wrong moment to throw a
+// permission prompt in front of someone mid-set.
+function notifyRestOver() {
+  try {
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+    if (document.visibilityState === 'visible') return;
+    new Notification('Rest over', { body: 'Next set.', tag: 'wt-rest', silent: false });
+  } catch { /* best effort */ }
+}
+
 export function useRestTimer() {
   const [endsAt, setEndsAt] = useState(null);
   const [target, setTarget] = useState(null);
@@ -30,6 +74,7 @@ export function useRestTimer() {
 
   const start = useCallback((seconds) => {
     if (!seconds || seconds <= 0) return;
+    primeAudio();
     setTarget(seconds);
     setEndsAt(Date.now() + seconds * 1000);
     setNow(Date.now());
@@ -50,15 +95,17 @@ export function useRestTimer() {
 
 const mmss = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
+// Renders in the flow, inside the session's fixed action bar — floating above it meant
+// covering a set row that couldn't be scrolled out from under it.
 export default function RestTimer({ remaining, target, onStop, onAdjust }) {
   const doneRef = useRef(false);
 
-  // One buzz when the rest is up. Vibration is unsupported on iOS Safari and is a no-op
-  // there rather than an error, so it stays best-effort with no capability branching.
   useEffect(() => {
     if (remaining === null) { doneRef.current = false; return; }
     if (remaining === 0 && !doneRef.current) {
       doneRef.current = true;
+      beep();
+      notifyRestOver();
       try { navigator.vibrate?.([120, 60, 120]); } catch { /* not supported */ }
     }
   }, [remaining]);
@@ -72,47 +119,45 @@ export default function RestTimer({ remaining, target, onStop, onAdjust }) {
     <div
       role="status"
       aria-live="polite"
-      className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+4.25rem)] z-30 px-4 pointer-events-none"
+      className={`mt-2 rounded-lg border overflow-hidden ${
+        done
+          ? 'bg-emerald-600 border-emerald-500 text-white'
+          : 'bg-neutral-900 border-neutral-700 text-white dark:bg-neutral-900 dark:border-neutral-700'
+      }`}
     >
-      <div
-        className={`max-w-2xl mx-auto rounded-lg border shadow-lg overflow-hidden pointer-events-auto ${
-          done
-            ? 'bg-emerald-600 border-emerald-500 text-white'
-            : 'bg-neutral-900 border-neutral-700 text-white dark:bg-neutral-900 dark:border-neutral-700'
-        }`}
-      >
-        <div className="flex items-center gap-3 px-3 py-2">
-          <span className="text-lg font-semibold tabular-nums w-14">{mmss(remaining)}</span>
-          <span className="text-xs opacity-80 flex-1">{done ? 'Rest over' : 'Resting'}</span>
-          <button
-            type="button"
-            onClick={() => onAdjust(-15)}
-            className="text-xs px-2 py-1 rounded bg-white/10 hover:bg-white/20 tabular-nums"
-          >
-            −15s
-          </button>
-          <button
-            type="button"
-            onClick={() => onAdjust(15)}
-            className="text-xs px-2 py-1 rounded bg-white/10 hover:bg-white/20 tabular-nums"
-          >
-            +15s
-          </button>
-          <button
-            type="button"
-            onClick={onStop}
-            aria-label="Dismiss rest timer"
-            className="p-1 opacity-70 hover:opacity-100"
-          >
-            <CloseIcon />
-          </button>
-        </div>
-        {!done && (
-          <div className="h-0.5 bg-white/15">
-            <div className="h-full bg-white/60 transition-[width] duration-300" style={{ width: `${pct}%` }} />
-          </div>
-        )}
+      <div className="flex items-center gap-2 px-3 py-1.5">
+        <span className="text-lg font-semibold tabular-nums w-14">{mmss(remaining)}</span>
+        <span className="text-xs opacity-80 flex-1">{done ? 'Rest over' : 'Resting'}</span>
+        <button
+          type="button"
+          onClick={() => onAdjust(-15)}
+          aria-label="Take 15 seconds off the rest"
+          className="text-xs w-11 h-11 rounded hover:bg-white/15 tabular-nums"
+        >
+          −15s
+        </button>
+        <button
+          type="button"
+          onClick={() => onAdjust(15)}
+          aria-label="Add 15 seconds to the rest"
+          className="text-xs w-11 h-11 rounded hover:bg-white/15 tabular-nums"
+        >
+          +15s
+        </button>
+        <button
+          type="button"
+          onClick={onStop}
+          aria-label="Dismiss rest timer"
+          className="w-11 h-11 flex items-center justify-center rounded opacity-70 hover:opacity-100 hover:bg-white/15"
+        >
+          <CloseIcon />
+        </button>
       </div>
+      {!done && (
+        <div className="h-0.5 bg-white/15">
+          <div className="h-full bg-white/60 transition-[width] duration-300" style={{ width: `${pct}%` }} />
+        </div>
+      )}
     </div>
   );
 }

@@ -35,7 +35,7 @@ export default function Program() {
   if (editing) {
     return (
       <div className="space-y-3">
-        <button onClick={() => setEditing(null)} className="text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100">← Back</button>
+        <button onClick={() => setEditing(null)} className="text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 inline-flex items-center min-h-11 md:min-h-0 -ml-1 pl-1">← Back</button>
         <h1 className="text-2xl font-semibold tracking-tight">{editing === 'new' ? 'New program' : 'Edit program'}</h1>
         <ProgramEditor
           initial={editing === 'new' ? null : editing}

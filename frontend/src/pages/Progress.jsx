@@ -8,7 +8,7 @@ import { getStats, getVolumeProgress, getExerciseProgress, getPersonalBests, get
 import { Skeleton } from '../components/Skeleton';
 import ExercisePickerSheet from '../components/ExercisePickerSheet';
 import { ChevronIcon } from '../components/icons';
-import { formatDay } from '../utils/format';
+import { formatDay, formatKg } from '../utils/format';
 import MuscleVolume from '../components/MuscleVolume';
 import BodyweightCard from '../components/BodyweightCard';
 
@@ -44,7 +44,7 @@ function StatCard({ label, value, unit, loading }) {
       ) : (
         <p className="text-2xl font-semibold mt-1">
           {value}
-          {unit && <span className="text-sm font-normal text-neutral-500 ml-1">{unit}</span>}
+          {unit && <span className="text-sm font-normal text-neutral-500 dark:text-neutral-400 ml-1">{unit}</span>}
         </p>
       )}
     </div>
@@ -76,7 +76,7 @@ export default function Progress() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">Progress</h1>
-        <select className="input w-40" value={weeks} onChange={(e) => setWeeks(Number(e.target.value))}>
+        <select className="input w-40 h-11 py-0" value={weeks} onChange={(e) => setWeeks(Number(e.target.value))} aria-label="Time range">
           <option value={4}>Last 4 weeks</option>
           <option value={8}>Last 8 weeks</option>
           <option value={12}>Last 12 weeks</option>
@@ -100,7 +100,7 @@ export default function Progress() {
         {volumeLoading ? (
           <Skeleton className="h-[240px] w-full" />
         ) : volumeData.length === 0 ? (
-          <p className="text-center text-neutral-500 py-12 text-sm">Log workouts to see volume trends.</p>
+          <p className="text-center text-neutral-500 dark:text-neutral-400 py-12 text-sm">Log workouts to see volume trends.</p>
         ) : (
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={volumeData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
@@ -124,22 +124,22 @@ export default function Progress() {
           <button
             type="button"
             onClick={() => setPickerOpen(true)}
-            className="flex items-center gap-1.5 text-left min-w-0 max-w-[60%] px-3 py-1.5 rounded border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
+            className="flex items-center gap-1.5 text-left min-w-0 max-w-[60%] px-3 min-h-11 md:min-h-0 md:py-1.5 rounded border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
           >
-            <span className={`flex-1 min-w-0 truncate text-sm ${selectedExerciseId ? 'text-neutral-900 dark:text-neutral-200' : 'text-neutral-500 dark:text-neutral-500'}`}>
+            <span className={`flex-1 min-w-0 truncate text-sm ${selectedExerciseId ? 'text-neutral-900 dark:text-neutral-200' : 'text-neutral-500 dark:text-neutral-400'}`}>
               {selectedExerciseId
                 ? allExercises.find((e) => String(e.id) === String(selectedExerciseId))?.name || 'Pick an exercise'
                 : 'Pick an exercise'}
             </span>
-            <span className="text-neutral-400 dark:text-neutral-500 shrink-0"><ChevronIcon /></span>
+            <span className="text-neutral-400 dark:text-neutral-400 shrink-0"><ChevronIcon /></span>
           </button>
         </div>
         {!selectedExerciseId ? (
-          <p className="text-center text-neutral-500 py-12 text-sm">Select an exercise to see your progress.</p>
+          <p className="text-center text-neutral-500 dark:text-neutral-400 py-12 text-sm">Select an exercise to see your progress.</p>
         ) : exerciseProgressLoading ? (
           <Skeleton className="h-[240px] w-full" />
         ) : exerciseProgress.length === 0 ? (
-          <p className="text-center text-neutral-500 py-12 text-sm">No data for this exercise in the selected period.</p>
+          <p className="text-center text-neutral-500 dark:text-neutral-400 py-12 text-sm">No data for this exercise in the selected period.</p>
         ) : (
           <ResponsiveContainer width="100%" height={240}>
             <LineChart data={exerciseProgress} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
@@ -167,36 +167,58 @@ export default function Progress() {
             {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-7 w-full" />)}
           </div>
         ) : pbs.length === 0 ? (
-          <p className="text-center text-neutral-500 py-8 text-sm">Log workouts to see your personal bests.</p>
+          <p className="text-center text-neutral-500 dark:text-neutral-400 py-8 text-sm">Log workouts to see your personal bests.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400 border-b border-neutral-200 dark:border-neutral-800">
-                  <th className="pb-2 font-medium">Exercise</th>
-                  <th className="pb-2 font-medium">Muscle</th>
-                  <th className="pb-2 font-medium">Best</th>
-                  <th className="pb-2 font-medium">Reps</th>
-                  <th className="pb-2 font-medium">Est. 1RM</th>
-                  <th className="pb-2 font-medium">Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pbs.map((pb) => (
-                  <tr key={pb.exercise_id} className="border-t border-neutral-200 dark:border-neutral-800">
-                    <td className="py-2 font-medium">{pb.exercise_name}</td>
-                    <td className="py-2 text-neutral-500 dark:text-neutral-400">{pb.muscle_group}</td>
-                    <td className="py-2 font-semibold">{pb.best_weight != null ? `${pb.best_weight} kg` : 'BW'}</td>
-                    <td className="py-2">{pb.reps}</td>
-                    <td className="py-2 text-neutral-500 dark:text-neutral-400">{pb.est_1rm != null ? `${pb.est_1rm} kg` : '—'}</td>
-                    <td className="py-2 text-neutral-500 dark:text-neutral-400">
-                      {formatDay(pb.date, { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </td>
+          <>
+            {/* Six columns don't fit a phone, and `w-full` meant the overflow container
+                never scrolled — it just squashed every cell into a two-line wrap. */}
+            <ul className="md:hidden divide-y divide-neutral-200 dark:divide-neutral-800">
+              {pbs.map((pb) => (
+                <li key={pb.exercise_id} className="py-2.5">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="font-medium truncate">{pb.exercise_name}</span>
+                    <span className="font-semibold tabular-nums shrink-0">
+                      {pb.best_weight != null ? formatKg(pb.best_weight) : 'BW'} × {pb.reps}
+                    </span>
+                  </div>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+                    {pb.muscle_group}
+                    {pb.est_1rm != null && ` · ${formatKg(pb.est_1rm)} e1RM`}
+                    {' · '}
+                    {formatDay(pb.date, { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </p>
+                </li>
+              ))}
+            </ul>
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400 border-b border-neutral-200 dark:border-neutral-800">
+                    <th className="pb-2 font-medium">Exercise</th>
+                    <th className="pb-2 font-medium">Muscle</th>
+                    <th className="pb-2 font-medium">Best</th>
+                    <th className="pb-2 font-medium">Reps</th>
+                    <th className="pb-2 font-medium">Est. 1RM</th>
+                    <th className="pb-2 font-medium">Date</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {pbs.map((pb) => (
+                    <tr key={pb.exercise_id} className="border-t border-neutral-200 dark:border-neutral-800">
+                      <td className="py-2 font-medium">{pb.exercise_name}</td>
+                      <td className="py-2 text-neutral-500 dark:text-neutral-400">{pb.muscle_group}</td>
+                      <td className="py-2 font-semibold">{pb.best_weight != null ? formatKg(pb.best_weight) : 'BW'}</td>
+                      <td className="py-2">{pb.reps}</td>
+                      <td className="py-2 text-neutral-500 dark:text-neutral-400">{formatKg(pb.est_1rm)}</td>
+                      <td className="py-2 text-neutral-500 dark:text-neutral-400">
+                        {formatDay(pb.date, { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 

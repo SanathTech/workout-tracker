@@ -4,7 +4,7 @@ import { getWorkout, deleteWorkout } from '../api/client';
 import { Skeleton } from '../components/Skeleton';
 import MainBadge from '../components/MainBadge';
 import StatusBadge from '../components/StatusBadge';
-import { formatDay } from '../utils/format';
+import { formatDay, formatKg } from '../utils/format';
 
 export default function WorkoutDetail() {
   const { id } = useParams();
@@ -31,7 +31,7 @@ export default function WorkoutDetail() {
   });
 
   if (isLoading) return <WorkoutDetailSkeleton />;
-  if (!workout) return <p className="text-center text-neutral-500 py-20">Workout not found.</p>;
+  if (!workout) return <p className="text-center text-neutral-500 dark:text-neutral-400 py-20">Workout not found.</p>;
 
   const isSkipped = workout.status === 'skipped';
   const hasExercises = workout.exercises?.length > 0;
@@ -44,7 +44,7 @@ export default function WorkoutDetail() {
     <div className="max-w-2xl mx-auto space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <Link to="/dashboard" className="text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100">← Back</Link>
+          <Link to="/dashboard" className="text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 inline-flex items-center min-h-11 md:min-h-0 -ml-1 pl-1">← Back</Link>
           <h1 className="text-2xl font-semibold tracking-tight mt-1">
             {workout.routine_name || 'Workout'}
             <StatusBadge status={workout.status} className="ml-2 align-middle" />
@@ -87,7 +87,9 @@ export default function WorkoutDetail() {
       )}
 
       {hasExercises && !isSkipped && (
-        <div className="grid grid-cols-3 gap-3">
+        // Two across on a phone: at three, every label wrapped to two lines, and a fourth
+        // tile (Duration) left an orphan on its own row.
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
             { label: 'Exercises', value: workout.exercises.length },
             { label: 'Total sets', value: workout.exercises.reduce((s, ex) => s + ex.sets.length, 0) },
@@ -119,6 +121,10 @@ export default function WorkoutDetail() {
               </div>
               <p className="text-xs text-neutral-500 dark:text-neutral-400">{ex.muscle_group}</p>
             </div>
+            {ex.sets.length === 0 ? (
+              // A full table header over zero rows read as a rendering fault. Say it plainly.
+              <p className="text-sm text-neutral-500 dark:text-neutral-400">Not logged.</p>
+            ) : (
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-neutral-500 dark:text-neutral-400 text-left text-xs uppercase tracking-wide">
@@ -137,18 +143,19 @@ export default function WorkoutDetail() {
                   const rir = set.rir ?? targetRir[set.set_number - 1] ?? null;
                   return (
                     <tr key={set.id} className="border-t border-neutral-200 dark:border-neutral-800">
-                      <td className="py-2 text-neutral-500">{set.set_number}</td>
-                      <td className="py-2">{set.weight_kg != null ? `${set.weight_kg} kg` : '—'}</td>
+                      <td className="py-2 text-neutral-500 dark:text-neutral-400">{set.set_number}</td>
+                      <td className="py-2">{formatKg(set.weight_kg)}</td>
                       <td className="py-2">{set.reps ?? '—'}</td>
                       <td className="py-2">{rir ?? '—'}</td>
                       <td className="py-2 text-right text-neutral-500 dark:text-neutral-400">
-                        {set.weight_kg && set.reps ? `${set.weight_kg * set.reps} kg` : '—'}
+                        {set.weight_kg && set.reps ? formatKg(set.weight_kg * set.reps) : '—'}
                       </td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
+            )}
           </div>
         ))}
       </div>

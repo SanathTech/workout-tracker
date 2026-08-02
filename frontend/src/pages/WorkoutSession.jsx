@@ -7,6 +7,7 @@ import ExercisePickerSheet from '../components/ExercisePickerSheet';
 import MainBadge from '../components/MainBadge';
 import { CloseIcon, ChevronIcon, InfoIcon, CheckIcon } from '../components/icons';
 import RestTimer, { useRestTimer } from '../components/RestTimer';
+import { selectOnFocus, handleEditorEnter } from './program/helpers';
 import { formatRestRange, formatWarmup, formatDay } from '../utils/format';
 import { saveDraft, saveSnapshot, readDraft, clearDraft, pruneDrafts } from '../utils/draft';
 
@@ -20,8 +21,35 @@ function TargetChip({ children }) {
 
 const isBlank = (v) => v === '' || v == null;
 
-// The set row is already at capacity on a 375px screen, so the set-number cell doubles as
-// the type control rather than adding a sixth tap target. Tapping cycles it.
+const SAVE_TONE = {
+  saving: 'bg-neutral-400 dark:bg-neutral-500 animate-pulse',
+  saved: 'bg-emerald-500',
+  unsaved: 'bg-amber-500',
+  error: 'bg-red-500',
+};
+const SAVE_LABEL = {
+  saving: 'Saving',
+  saved: 'All changes saved',
+  unsaved: 'Unsaved changes',
+  error: 'Could not save — retrying',
+};
+
+// The full sentence lives in the page body; the pinned strip only has room to say
+// whether the server has your sets.
+function SaveStatusDot({ status }) {
+  if (status === 'idle') return null;
+  return (
+    <span
+      className={`shrink-0 w-2.5 h-2.5 rounded-full ${SAVE_TONE[status]}`}
+      role="status"
+      aria-label={SAVE_LABEL[status]}
+      title={SAVE_LABEL[status]}
+    />
+  );
+}
+
+// The set-number cell doubles as the type control rather than adding another tap target.
+// Tapping cycles it.
 const SET_TYPE_CYCLE = ['working', 'warmup', 'drop', 'failure'];
 const SET_TYPE_LABEL = { working: null, warmup: 'W', drop: 'D', failure: 'F' };
 const SET_TYPE_TITLE = {
@@ -33,7 +61,12 @@ const SET_TYPE_TITLE = {
 const nextSetType = (t) =>
   SET_TYPE_CYCLE[(SET_TYPE_CYCLE.indexOf(t || 'working') + 1) % SET_TYPE_CYCLE.length];
 
+// Two lines per set. At 390px a single line left the two inputs that matter — weight and
+// reps — 33px wide (26px on an SE) once the prev hint and RIR had taken their fixed cut,
+// and every control sat under the 44px touch minimum. Splitting the row gives weight and
+// reps ~135px each and lets the secondary controls hit 44px without stealing from them.
 function SetRow({ set, previousSet, showPrev, targetRir, onChange, onRemove, onDone }) {
+  const [confirmRemove, setConfirmRemove] = useState(false);
   const prevWeight = previousSet?.weight_kg != null ? Number(previousSet.weight_kg) : null;
   const prevLabel = prevWeight != null && previousSet?.reps != null
     ? `${prevWeight}×${previousSet.reps}`
@@ -56,68 +89,112 @@ function SetRow({ set, previousSet, showPrev, targetRir, onChange, onRemove, onD
     onDone();
   };
 
+  // Removal is one tap away from the Done tick on a phone, and an accidental one silently
+  // renumbers every set below it — so it asks first, and forgets it was asked.
+  useEffect(() => {
+    if (!confirmRemove) return undefined;
+    const t = setTimeout(() => setConfirmRemove(false), 4000);
+    return () => clearTimeout(t);
+  }, [confirmRemove]);
+
+  const typeLabel = SET_TYPE_LABEL[set.set_type || 'working'] ?? set.set_number;
+
   return (
-    <div className="flex items-center gap-2">
-      <button
-        type="button"
-        onClick={() => onChange({ ...set, set_type: nextSetType(set.set_type) })}
-        title={SET_TYPE_TITLE[set.set_type || 'working']}
-        aria-label={`Set ${set.set_number}: ${set.set_type || 'working'} — tap to change type`}
-        className={`text-xs w-5 shrink-0 text-center rounded transition-colors ${
-          set.set_type === 'warmup'
-            ? 'text-amber-600 dark:text-amber-500 font-semibold'
-            : set.set_type === 'drop' || set.set_type === 'failure'
-              ? 'text-purple-600 dark:text-purple-400 font-semibold'
-              : 'text-neutral-500 dark:text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200'
-        }`}
-      >
-        {SET_TYPE_LABEL[set.set_type || 'working'] ?? set.set_number}
-      </button>
-      {showPrev && (
-        <span className="text-[11px] text-neutral-500 dark:text-neutral-500 w-14 truncate" title={prevTitle}>{prevLabel}</span>
-      )}
-      <input
-        type="number" inputMode="decimal" min="0" step="0.5"
-        placeholder="kg"
-        value={set.weight_kg ?? ''}
-        onChange={(e) => onChange({ ...set, weight_kg: e.target.value })}
-        className="input flex-1 py-1.5"
-      />
-      <input
-        type="number" inputMode="numeric" min="0"
-        placeholder="reps"
-        value={set.reps ?? ''}
-        onChange={(e) => onChange({ ...set, reps: e.target.value })}
-        className="input flex-1 py-1.5"
-      />
-      <input
-        type="number" inputMode="numeric" min="0" step="1"
-        placeholder={targetRir != null ? `${targetRir}` : 'rir'}
-        title={targetRir != null ? `Reps in reserve — target ${targetRir}` : 'Reps in reserve'}
-        value={set.rir ?? ''}
-        onChange={(e) => onChange({ ...set, rir: e.target.value })}
-        className="input w-14 py-1.5 text-center"
-      />
-      <button
-        type="button"
-        onClick={markDone}
-        aria-label={done ? `Set ${set.set_number} done — restart rest` : `Mark set ${set.set_number} done and start rest`}
-        title={done ? 'Restart rest' : 'Done — start rest'}
-        className={`shrink-0 w-8 h-8 rounded-full border flex items-center justify-center transition-colors ${
-          done
-            ? 'bg-emerald-600 border-emerald-600 text-white hover:bg-emerald-700'
-            : 'border-neutral-300 dark:border-neutral-700 text-neutral-400 hover:border-emerald-500 hover:text-emerald-600'
-        }`}
-      >
-        <CheckIcon />
-      </button>
-      <button
-        onClick={onRemove}
-        aria-label="Remove set"
-        className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 p-1"
-      >
-        <CloseIcon />
-      </button>
+    <div className="space-y-1">
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => onChange({ ...set, set_type: nextSetType(set.set_type) })}
+          title={SET_TYPE_TITLE[set.set_type || 'working']}
+          aria-label={`Set ${set.set_number}: ${set.set_type || 'working'} — tap to change type`}
+          className={`shrink-0 h-11 min-w-[3.25rem] px-2 -ml-1 rounded text-xs font-medium text-left transition-colors ${
+            set.set_type === 'warmup'
+              ? 'text-amber-600 dark:text-amber-500'
+              : set.set_type === 'drop' || set.set_type === 'failure'
+                ? 'text-purple-600 dark:text-purple-400'
+                : 'text-neutral-500 dark:text-neutral-400'
+          }`}
+        >
+          Set {typeLabel}
+        </button>
+        <span
+          className="flex-1 min-w-0 truncate text-[11px] text-neutral-500 dark:text-neutral-400"
+          title={showPrev ? prevTitle : undefined}
+        >
+          {showPrev ? `prev ${prevLabel}` : ''}
+        </span>
+        <label className="shrink-0 flex items-center gap-1.5 text-[11px] text-neutral-500 dark:text-neutral-400">
+          <span>RIR</span>
+          <input
+            data-editor-input="true"
+            type="number" inputMode="numeric" min="0" step="1"
+            enterKeyHint="next"
+            placeholder={targetRir != null ? `${targetRir}` : '–'}
+            title={targetRir != null ? `Reps in reserve — target ${targetRir}` : 'Reps in reserve'}
+            aria-label={`Set ${set.set_number} reps in reserve`}
+            value={set.rir ?? ''}
+            onFocus={selectOnFocus}
+            onChange={(e) => onChange({ ...set, rir: e.target.value })}
+            className="input w-14 h-11 py-0 text-center"
+          />
+        </label>
+        {confirmRemove ? (
+          <button
+            type="button"
+            onClick={onRemove}
+            aria-label={`Confirm removing set ${set.set_number}`}
+            className="shrink-0 h-11 px-2 rounded text-xs font-medium text-red-600 dark:text-red-400"
+          >
+            Remove?
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setConfirmRemove(true)}
+            aria-label={`Remove set ${set.set_number}`}
+            className="shrink-0 w-11 h-11 -mr-1 flex items-center justify-center rounded text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
+          >
+            <CloseIcon />
+          </button>
+        )}
+      </div>
+      <div className="flex items-center gap-2">
+        <input
+          data-editor-input="true"
+          type="number" inputMode="decimal" min="0" step="0.5"
+          enterKeyHint="next"
+          placeholder="kg"
+          aria-label={`Set ${set.set_number} weight in kilograms`}
+          value={set.weight_kg ?? ''}
+          onFocus={selectOnFocus}
+          onChange={(e) => onChange({ ...set, weight_kg: e.target.value })}
+          className="input flex-1 min-w-0 h-12"
+        />
+        <input
+          data-editor-input="true"
+          type="number" inputMode="numeric" min="0"
+          enterKeyHint="next"
+          placeholder="reps"
+          aria-label={`Set ${set.set_number} reps`}
+          value={set.reps ?? ''}
+          onFocus={selectOnFocus}
+          onChange={(e) => onChange({ ...set, reps: e.target.value })}
+          className="input flex-1 min-w-0 h-12"
+        />
+        <button
+          type="button"
+          onClick={markDone}
+          aria-label={done ? `Set ${set.set_number} done — restart rest` : `Mark set ${set.set_number} done and start rest`}
+          title={done ? 'Restart rest' : 'Done — start rest'}
+          className={`shrink-0 w-12 h-12 rounded-lg border flex items-center justify-center transition-colors ${
+            done
+              ? 'bg-emerald-600 border-emerald-600 text-white hover:bg-emerald-700'
+              : 'border-neutral-300 dark:border-neutral-700 text-neutral-400 hover:border-emerald-500 hover:text-emerald-600'
+          }`}
+        >
+          <CheckIcon size={18} />
+        </button>
+      </div>
     </div>
   );
 }
@@ -158,36 +235,38 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove, onR
 
   return (
     <div className={`card space-y-3 ${isMain ? 'border-l-2 border-l-amber-400 dark:border-l-amber-500/60' : ''}`}>
-      <div className="flex items-start justify-between gap-2">
+      <div className="flex items-center justify-between gap-1">
         <button
           type="button"
           onClick={onOpenPicker}
-          className="flex items-center gap-1.5 text-left flex-1 min-w-0 -mx-1 px-1 py-0.5 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+          className="flex items-center gap-1.5 text-left flex-1 min-w-0 -mx-2 px-2 min-h-11 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
         >
-          <span className="font-semibold text-neutral-900 dark:text-neutral-200 truncate">
+          {/* Wraps rather than truncates: "Barbell Overhead Press" cut to "Barbell
+              Overhea…" is worse than a second line. */}
+          <span className="font-semibold text-neutral-900 dark:text-neutral-200 min-w-0">
             {block.exercise_name || 'Pick an exercise'}
           </span>
           {isMain && <MainBadge className="shrink-0" />}
-          <span className="text-neutral-400 dark:text-neutral-500 shrink-0">
+          <span className="text-neutral-400 dark:text-neutral-400 shrink-0">
             <ChevronIcon open={false} />
           </span>
         </button>
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center shrink-0">
           {target?.notes && (
             <button
               type="button"
               onClick={() => setShowNote((v) => !v)}
               aria-label={showNote ? 'Hide exercise notes' : 'Show exercise notes'}
               aria-expanded={showNote}
-              className={`p-1 transition-colors ${showNote ? 'text-neutral-900 dark:text-neutral-200' : 'text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'}`}
+              className={`w-11 h-11 flex items-center justify-center rounded transition-colors ${showNote ? 'text-neutral-900 dark:text-neutral-200' : 'text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'}`}
             >
               <InfoIcon />
             </button>
           )}
           <button
             onClick={onRemove}
-            aria-label="Remove exercise"
-            className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 p-1"
+            aria-label={`Remove ${block.exercise_name || 'exercise'}`}
+            className="w-11 h-11 -mr-2 flex items-center justify-center rounded text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
           >
             <CloseIcon />
           </button>
@@ -226,10 +305,10 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove, onR
       )}
 
       {block.notes && (
-        <p className="text-xs text-neutral-500 dark:text-neutral-500 italic">{block.notes}</p>
+        <p className="text-xs text-neutral-500 dark:text-neutral-400 italic">{block.notes}</p>
       )}
 
-      <div className="space-y-2">
+      <div className="space-y-3">
         {block.sets.map((s, i) => {
           const targetRir = Array.isArray(target?.target_rir_per_set) ? target.target_rir_per_set[i] : null;
           return (
@@ -250,7 +329,7 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove, onR
         <button
           type="button"
           onClick={addSet}
-          className="w-full text-center py-2 text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200 border border-dashed border-neutral-200 dark:border-neutral-800 rounded hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
+          className="w-full text-center h-11 text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 border border-dashed border-neutral-200 dark:border-neutral-800 rounded hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
         >
           + Add set
         </button>
@@ -374,6 +453,31 @@ export default function WorkoutSession() {
 
   const rest = useRestTimer();
   const [recovered, setRecovered] = useState(false);
+
+  // The fixed action bar changes height (rest timer, save error), and content has to be
+  // able to scroll clear of whatever it currently is.
+  const barRef = useRef(null);
+  const [barHeight, setBarHeight] = useState(80);
+  useEffect(() => {
+    const el = barRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    const ro = new ResizeObserver(([entry]) => setBarHeight(entry.target.offsetHeight));
+    ro.observe(el);
+    setBarHeight(el.offsetHeight);
+    return () => ro.disconnect();
+  }, [hydrated]);
+
+  const { loggedSets, plannedSets } = useMemo(() => {
+    let logged = 0;
+    let planned = 0;
+    for (const ex of exercises) {
+      for (const s of ex.sets) {
+        planned += 1;
+        if (!isBlank(s.weight_kg) || !isBlank(s.reps)) logged += 1;
+      }
+    }
+    return { loggedSets: logged, plannedSets: planned };
+  }, [exercises]);
 
   // Hydrate local state once from the fresh mount-fetch. If that fetch errored but
   // cached data exists (e.g. offline), hydrate from cache instead of hanging on the
@@ -613,23 +717,35 @@ export default function WorkoutSession() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-4">
-      <div>
-        <div className="flex items-center justify-between gap-3">
-          <button onClick={() => navigate(-1)} className="text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200">← Back</button>
-          {!isCompleted && (
-            <button
-              onClick={() => {
-                if (confirm('Skip this workout? It keeps its place in the program sequence, and anything logged here stops counting.')) skip.mutate();
-              }}
-              disabled={skip.isPending || finish.isPending}
-              className="text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200"
-            >
-              {skip.isPending ? 'Skipping…' : 'Skip workout'}
-            </button>
-          )}
+      {/* Replaces the global header on mobile (hidden by Navbar during a session): the
+          pinned strip carries the routine, how far through you are and the save state,
+          rather than the app's own name. */}
+      <div className="md:hidden sticky top-0 z-10 -mx-4 px-4 h-12 flex items-center gap-3 bg-white/95 dark:bg-neutral-950/95 backdrop-blur border-b border-neutral-200 dark:border-neutral-900">
+        <button
+          onClick={() => navigate(-1)}
+          aria-label="Back"
+          className="shrink-0 -ml-2 w-11 h-11 flex items-center justify-center text-neutral-500 dark:text-neutral-400"
+        >
+          ←
+        </button>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium truncate text-neutral-900 dark:text-neutral-200">
+            {workout.routine_name || 'Workout'}
+          </p>
+          <p className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate">
+            {loggedSets} of {plannedSets} sets logged
+          </p>
         </div>
-        <h1 className="text-2xl font-semibold tracking-tight mt-1">{workout.routine_name || 'Workout'}</h1>
-        <p className="text-sm text-neutral-500 dark:text-neutral-500">
+        <SaveStatusDot status={autosave} />
+      </div>
+
+      <div>
+        <div className="hidden md:flex items-center justify-between gap-3">
+          <button onClick={() => navigate(-1)} className="text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200">← Back</button>
+        </div>
+        {/* The pinned strip already names the routine on mobile. */}
+        <h1 className="hidden md:block text-2xl font-semibold tracking-tight mt-1">{workout.routine_name || 'Workout'}</h1>
+        <p className="text-sm text-neutral-500 dark:text-neutral-400">
           {workout.program_name && `${workout.program_name} · `}
           {workout.program_week && `Week ${workout.program_week} · `}
           {formatDay(workout.date, { weekday: 'long', month: 'short', day: 'numeric' })}
@@ -651,7 +767,7 @@ export default function WorkoutSession() {
           <p className={`text-xs mt-0.5 ${
             autosave === 'error' ? 'text-red-600 dark:text-red-400'
               : autosave === 'unsaved' ? 'text-amber-600 dark:text-amber-500'
-              : 'text-neutral-400 dark:text-neutral-500'
+              : 'text-neutral-400 dark:text-neutral-400'
           }`}>
             {autosave === 'saving' ? 'Saving…'
               : autosave === 'saved' ? 'All changes saved'
@@ -661,7 +777,7 @@ export default function WorkoutSession() {
         )}
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-3" data-editor-root onKeyDown={handleEditorEnter}>
         {exercises.map((ex, i) => (
           <ExerciseBlock
             key={ex.client_id}
@@ -678,15 +794,16 @@ export default function WorkoutSession() {
         <button
           type="button"
           onClick={() => setPicker({ mode: 'add' })}
-          className="w-full py-3 text-sm font-medium text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200 border border-dashed border-neutral-200 dark:border-neutral-800 rounded hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
+          className="w-full h-12 text-sm font-medium text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 border border-dashed border-neutral-200 dark:border-neutral-800 rounded hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
         >
           + Add exercise
         </button>
       </div>
 
       <div className="card">
-        <label className="label">Workout notes</label>
+        <label className="label" htmlFor="wt-workout-notes">Workout notes</label>
         <textarea
+          id="wt-workout-notes"
           className="input resize-none"
           rows={2}
           value={notes}
@@ -694,50 +811,69 @@ export default function WorkoutSession() {
         />
       </div>
 
-      <div className="h-20" aria-hidden="true" />
-      <div className="fixed bottom-0 inset-x-0 z-20 bg-white dark:bg-neutral-950 border-t border-neutral-200 dark:border-neutral-900 pb-[env(safe-area-inset-bottom)]">
-        {(finish.isError || skip.isError || doneError) && (
-          <p className="max-w-2xl mx-auto px-4 pt-2 text-xs text-red-600 dark:text-red-400">
-            {doneError
-              || (skip.isError ? 'Could not skip the workout.' : null)
-              || finish.error?.message
-              || 'Could not finish the workout.'}
-          </p>
-        )}
-        <div className="max-w-2xl mx-auto px-4 py-3 flex gap-2">
-          <button
-            onClick={() => saveNow()}
-            disabled={autosave === 'saving' || finish.isPending}
-            className="btn-secondary flex-1 justify-center"
-          >
-            {autosave === 'saving' ? 'Saving…' : 'Save now'}
-          </button>
-          {isCompleted ? (
-            <button
-              onClick={doneEditing}
-              disabled={autosave === 'saving'}
-              className="btn-primary flex-1 justify-center"
-            >
-              {autosave === 'saving' ? 'Saving…' : 'Done'}
-            </button>
-          ) : (
-            <button
-              onClick={() => { if (confirm('Finish this workout?')) finish.mutate(); }}
-              disabled={finish.isPending || skip.isPending}
-              className="btn-primary flex-1 justify-center"
-            >
-              {finish.isPending ? '…' : 'Finish workout'}
-            </button>
+      {!isCompleted && (
+        <button
+          onClick={() => {
+            if (confirm('Skip this workout? It keeps its place in the program sequence, and anything logged here stops counting.')) skip.mutate();
+          }}
+          disabled={skip.isPending || finish.isPending}
+          className="btn-ghost w-full justify-center h-11"
+        >
+          {skip.isPending ? 'Skipping…' : 'Skip this workout'}
+        </button>
+      )}
+
+      {/* Sized to whatever the fixed bar currently is, so the last set can always be
+          scrolled clear of it — the bar grows when the rest timer or an error is in it. */}
+      <div style={{ height: barHeight }} aria-hidden="true" />
+      <div
+        ref={barRef}
+        className="fixed bottom-0 inset-x-0 z-20 bg-white dark:bg-neutral-950 border-t border-neutral-200 dark:border-neutral-900 pb-[env(safe-area-inset-bottom)]"
+      >
+        <div className="max-w-2xl mx-auto px-4">
+          {(finish.isError || skip.isError || doneError) && (
+            <p className="pt-2 text-xs text-red-600 dark:text-red-400">
+              {doneError
+                || (skip.isError ? 'Could not skip the workout.' : null)
+                || finish.error?.message
+                || 'Could not finish the workout.'}
+            </p>
           )}
+          <RestTimer
+            remaining={rest.remaining}
+            target={rest.target}
+            onStop={rest.stop}
+            onAdjust={rest.adjust}
+          />
+          <div className="py-3 flex gap-2">
+            {autosave === 'error' && (
+              <button
+                onClick={() => saveNow()}
+                className="btn-secondary justify-center h-12 shrink-0"
+              >
+                Retry save
+              </button>
+            )}
+            {isCompleted ? (
+              <button
+                onClick={doneEditing}
+                disabled={autosave === 'saving'}
+                className="btn-primary flex-1 justify-center h-12"
+              >
+                {autosave === 'saving' ? 'Saving…' : 'Done'}
+              </button>
+            ) : (
+              <button
+                onClick={() => { if (confirm('Finish this workout?')) finish.mutate(); }}
+                disabled={finish.isPending || skip.isPending}
+                className="btn-primary flex-1 justify-center h-12"
+              >
+                {finish.isPending ? '…' : 'Finish workout'}
+              </button>
+            )}
+          </div>
         </div>
       </div>
-
-      <RestTimer
-        remaining={rest.remaining}
-        target={rest.target}
-        onStop={rest.stop}
-        onAdjust={rest.adjust}
-      />
 
       <ExercisePickerSheet
         open={!!picker}

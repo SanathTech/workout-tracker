@@ -74,7 +74,7 @@ function SignOutButton() {
       disabled={signOut.isPending}
       aria-label="Sign out"
       title="Sign out"
-      className="shrink-0 p-2 rounded-md text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-neutral-200 dark:hover:bg-neutral-900 transition-colors"
+      className="shrink-0 w-11 h-11 flex items-center justify-center rounded-md text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-neutral-200 dark:hover:bg-neutral-900 transition-colors"
     >
       <SignOutIcon />
     </button>
@@ -92,7 +92,7 @@ function ThemeToggle() {
       type="button"
       onClick={() => setDark((d) => !d)}
       aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
-      className="shrink-0 p-2 rounded-md text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-neutral-200 dark:hover:bg-neutral-900 transition-colors"
+      className="shrink-0 w-11 h-11 flex items-center justify-center rounded-md text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-neutral-200 dark:hover:bg-neutral-900 transition-colors"
     >
       {dark ? <SunIcon /> : <MoonIcon />}
     </button>
@@ -106,8 +106,15 @@ export default function Navbar() {
   const showBottomNav = !inSession && !externallyHidden;
   return (
     <>
-      {/* Top header — mobile: brand + toggle. Desktop: full nav */}
-      <header className="bg-white/80 backdrop-blur border-b border-neutral-200 sticky top-0 z-10 dark:bg-neutral-950/80 dark:border-neutral-900">
+      {/* Top header — mobile: brand + toggle, and it scrolls away, because "Workout
+          Tracker" is not worth 57px of a phone screen at all times. Hidden outright
+          during a session, where the page supplies its own pinned context strip.
+          Desktop: full nav, sticky. */}
+      <header
+        className={`bg-white/80 backdrop-blur border-b border-neutral-200 md:sticky md:top-0 z-10 dark:bg-neutral-950/80 dark:border-neutral-900 ${
+          inSession ? 'hidden md:block' : ''
+        }`}
+      >
         <div className="max-w-6xl mx-auto px-4 flex items-center h-14">
           <span className="font-semibold tracking-tight text-neutral-900 dark:text-neutral-200">
             Workout Tracker
@@ -121,7 +128,7 @@ export default function Navbar() {
                   `px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
                     isActive
                       ? 'bg-neutral-100 text-neutral-900 dark:bg-neutral-900 dark:text-neutral-200'
-                      : 'text-neutral-500 hover:text-neutral-900 hover:bg-neutral-50 dark:text-neutral-400 dark:hover:text-neutral-200 dark:hover:bg-neutral-900/50'
+                      : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 hover:bg-neutral-50 dark:text-neutral-400 dark:hover:text-neutral-200 dark:hover:bg-neutral-900/50'
                   }`
                 }
               >
@@ -146,10 +153,10 @@ export default function Navbar() {
               key={l.to}
               to={l.to}
               className={({ isActive }) =>
-                `flex items-center justify-center py-3 text-xs font-medium transition-colors ${
+                `flex items-center justify-center h-14 text-xs font-medium transition-colors ${
                   isActive
                     ? 'text-neutral-900 dark:text-neutral-200'
-                    : 'text-neutral-500 dark:text-neutral-500'
+                    : 'text-neutral-500 dark:text-neutral-400'
                 }`
               }
             >
