@@ -13,6 +13,14 @@ import { saveDraft, saveSnapshot, readDraft, clearDraft, pruneDrafts } from '../
 
 const isBlank = (v) => v === '' || v == null;
 
+function TargetChip({ children }) {
+  return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 text-[10px] uppercase tracking-wide font-medium text-neutral-600 dark:text-neutral-400">
+      {children}
+    </span>
+  );
+}
+
 const SAVE_TONE = {
   saving: 'bg-neutral-400 dark:bg-neutral-500 animate-pulse',
   saved: 'bg-emerald-500',
@@ -281,17 +289,16 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove, onR
     : null;
   const warmupLabel = formatWarmup(target?.warmup_sets_low, target?.warmup_sets_high);
 
-  // Everything the chips and the suggestion box used to say, on one muted line:
-  // "3 × 4–6 · 3m rest · 2 warm-up · Hold 40 kg". RIR targets aren't here — they ride
-  // in the RIR column as ghost placeholders. The suggestion keeps its colour and its
-  // reason; the sentence just moves behind a tap on the pill.
-  const metaParts = [];
-  if (target?.target_sets) metaParts.push(repRange ? `${target.target_sets} × ${repRange}` : `${target.target_sets} sets`);
-  else if (repRange) metaParts.push(`${repRange} reps`);
+  // Everything the old suggestion box said, as a row of chips (owner preference over the
+  // muted text line). RIR targets aren't here — they ride in the RIR column as ghost
+  // placeholders. The suggestion chip keeps its colour; its reason expands on tap.
+  const metaChips = [];
+  if (target?.target_sets) metaChips.push(repRange ? `${target.target_sets} × ${repRange}` : `${target.target_sets} sets`);
+  else if (repRange) metaChips.push(`${repRange} reps`);
   if (target?.rest_seconds != null || target?.rest_seconds_high != null) {
-    metaParts.push(`${formatRestRange(target.rest_seconds, target.rest_seconds_high)} rest`);
+    metaChips.push(`${formatRestRange(target.rest_seconds, target.rest_seconds_high)} rest`);
   }
-  if (warmupLabel) metaParts.push(warmupLabel);
+  if (warmupLabel) metaChips.push(warmupLabel);
 
   const hasSuggestion = suggestion && suggestion.action !== 'no_history' && suggestion.action !== 'no_target';
   const suggestionLabel = hasSuggestion
@@ -364,23 +371,26 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove, onR
         </div>
       </div>
 
-      {(metaParts.length > 0 || suggestionLabel) && (
-        <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 mb-1">
-          {metaParts.join(' · ')}
+      {(metaChips.length > 0 || suggestionLabel) && (
+        <div className="flex flex-wrap items-center gap-1.5 mt-1 mb-1.5">
+          {metaChips.map((c) => <TargetChip key={c}>{c}</TargetChip>)}
           {suggestionLabel && (
-            <>
-              {metaParts.length > 0 && ' · '}
-              <button
-                type="button"
-                onClick={() => setShowReason((v) => !v)}
-                aria-expanded={showReason}
-                className={`font-medium py-3.5 -my-3.5 ${suggestion.action === 'increase' ? 'text-emerald-700 dark:text-emerald-400' : 'text-neutral-600 dark:text-neutral-300'}`}
-              >
+            <button
+              type="button"
+              onClick={() => setShowReason((v) => !v)}
+              aria-expanded={showReason}
+              className="py-2.5 -my-2.5"
+            >
+              <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] uppercase tracking-wide font-medium ${
+                suggestion.action === 'increase'
+                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-400'
+                  : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300'
+              }`}>
                 {suggestionLabel}
-              </button>
-            </>
+              </span>
+            </button>
           )}
-        </p>
+        </div>
       )}
 
       {showReason && hasSuggestion && (
@@ -422,9 +432,10 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove, onR
             targetRir={Array.isArray(target?.target_rir_per_set) ? target.target_rir_per_set[i] ?? null : null}
             onChange={(u) => updateSet(i, u)}
             onRemove={() => removeSet(i)}
-            // Rest the minimum of the prescribed range — the upper bound is a ceiling,
-            // not the thing you wait for. Falls back to 2 min when nothing is set.
-            onDone={() => onRest(target?.rest_seconds ?? target?.rest_seconds_high ?? 120)}
+            // Rest the TOP of the prescribed range — owner call ("I prefer more
+            // rest"): being buzzed at the bottom of 3–5m defeats setting a range, and
+            // −15s is right there when the bar feels ready sooner. Falls back to 2 min.
+            onDone={() => onRest(target?.rest_seconds_high ?? target?.rest_seconds ?? 120)}
           />
         ))}
       </div>

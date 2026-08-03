@@ -251,10 +251,14 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
   - **Set removal is swipe-left → Remove** (`useSwipeToReveal`) — the ledger has no room
     for an always-visible ✕. The reveal engages only on clearly-horizontal drags so
     vertical scroll and input taps stay native, and it springs shut after 5s.
-  - The exercise meta line carries everything the old chips and suggestion box said:
-    "3 × 4–6 · RIR 2/2/1 · 3m rest · Hold 40 kg". The suggestion keeps only its verdict
-    on the line; the reason expands on tap. Swap-exercise stays on the name; notes and
-    remove live behind ⋯.
+  - The exercise meta is a row of chips ("3 × 4–6", "3–5m rest", warm-up), plus a
+    coloured suggestion chip whose reason expands on tap (owner preference, 2026-08-04 —
+    chips over a muted text line). Swap-exercise stays on the name; notes and remove
+    live behind ⋯.
+  - **The auto rest-timer uses the TOP of the rest range** (`rest_seconds_high` first),
+    not the bottom — owner call: "I prefer more rest", and −15s is one tap away. The
+    bottom of the range is what the chip displays first, so don't "fix" the timer back
+    to it.
   - `± steppers` still don't fit and are still out.
 - The service worker precaches the shell only. API responses are never cached — stale sets
   are worse than an error, and a cached 401 would outlive a re-login.
