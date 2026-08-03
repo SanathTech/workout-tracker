@@ -62,11 +62,11 @@ const LEDGER_COLS = 'grid grid-cols-[2.5rem_1fr_4.5rem_4.5rem_2.75rem] items-cen
 // not boxes, is where the density comes from; the row itself is still a 44px target.
 function SetRow({ set, previousSet, showPrev, onChange, onRemove, onDone }) {
   const prevWeight = previousSet?.weight_kg != null ? Number(previousSet.weight_kg) : null;
-  const prevLabel = prevWeight != null && previousSet?.reps != null
-    ? `${prevWeight} × ${previousSet.reps}`
-    : previousSet?.reps != null
-      ? `— × ${previousSet.reps}`
-      : '—';
+  // Either half can be null on its own — a weight-only or reps-only previous set still
+  // shows the half it has rather than collapsing to a dash.
+  const prevLabel = prevWeight == null && previousSet?.reps == null
+    ? '—'
+    : `${prevWeight ?? '—'} × ${previousSet?.reps ?? '—'}`;
   const prevTitle = previousSet?.rir != null
     ? `Last time: ${prevLabel} @ RIR ${previousSet.rir} — tap to fill`
     : `Last time: ${prevLabel} — tap to fill`;
@@ -103,8 +103,8 @@ function SetRow({ set, previousSet, showPrev, onChange, onRemove, onDone }) {
 
   return (
     <div className="relative overflow-hidden rounded-lg">
-      {/* Exists only while a swipe is in progress — kept out of the DOM otherwise so it
-          can never bleed through the (translucent-tinted) row above it. */}
+      {/* In the DOM only while the row is displaced (mid-swipe or revealed) — never when
+          the row is at rest, so it can't bleed through the translucent done-tint above. */}
       {offset < 0 && (
         <button
           type="button"
