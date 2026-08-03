@@ -247,6 +247,14 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove, onR
   // Collapse transient state when the exercise is swapped for a different one.
   useEffect(() => { setShowNote(false); setShowReason(false); setMenu(false); setConfirmRemove(false); }, [block.exercise_id]);
   useEffect(() => { if (!menu) setConfirmRemove(false); }, [menu]);
+  // Escape closes the menu — the backdrop is pointer-only, and keyboard users otherwise
+  // have to tab back to the toggle.
+  useEffect(() => {
+    if (!menu) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') setMenu(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [menu]);
   const { data: previous } = useQuery({
     queryKey: ['last-by-exercise', block.exercise_id, workoutId],
     queryFn: () => getLastByExercise(block.exercise_id, { exclude: workoutId }),
