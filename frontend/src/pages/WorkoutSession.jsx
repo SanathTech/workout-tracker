@@ -5,19 +5,11 @@ import { getWorkout, updateWorkout, completeWorkout, skipWorkout, getLastByExerc
 import { Skeleton } from '../components/Skeleton';
 import ExercisePickerSheet from '../components/ExercisePickerSheet';
 import MainBadge from '../components/MainBadge';
-import { CloseIcon, ChevronIcon, InfoIcon, CheckIcon } from '../components/icons';
+import { ChevronIcon, CheckIcon } from '../components/icons';
 import RestTimer, { useRestTimer } from '../components/RestTimer';
 import { selectOnFocus, handleEditorEnter } from './program/helpers';
 import { formatRestRange, formatWarmup, formatDay } from '../utils/format';
 import { saveDraft, saveSnapshot, readDraft, clearDraft, pruneDrafts } from '../utils/draft';
-
-function TargetChip({ children }) {
-  return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 text-[10px] uppercase tracking-wide font-medium text-neutral-600 dark:text-neutral-400">
-      {children}
-    </span>
-  );
-}
 
 const isBlank = (v) => v === '' || v == null;
 
@@ -61,19 +53,23 @@ const SET_TYPE_TITLE = {
 const nextSetType = (t) =>
   SET_TYPE_CYCLE[(SET_TYPE_CYCLE.indexOf(t || 'working') + 1) % SET_TYPE_CYCLE.length];
 
-// Two lines per set. At 390px a single line left the two inputs that matter — weight and
-// reps — 33px wide (26px on an SE) once the prev hint and RIR had taken their fixed cut,
-// and every control sat under the 44px touch minimum. Splitting the row gives weight and
-// reps ~135px each and lets the secondary controls hit 44px without stealing from them.
-function SetRow({ set, previousSet, showPrev, targetRir, onChange, onRemove, onDone }) {
-  const [confirmRemove, setConfirmRemove] = useState(false);
+// Grid template shared by the header row and every set row, so the columns can't drift.
+const LEDGER_COLS = 'grid grid-cols-[2.5rem_1fr_4.5rem_4.5rem_2.75rem] items-center';
+
+// The ledger row — one 44px line per set, the layout Strong and Hevy converged on.
+// No boxed inputs: values are bare text in tappable cells, last session's numbers sit in
+// the empty cells as placeholders, and ticking a row with blanks commits them. Cells,
+// not boxes, is where the density comes from; the row itself is still a 44px target.
+function SetRow({ set, previousSet, showPrev, onChange, onRemove, onDone }) {
   const prevWeight = previousSet?.weight_kg != null ? Number(previousSet.weight_kg) : null;
   const prevLabel = prevWeight != null && previousSet?.reps != null
-    ? `${prevWeight}×${previousSet.reps}`
+    ? `${prevWeight} × ${previousSet.reps}`
     : previousSet?.reps != null
-      ? `—×${previousSet.reps}`
+      ? `— × ${previousSet.reps}`
       : '—';
-  const prevTitle = previousSet?.rir != null ? `${prevLabel} @ RIR ${previousSet.rir}` : prevLabel;
+  const prevTitle = previousSet?.rir != null
+    ? `Last time: ${prevLabel} @ RIR ${previousSet.rir} — tap to fill`
+    : `Last time: ${prevLabel} — tap to fill`;
 
   // A set counts as done once it carries data — the same test that decides whether it
   // persists — so the tick survives a reload without needing a column to store it in.
@@ -89,25 +85,50 @@ function SetRow({ set, previousSet, showPrev, targetRir, onChange, onRemove, onD
     onDone();
   };
 
-  // Removal is one tap away from the Done tick on a phone, and an accidental one silently
-  // renumbers every set below it — so it asks first, and forgets it was asked.
-  useEffect(() => {
-    if (!confirmRemove) return undefined;
-    const t = setTimeout(() => setConfirmRemove(false), 4000);
-    return () => clearTimeout(t);
-  }, [confirmRemove]);
+  // The Hevy interaction: tapping PREV copies last session's numbers into the set
+  // without marking it done — you're loading the bar, not finishing the set.
+  const fillFromPrev = () => {
+    const next = { ...set };
+    if (isBlank(next.weight_kg) && prevWeight != null) next.weight_kg = prevWeight;
+    if (isBlank(next.reps) && previousSet?.reps != null) next.reps = previousSet.reps;
+    if (next.weight_kg !== set.weight_kg || next.reps !== set.reps) onChange(next);
+  };
 
-  const typeLabel = SET_TYPE_LABEL[set.set_type || 'working'] ?? set.set_number;
+  // Swipe left to reveal Remove — the ledger has no room for an always-visible ✕, and
+  // this keeps deletion a deliberate two-step (swipe, then tap). See useSwipeToReveal.
+  const { offset, revealed, close, handlers } = useSwipeToReveal();
+
+  const typeLabel = SET_TYPE_LABEL[set.set_type || 'working'];
+  const cellInput = 'w-full h-11 bg-transparent border-0 p-0 text-center text-base tabular-nums text-neutral-900 dark:text-neutral-200 placeholder:text-neutral-400 dark:placeholder:text-neutral-600 focus:outline-none focus:bg-neutral-100 dark:focus:bg-neutral-800/70 rounded-md transition-colors';
 
   return (
-    <div className="space-y-1">
-      <div className="flex items-center gap-2">
+    <div className="relative overflow-hidden rounded-lg">
+      {/* Exists only while a swipe is in progress — kept out of the DOM otherwise so it
+          can never bleed through the (translucent-tinted) row above it. */}
+      {offset < 0 && (
         <button
           type="button"
-          onClick={() => onChange({ ...set, set_type: nextSetType(set.set_type) })}
+          onClick={() => { close(); onRemove(); }}
+          tabIndex={revealed ? 0 : -1}
+          aria-label={`Remove set ${set.set_number}`}
+          className="absolute inset-y-0 right-0 w-20 flex items-center justify-center text-sm font-medium text-white bg-red-600"
+        >
+          Remove
+        </button>
+      )}
+      <div
+        {...handlers}
+        style={{ transform: offset ? `translateX(${offset}px)` : undefined, touchAction: 'pan-y' }}
+        className={`${LEDGER_COLS} relative h-11 transition-transform duration-150 ${
+          done ? 'bg-emerald-50 dark:bg-emerald-500/10 rounded-lg' : 'bg-white dark:bg-neutral-950'
+        }`}
+      >
+        <button
+          type="button"
+          onClick={() => { if (revealed) { close(); return; } onChange({ ...set, set_type: nextSetType(set.set_type) }); }}
           title={SET_TYPE_TITLE[set.set_type || 'working']}
           aria-label={`Set ${set.set_number}: ${set.set_type || 'working'} — tap to change type`}
-          className={`shrink-0 h-11 min-w-[3.25rem] px-2 -ml-1 rounded text-xs font-medium text-left transition-colors ${
+          className={`h-11 text-[13px] tabular-nums text-left pl-2 rounded-md font-medium ${
             set.set_type === 'warmup'
               ? 'text-amber-600 dark:text-amber-500'
               : set.set_type === 'drop' || set.set_type === 'failure'
@@ -115,94 +136,117 @@ function SetRow({ set, previousSet, showPrev, targetRir, onChange, onRemove, onD
                 : 'text-neutral-500 dark:text-neutral-400'
           }`}
         >
-          Set {typeLabel}
+          {typeLabel ?? set.set_number}
         </button>
-        <span
-          className="flex-1 min-w-0 truncate text-[11px] text-neutral-500 dark:text-neutral-400"
+        <button
+          type="button"
+          onClick={showPrev ? fillFromPrev : undefined}
+          disabled={!showPrev}
           title={showPrev ? prevTitle : undefined}
+          aria-label={showPrev ? prevTitle : 'No previous session for this exercise'}
+          className="h-11 min-w-0 truncate text-left text-[13px] tabular-nums text-neutral-500 dark:text-neutral-400 disabled:text-neutral-400 dark:disabled:text-neutral-600 rounded-md"
         >
-          {showPrev ? `prev ${prevLabel}` : ''}
-        </span>
-        <label className="shrink-0 flex items-center gap-1.5 text-[11px] text-neutral-500 dark:text-neutral-400">
-          <span>RIR</span>
-          <input
-            data-editor-input="true"
-            type="number" inputMode="numeric" min="0" step="1"
-            enterKeyHint="next"
-            placeholder={targetRir != null ? `${targetRir}` : '–'}
-            title={targetRir != null ? `Reps in reserve — target ${targetRir}` : 'Reps in reserve'}
-            aria-label={`Set ${set.set_number} reps in reserve`}
-            value={set.rir ?? ''}
-            onFocus={selectOnFocus}
-            onChange={(e) => onChange({ ...set, rir: e.target.value })}
-            className="input w-14 h-11 py-0 text-center"
-          />
-        </label>
-        {confirmRemove ? (
-          <button
-            type="button"
-            onClick={onRemove}
-            aria-label={`Confirm removing set ${set.set_number}`}
-            className="shrink-0 h-11 px-2 rounded text-xs font-medium text-red-600 dark:text-red-400"
-          >
-            Remove?
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setConfirmRemove(true)}
-            aria-label={`Remove set ${set.set_number}`}
-            className="shrink-0 w-11 h-11 -mr-1 flex items-center justify-center rounded text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
-          >
-            <CloseIcon />
-          </button>
-        )}
-      </div>
-      <div className="flex items-center gap-2">
+          {showPrev ? prevLabel : '—'}
+        </button>
         <input
           data-editor-input="true"
           type="number" inputMode="decimal" min="0" step="0.5"
           enterKeyHint="next"
-          placeholder="kg"
+          placeholder={prevWeight != null ? `${prevWeight}` : 'kg'}
           aria-label={`Set ${set.set_number} weight in kilograms`}
           value={set.weight_kg ?? ''}
           onFocus={selectOnFocus}
           onChange={(e) => onChange({ ...set, weight_kg: e.target.value })}
-          className="input flex-1 min-w-0 h-12"
+          className={cellInput}
         />
         <input
           data-editor-input="true"
           type="number" inputMode="numeric" min="0"
           enterKeyHint="next"
-          placeholder="reps"
+          placeholder={previousSet?.reps != null ? `${previousSet.reps}` : 'reps'}
           aria-label={`Set ${set.set_number} reps`}
           value={set.reps ?? ''}
           onFocus={selectOnFocus}
           onChange={(e) => onChange({ ...set, reps: e.target.value })}
-          className="input flex-1 min-w-0 h-12"
+          className={cellInput}
         />
         <button
           type="button"
           onClick={markDone}
           aria-label={done ? `Set ${set.set_number} done — restart rest` : `Mark set ${set.set_number} done and start rest`}
           title={done ? 'Restart rest' : 'Done — start rest'}
-          className={`shrink-0 w-12 h-12 rounded-lg border flex items-center justify-center transition-colors ${
-            done
-              ? 'bg-emerald-600 border-emerald-600 text-white hover:bg-emerald-700'
-              : 'border-neutral-300 dark:border-neutral-700 text-neutral-400 hover:border-emerald-500 hover:text-emerald-600'
-          }`}
+          className="h-11 flex items-center justify-center"
         >
-          <CheckIcon size={18} />
+          <span className={`w-7 h-7 rounded-md border-[1.5px] flex items-center justify-center transition-colors ${
+            done
+              ? 'bg-emerald-600 border-emerald-600 text-white'
+              : 'border-neutral-300 dark:border-neutral-700 text-transparent'
+          }`}>
+            <CheckIcon size={15} />
+          </span>
         </button>
       </div>
     </div>
   );
 }
 
+// Pointer-based swipe-left. Engages only on clearly horizontal movement so vertical
+// scrolling and taps on the inputs stay native; springs shut on its own after a few
+// seconds so a forgotten half-swipe doesn't leave a live Remove button on screen.
+function useSwipeToReveal(width = 80) {
+  const [offset, setOffset] = useState(0);
+  const startRef = useRef(null); // { x, y, engaged }
+
+  const close = useCallback(() => setOffset(0), []);
+  const revealed = offset <= -width;
+
+  useEffect(() => {
+    if (!revealed) return undefined;
+    const t = setTimeout(close, 5000);
+    return () => clearTimeout(t);
+  }, [revealed, close]);
+
+  const handlers = {
+    onPointerDown: (e) => { startRef.current = { x: e.clientX, y: e.clientY, engaged: false }; },
+    onPointerMove: (e) => {
+      const s = startRef.current;
+      if (!s) return;
+      const dx = e.clientX - s.x;
+      const dy = e.clientY - s.y;
+      if (!s.engaged) {
+        if (Math.abs(dx) < 12 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+        s.engaged = true;
+        // Throws NotFoundError if the pointer was already released mid-gesture.
+        try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* keep swiping uncaptured */ }
+      }
+      setOffset(Math.max(-width, Math.min(0, (revealed ? -width : 0) + dx)));
+    },
+    onPointerUp: () => {
+      const s = startRef.current;
+      startRef.current = null;
+      if (!s?.engaged) return;
+      setOffset((o) => (o < -width / 2 ? -width : 0));
+    },
+    onPointerCancel: () => { startRef.current = null; setOffset(0); },
+  };
+
+  return { offset, revealed, close, handlers };
+}
+
+// Per-set target RIR, condensed the way ProgramView prints it: "2/2/1".
+function formatRirTargets(arr) {
+  if (!Array.isArray(arr) || arr.length === 0 || arr.every((v) => v == null)) return null;
+  return arr.map((v) => (v == null ? '–' : v)).join('/');
+}
+
 function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove, onRest, suggestion }) {
   const [showNote, setShowNote] = useState(false);
-  // Collapse the note when the exercise is swapped for a different one.
-  useEffect(() => { setShowNote(false); }, [block.exercise_id]);
+  const [showReason, setShowReason] = useState(false);
+  const [menu, setMenu] = useState(false);          // ⋯ popover
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  // Collapse transient state when the exercise is swapped for a different one.
+  useEffect(() => { setShowNote(false); setShowReason(false); setMenu(false); setConfirmRemove(false); }, [block.exercise_id]);
+  useEffect(() => { if (!menu) setConfirmRemove(false); }, [menu]);
   const { data: previous } = useQuery({
     queryKey: ['last-by-exercise', block.exercise_id, workoutId],
     queryFn: () => getLastByExercise(block.exercise_id, { exclude: workoutId }),
@@ -222,6 +266,24 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove, onR
     ? `${target.rep_range_low || '?'}–${target.rep_range_high || '?'}`
     : null;
   const warmupLabel = formatWarmup(target?.warmup_sets_low, target?.warmup_sets_high);
+  const rirLabel = formatRirTargets(target?.target_rir_per_set);
+
+  // Everything the chips and the suggestion box used to say, on one muted line:
+  // "3 × 4–6 · RIR 2/2/1 · 3m rest · 2 warm-up · Hold 40 kg". The suggestion keeps its
+  // colour and its reason — the sentence just moves behind a tap on the pill.
+  const metaParts = [];
+  if (target?.target_sets) metaParts.push(repRange ? `${target.target_sets} × ${repRange}` : `${target.target_sets} sets`);
+  else if (repRange) metaParts.push(`${repRange} reps`);
+  if (rirLabel) metaParts.push(`RIR ${rirLabel}`);
+  if (target?.rest_seconds != null || target?.rest_seconds_high != null) {
+    metaParts.push(`${formatRestRange(target.rest_seconds, target.rest_seconds_high)} rest`);
+  }
+  if (warmupLabel) metaParts.push(warmupLabel);
+
+  const hasSuggestion = suggestion && suggestion.action !== 'no_history' && suggestion.action !== 'no_target';
+  const suggestionLabel = hasSuggestion
+    ? `${suggestion.action === 'increase' ? 'Add load —' : 'Hold'} ${suggestion.suggested_weight_kg != null ? `${suggestion.suggested_weight_kg} kg` : ''}`.trim()
+    : null;
 
   const addSet = () => {
     const nextNum = (block.sets[block.sets.length - 1]?.set_number || 0) + 1;
@@ -234,8 +296,8 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove, onR
   });
 
   return (
-    <div className={`card space-y-3 ${isMain ? 'border-l-2 border-l-amber-400 dark:border-l-amber-500/60' : ''}`}>
-      <div className="flex items-center justify-between gap-1">
+    <div className="py-3">
+      <div className="flex items-center gap-1">
         <button
           type="button"
           onClick={onOpenPicker}
@@ -251,90 +313,124 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove, onR
             <ChevronIcon open={false} />
           </span>
         </button>
-        <div className="flex items-center shrink-0">
-          {target?.notes && (
-            <button
-              type="button"
-              onClick={() => setShowNote((v) => !v)}
-              aria-label={showNote ? 'Hide exercise notes' : 'Show exercise notes'}
-              aria-expanded={showNote}
-              className={`w-11 h-11 flex items-center justify-center rounded transition-colors ${showNote ? 'text-neutral-900 dark:text-neutral-200' : 'text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'}`}
-            >
-              <InfoIcon />
-            </button>
-          )}
+        {/* Swap lives on the name; everything rarer sits behind ⋯ so the header is
+            just the name. */}
+        <div className="relative shrink-0">
           <button
-            onClick={onRemove}
-            aria-label={`Remove ${block.exercise_name || 'exercise'}`}
+            type="button"
+            onClick={() => setMenu((v) => !v)}
+            aria-label={`Options for ${block.exercise_name || 'exercise'}`}
+            aria-expanded={menu}
             className="w-11 h-11 -mr-2 flex items-center justify-center rounded text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
           >
-            <CloseIcon />
+            <MoreIcon />
           </button>
+          {menu && (
+            <>
+              <div className="fixed inset-0 z-20" onClick={() => setMenu(false)} aria-hidden="true" />
+              <div className="absolute right-0 top-11 z-30 w-44 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-lg py-1 text-sm">
+                {target?.notes && (
+                  <button
+                    type="button"
+                    onClick={() => { setShowNote((v) => !v); setMenu(false); }}
+                    className="w-full text-left px-3 h-10 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  >
+                    {showNote ? 'Hide exercise notes' : 'Exercise notes'}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => { if (confirmRemove) { setMenu(false); onRemove(); } else setConfirmRemove(true); }}
+                  className="w-full text-left px-3 h-10 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40"
+                >
+                  {confirmRemove ? 'Remove — sure?' : 'Remove exercise'}
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
-      {target && (
-        <div className="flex flex-wrap gap-1.5">
-          {warmupLabel && <TargetChip>{warmupLabel}</TargetChip>}
-          {target.target_sets && <TargetChip>{target.target_sets} sets</TargetChip>}
-          {repRange && <TargetChip>{repRange} reps</TargetChip>}
-          {(target.rest_seconds != null || target.rest_seconds_high != null) && <TargetChip>{formatRestRange(target.rest_seconds, target.rest_seconds_high)} rest</TargetChip>}
-        </div>
+      {(metaParts.length > 0 || suggestionLabel) && (
+        <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 mb-1">
+          {metaParts.join(' · ')}
+          {suggestionLabel && (
+            <>
+              {metaParts.length > 0 && ' · '}
+              <button
+                type="button"
+                onClick={() => setShowReason((v) => !v)}
+                aria-expanded={showReason}
+                className={`font-medium py-3.5 -my-3.5 ${suggestion.action === 'increase' ? 'text-emerald-700 dark:text-emerald-400' : 'text-neutral-600 dark:text-neutral-300'}`}
+              >
+                {suggestionLabel}
+              </button>
+            </>
+          )}
+        </p>
       )}
 
-      {suggestion && suggestion.action !== 'no_history' && suggestion.action !== 'no_target' && (
-        <p className={`text-xs rounded p-2 border ${
-          suggestion.action === 'increase'
-            ? 'text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900'
-            : 'text-neutral-600 dark:text-neutral-400 bg-neutral-50 dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800'
-        }`}>
-          <span className="font-medium">
-            {suggestion.action === 'increase' ? 'Add load' : 'Hold'}
-          </span>
+      {showReason && hasSuggestion && (
+        <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-1.5">
           {suggestion.suggested_weight_kg != null && (
-            <> · {suggestion.suggested_weight_kg}kg × {suggestion.suggested_reps_low}–{suggestion.suggested_reps_high}</>
+            <>{suggestion.suggested_weight_kg} kg × {suggestion.suggested_reps_low}–{suggestion.suggested_reps_high} · </>
           )}
-          <span className="block mt-0.5 opacity-80">{suggestion.reason}</span>
+          {suggestion.reason}
         </p>
       )}
 
       {target?.notes && showNote && (
-        <p className="text-xs text-neutral-600 dark:text-neutral-400 bg-neutral-50 dark:bg-neutral-900 rounded p-2 border border-neutral-200 dark:border-neutral-800 whitespace-pre-line">
+        <p className="text-xs text-neutral-600 dark:text-neutral-400 mb-1.5 whitespace-pre-line">
           {target.notes}
         </p>
       )}
 
       {block.notes && (
-        <p className="text-xs text-neutral-500 dark:text-neutral-400 italic">{block.notes}</p>
+        <p className="text-xs text-neutral-500 dark:text-neutral-400 italic mb-1">{block.notes}</p>
       )}
 
-      <div className="space-y-3">
-        {block.sets.map((s, i) => {
-          const targetRir = Array.isArray(target?.target_rir_per_set) ? target.target_rir_per_set[i] : null;
-          return (
-            <SetRow
-              key={i}
-              set={s}
-              previousSet={prevBySet[s.set_number]}
-              showPrev={hasPrev}
-              targetRir={targetRir ?? null}
-              onChange={(u) => updateSet(i, u)}
-              onRemove={() => removeSet(i)}
-              // Rest the minimum of the prescribed range — the upper bound is a ceiling,
-              // not the thing you wait for. Falls back to 2 min when nothing is set.
-              onDone={() => onRest(target?.rest_seconds ?? target?.rest_seconds_high ?? 120)}
-            />
-          );
-        })}
-        <button
-          type="button"
-          onClick={addSet}
-          className="w-full text-center h-11 text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 border border-dashed border-neutral-200 dark:border-neutral-800 rounded hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
-        >
-          + Add set
-        </button>
+      {block.sets.length > 0 && (
+        <div className={`${LEDGER_COLS} h-6 text-[10px] font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400`} aria-hidden="true">
+          <span className="pl-2">Set</span>
+          <span>Prev</span>
+          <span className="text-center">kg</span>
+          <span className="text-center">Reps</span>
+          <span></span>
+        </div>
+      )}
+      <div>
+        {block.sets.map((s, i) => (
+          <SetRow
+            key={i}
+            set={s}
+            previousSet={prevBySet[s.set_number]}
+            showPrev={hasPrev}
+            onChange={(u) => updateSet(i, u)}
+            onRemove={() => removeSet(i)}
+            // Rest the minimum of the prescribed range — the upper bound is a ceiling,
+            // not the thing you wait for. Falls back to 2 min when nothing is set.
+            onDone={() => onRest(target?.rest_seconds ?? target?.rest_seconds_high ?? 120)}
+          />
+        ))}
       </div>
+      <button
+        type="button"
+        onClick={addSet}
+        className="h-11 pl-2 pr-4 -ml-2 text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 rounded transition-colors"
+      >
+        + Add set
+      </button>
     </div>
+  );
+}
+
+function MoreIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+      <circle cx="12" cy="5" r="1.6" />
+      <circle cx="12" cy="12" r="1.6" />
+      <circle cx="12" cy="19" r="1.6" />
+    </svg>
   );
 }
 
@@ -777,7 +873,9 @@ export default function WorkoutSession() {
         )}
       </div>
 
-      <div className="space-y-3" data-editor-root onKeyDown={handleEditorEnter}>
+      {/* Hairline dividers between exercises instead of card borders — the ledger gets
+          its structure from alignment, not boxes. */}
+      <div className="divide-y divide-neutral-200 dark:divide-neutral-800" data-editor-root onKeyDown={handleEditorEnter}>
         {exercises.map((ex, i) => (
           <ExerciseBlock
             key={ex.client_id}
@@ -790,15 +888,15 @@ export default function WorkoutSession() {
             suggestion={suggestionByExercise[ex.exercise_id]}
           />
         ))}
-
-        <button
-          type="button"
-          onClick={() => setPicker({ mode: 'add' })}
-          className="w-full h-12 text-sm font-medium text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 border border-dashed border-neutral-200 dark:border-neutral-800 rounded hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
-        >
-          + Add exercise
-        </button>
       </div>
+
+      <button
+        type="button"
+        onClick={() => setPicker({ mode: 'add' })}
+        className="w-full h-12 text-sm font-medium text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 border border-dashed border-neutral-200 dark:border-neutral-800 rounded hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
+      >
+        + Add exercise
+      </button>
 
       <div className="card">
         <label className="label" htmlFor="wt-workout-notes">Workout notes</label>
