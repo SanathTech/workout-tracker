@@ -97,8 +97,9 @@ export default function ExerciseLibrary() {
       </div>
 
       {/* Sticky: the library is 80-odd rows, and the search you want is at the top of a
-          list you've already scrolled away from. */}
-      <div className="sticky top-0 z-10 -mx-4 px-4 py-2 bg-white dark:bg-neutral-950 space-y-2">
+          list you've already scrolled away from. `md:top-14` clears the desktop header,
+          which is itself sticky — at top-0 this bar parked on top of the nav. */}
+      <div className="sticky top-0 md:top-14 z-10 -mx-4 px-4 py-2 bg-white dark:bg-neutral-950 space-y-2">
         <input
           className="input md:max-w-xs h-11"
           placeholder="Search…"

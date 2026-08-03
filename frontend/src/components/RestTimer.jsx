@@ -18,24 +18,33 @@ function primeAudio() {
   } catch { /* audio unavailable — vibration and the visible timer still work */ }
 }
 
+function playTones() {
+  const at = audioCtx.currentTime;
+  for (const [i, freq] of [880, 1174].entries()) {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    // Ramped, not switched: a square-edged gain change clicks.
+    const start = at + i * 0.18;
+    gain.gain.setValueAtTime(0, start);
+    gain.gain.linearRampToValueAtTime(0.25, start + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.16);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(start);
+    osc.stop(start + 0.18);
+  }
+}
+
 function beep() {
   try {
-    if (!audioCtx || audioCtx.state !== 'running') return;
-    const at = audioCtx.currentTime;
-    for (const [i, freq] of [880, 1174].entries()) {
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.type = 'sine';
-      osc.frequency.value = freq;
-      // Ramped, not switched: a square-edged gain change clicks.
-      const start = at + i * 0.18;
-      gain.gain.setValueAtTime(0, start);
-      gain.gain.linearRampToValueAtTime(0.25, start + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.16);
-      osc.connect(gain).connect(audioCtx.destination);
-      osc.start(start);
-      osc.stop(start + 0.18);
-    }
+    if (!audioCtx) return;
+    // A locked or backgrounded phone suspends the context — which is precisely when the
+    // rest ends unwatched, so bailing out on a non-running state would skip the alert in
+    // the only case it exists for. Resume first; the context was already unlocked by the
+    // tap that started the rest, so this doesn't need a fresh gesture.
+    if (audioCtx.state === 'running') { playTones(); return; }
+    audioCtx.resume().then(playTones).catch(() => { /* OS refused — vibration still fires */ });
   } catch { /* best effort */ }
 }
 

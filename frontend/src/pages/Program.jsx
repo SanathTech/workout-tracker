@@ -80,11 +80,7 @@ export default function Program() {
             <button
               key={p.id}
               onClick={() => setViewingId(p.id)}
-              className={
-                (viewingId === p.id)
-                  ? 'badge-solid cursor-pointer'
-                  : 'badge cursor-pointer hover:text-neutral-900 dark:hover:text-neutral-100'
-              }
+              className={(viewingId === p.id) ? 'chip-solid' : 'chip'}
             >
               {p.name}{p.status === 'active' ? ' · active' : ''}
             </button>
