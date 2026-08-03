@@ -237,12 +237,25 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
 
 - No linter or types, and no frontend unit tests — CI builds the frontend, which catches
   bad imports and syntax but not behaviour.
-- **The session set row is two lines, and that's load-bearing.** A meta line (set number /
-  type, prev hint, RIR, remove) over an input line (weight, reps, done). Packed onto one
-  line the two inputs that matter measured 33px at 390px and 26px at 375px, with the
-  optional RIR field wider than weight. Adding a control back to the input line takes that
-  space straight out of weight and reps again. `± steppers` still don't fit and are still
-  out; the meta line is where a future one would go.
+- **The session screen is a ledger, and cells-not-boxes is the load-bearing idea.** One
+  44px grid row per set (`LEDGER_COLS`: set# / prev / kg / reps / rir / tick), no card
+  no input boxes — values are bare text in tappable cells, the empty cells show last
+  session's numbers as placeholders, tapping PREV copies them in, and ticking a row with
+  blanks commits them. This is the Strong/Hevy layout, chosen deliberately (2026-08-04)
+  after the boxed two-line version read as cluttered. Consequences that are easy to break:
+  - **RIR is the fifth column, ghosted.** The per-set target shows as the cell's
+    placeholder; typing overrides it, blank backfills the target server-side. It earns
+    its place by absorbing the slack the `1fr` PREV column otherwise collects — remove
+    it and PREV balloons (owner call, 2026-08-04, reversing the brief chip-only
+    experiment from the same redesign).
+  - **Set removal is swipe-left → Remove** (`useSwipeToReveal`) — the ledger has no room
+    for an always-visible ✕. The reveal engages only on clearly-horizontal drags so
+    vertical scroll and input taps stay native, and it springs shut after 5s.
+  - The exercise meta line carries everything the old chips and suggestion box said:
+    "3 × 4–6 · RIR 2/2/1 · 3m rest · Hold 40 kg". The suggestion keeps only its verdict
+    on the line; the reason expands on tap. Swap-exercise stays on the name; notes and
+    remove live behind ⋯.
+  - `± steppers` still don't fit and are still out.
 - The service worker precaches the shell only. API responses are never cached — stale sets
   are worse than an error, and a cached 401 would outlive a re-login.
 - The repo owner uses a 12-week Min-Max 5x/week structure (Upper 1, Lower 1, rest, Upper 2, Lower 2, Arms/Delts, rest). The original spreadsheet is the source of truth for routine setup — see chat history if migrating data.
