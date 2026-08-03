@@ -54,13 +54,13 @@ const nextSetType = (t) =>
   SET_TYPE_CYCLE[(SET_TYPE_CYCLE.indexOf(t || 'working') + 1) % SET_TYPE_CYCLE.length];
 
 // Grid template shared by the header row and every set row, so the columns can't drift.
-const LEDGER_COLS = 'grid grid-cols-[2.5rem_1fr_4.5rem_4.5rem_2.75rem] items-center';
+const LEDGER_COLS = 'grid grid-cols-[2.5rem_1fr_4rem_4rem_3.25rem_2.75rem] items-center';
 
 // The ledger row — one 44px line per set, the layout Strong and Hevy converged on.
 // No boxed inputs: values are bare text in tappable cells, last session's numbers sit in
 // the empty cells as placeholders, and ticking a row with blanks commits them. Cells,
 // not boxes, is where the density comes from; the row itself is still a 44px target.
-function SetRow({ set, previousSet, showPrev, onChange, onRemove, onDone }) {
+function SetRow({ set, previousSet, showPrev, targetRir, onChange, onRemove, onDone }) {
   const prevWeight = previousSet?.weight_kg != null ? Number(previousSet.weight_kg) : null;
   // Either half can be null on its own — a weight-only or reps-only previous set still
   // shows the half it has rather than collapsing to a dash.
@@ -170,6 +170,18 @@ function SetRow({ set, previousSet, showPrev, onChange, onRemove, onDone }) {
           onChange={(e) => onChange({ ...set, reps: e.target.value })}
           className={cellInput}
         />
+        <input
+          data-editor-input="true"
+          type="number" inputMode="numeric" min="0" step="1"
+          enterKeyHint="next"
+          placeholder={targetRir != null ? `${targetRir}` : '–'}
+          title={targetRir != null ? `Reps in reserve — target ${targetRir}` : 'Reps in reserve'}
+          aria-label={`Set ${set.set_number} reps in reserve`}
+          value={set.rir ?? ''}
+          onFocus={selectOnFocus}
+          onChange={(e) => onChange({ ...set, rir: e.target.value })}
+          className={cellInput}
+        />
         <button
           type="button"
           onClick={markDone}
@@ -233,12 +245,6 @@ function useSwipeToReveal(width = 80) {
   return { offset, revealed, close, handlers };
 }
 
-// Per-set target RIR, condensed the way ProgramView prints it: "2/2/1".
-function formatRirTargets(arr) {
-  if (!Array.isArray(arr) || arr.length === 0 || arr.every((v) => v == null)) return null;
-  return arr.map((v) => (v == null ? '–' : v)).join('/');
-}
-
 function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove, onRest, suggestion }) {
   const [showNote, setShowNote] = useState(false);
   const [showReason, setShowReason] = useState(false);
@@ -274,15 +280,14 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove, onR
     ? `${target.rep_range_low || '?'}–${target.rep_range_high || '?'}`
     : null;
   const warmupLabel = formatWarmup(target?.warmup_sets_low, target?.warmup_sets_high);
-  const rirLabel = formatRirTargets(target?.target_rir_per_set);
 
   // Everything the chips and the suggestion box used to say, on one muted line:
-  // "3 × 4–6 · RIR 2/2/1 · 3m rest · 2 warm-up · Hold 40 kg". The suggestion keeps its
-  // colour and its reason — the sentence just moves behind a tap on the pill.
+  // "3 × 4–6 · 3m rest · 2 warm-up · Hold 40 kg". RIR targets aren't here — they ride
+  // in the RIR column as ghost placeholders. The suggestion keeps its colour and its
+  // reason; the sentence just moves behind a tap on the pill.
   const metaParts = [];
   if (target?.target_sets) metaParts.push(repRange ? `${target.target_sets} × ${repRange}` : `${target.target_sets} sets`);
   else if (repRange) metaParts.push(`${repRange} reps`);
-  if (rirLabel) metaParts.push(`RIR ${rirLabel}`);
   if (target?.rest_seconds != null || target?.rest_seconds_high != null) {
     metaParts.push(`${formatRestRange(target.rest_seconds, target.rest_seconds_high)} rest`);
   }
@@ -403,6 +408,7 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove, onR
           <span>Prev</span>
           <span className="text-center">kg</span>
           <span className="text-center">Reps</span>
+          <span className="text-center">RIR</span>
           <span></span>
         </div>
       )}
@@ -413,6 +419,7 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove, onR
             set={s}
             previousSet={prevBySet[s.set_number]}
             showPrev={hasPrev}
+            targetRir={Array.isArray(target?.target_rir_per_set) ? target.target_rir_per_set[i] ?? null : null}
             onChange={(u) => updateSet(i, u)}
             onRemove={() => removeSet(i)}
             // Rest the minimum of the prescribed range — the upper bound is a ceiling,

@@ -243,10 +243,11 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
   session's numbers as placeholders, tapping PREV copies them in, and ticking a row with
   blanks commits them. This is the Strong/Hevy layout, chosen deliberately (2026-08-04)
   after the boxed two-line version read as cluttered. Consequences that are easy to break:
-  - **Per-set RIR has no input.** The routine's targets show in the exercise meta line
-    ("RIR 2/2/1") and the server backfills the target on blank — which restores the
-    original design note below ("RIR is a routine target only"). Don't add the column back
-    without a settings toggle; Hevy hides RPE by default for the same reason.
+  - **RIR is the sixth column, ghosted.** The per-set target shows as the cell's
+    placeholder; typing overrides it, blank backfills the target server-side. It earns
+    its place by absorbing the slack the `1fr` PREV column otherwise collects — remove
+    it and PREV balloons (owner call, 2026-08-04, reversing the brief chip-only
+    experiment from the same redesign).
   - **Set removal is swipe-left → Remove** (`useSwipeToReveal`) — the ledger has no room
     for an always-visible ✕. The reveal engages only on clearly-horizontal drags so
     vertical scroll and input taps stay native, and it springs shut after 5s.
