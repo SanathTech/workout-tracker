@@ -113,6 +113,15 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
 ### Styling
 - **Dark mode is the default.** Class-based (`darkMode: 'class'` in `tailwind.config.js`). An inline script in `index.html` sets `.dark` on `<html>` before paint based on `localStorage.theme` (defaults to dark). Toggle is in the Navbar.
 - Shared component classes (`.card`, `.input`, `.btn-secondary`, `.btn-ghost`, `.label`) carry `dark:` variants in `src/index.css`.
+- **Mobile is the primary target, and the shared classes encode that.** `.btn` and `.chip`
+  carry `min-h-11 md:min-h-0` (44px is the touch minimum; `py-2` alone gave 37px). `.input`
+  is `text-base md:text-sm` because iOS Safari zooms the page on focusing any input under
+  16px. `.card` is `p-3 md:p-5` — 20px of padding all round was coming out of the set
+  inputs. Don't "tidy" these back to a single size.
+- `.badge` is a label, `.chip` is a tap target. Filter rows want `.chip`.
+- Muted text is `text-neutral-500 dark:text-neutral-400`. Both halves matter: `neutral-500`
+  on `neutral-900` is 3.78:1 and `neutral-400` on white is 2.52:1 — each fails AA in the
+  other theme.
 - Pages use a lot of raw Tailwind utilities (`bg-white`, `text-gray-500`, `border-gray-200`, etc.). Rather than retrofit `dark:` variants everywhere, `index.css` has a small layer of `.dark .<class>` overrides that remap those utilities. **When adding new pages, you can keep using the same raw utilities — they'll theme correctly automatically.**
 
 ### Code
@@ -144,6 +153,11 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
   `DATE` as a plain `'YYYY-MM-DD'` string so the JSON doesn't shift with the server's TZ, and
   the frontend renders it via `formatDay()` — `new Date('2026-08-01')` parses as UTC midnight
   and renders as the previous day west of Greenwich.
+  **Week boundaries are the same question**, so `/muscle-volume` gets "this week" from
+  `currentWeekStart()` (app timezone, Monday-based to match `DATE_TRUNC('week', …)`), not
+  from Postgres `CURRENT_DATE`. Using the latter silently reported zero sets for every
+  muscle whenever the UTC server was still in the previous ISO week — the test suite catches
+  this, because it dates its sessions from the host clock.
 - **Nullable text fields distinguish absent from empty.** `COALESCE(col, $n)` reads a cleared
   field as "not provided" and restores the old value. Use the `'field' in req.body` +
   `CASE WHEN $n::boolean THEN ... ELSE col END` pattern (see `workouts.notes`,
@@ -159,6 +173,10 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
   unsaved work. `['workout', id]` stays out of the persisted query cache (see `main.jsx`) so
   stale server data can't land on live edits — the draft is what makes a cold offline reload
   render, so don't "simplify" by persisting the query instead.
+- **The rest timer's audio context is created on the tap that starts the rest.** Browsers
+  only let a user gesture unlock audio, and the tap that ends a set is the last one before
+  the phone goes in a pocket. Creating it lazily at zero would produce a silent timer —
+  which is the whole failure mode being fixed, since `navigator.vibrate` is a no-op on iOS.
 - **The service worker must never auto-reload, but it must not go quiet either.** A worker
   taking over on its own would remount the page and drop anything typed inside the 1200ms
   autosave debounce. Waiting for every client to close instead means an installed PWA sits on
@@ -219,9 +237,12 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
 
 - No linter or types, and no frontend unit tests — CI builds the frontend, which catches
   bad imports and syntax but not behaviour.
-- `± steppers` on the set inputs were dropped: the row already holds set number, previous,
-  weight, reps, RIR and two buttons, and four more tap targets don't fit at 375px. Would
-  need a different interaction (long-press, or steppers revealed on focus).
+- **The session set row is two lines, and that's load-bearing.** A meta line (set number /
+  type, prev hint, RIR, remove) over an input line (weight, reps, done). Packed onto one
+  line the two inputs that matter measured 33px at 390px and 26px at 375px, with the
+  optional RIR field wider than weight. Adding a control back to the input line takes that
+  space straight out of weight and reps again. `± steppers` still don't fit and are still
+  out; the meta line is where a future one would go.
 - The service worker precaches the shell only. API responses are never cached — stale sets
   are worse than an error, and a cached 401 would outlive a re-login.
 - The repo owner uses a 12-week Min-Max 5x/week structure (Upper 1, Lower 1, rest, Upper 2, Lower 2, Arms/Delts, rest). The original spreadsheet is the source of truth for routine setup — see chat history if migrating data.

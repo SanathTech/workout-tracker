@@ -11,8 +11,10 @@
 }
 
 @layer components {
+  /* min-h-11 on mobile: py-2 alone left every button in the app at 37px, under the 44px
+     touch minimum. Desktop keeps the tighter height. */
   .btn {
-    @apply inline-flex items-center gap-2 px-4 py-2 rounded-md font-medium text-sm transition-colors duration-150 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed;
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 min-h-11 md:min-h-0 rounded-md font-medium text-sm transition-colors duration-150 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed;
   }
   .btn-primary {
     @apply btn bg-neutral-900 text-white hover:bg-neutral-800 active:bg-neutral-700
@@ -30,19 +32,22 @@
     @apply btn bg-transparent text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100
            dark:text-neutral-400 dark:hover:text-neutral-200 dark:hover:bg-neutral-900;
   }
+  /* p-5 all round cost 40px of a 390px screen and it was coming out of the set inputs. */
   .card {
-    @apply bg-white rounded-lg border border-neutral-200 p-5
+    @apply bg-white rounded-lg border border-neutral-200 p-3 md:p-5
            dark:bg-neutral-900 dark:border-neutral-800;
   }
+  /* text-base on mobile is not a style choice: iOS Safari zooms the page whenever a
+     focused input is under 16px, so every tap into a weight field jolted the layout. */
   .input {
-    @apply w-full px-3 py-2 bg-white border border-neutral-200 rounded-md text-sm text-neutral-900
+    @apply w-full px-3 py-2 bg-white border border-neutral-200 rounded-md text-base md:text-sm text-neutral-900
            focus:outline-none focus:ring-1 focus:ring-neutral-400 focus:border-neutral-400 transition
            dark:bg-neutral-900 dark:border-neutral-800 dark:text-neutral-200 dark:placeholder-neutral-600
            dark:focus:ring-neutral-600 dark:focus:border-neutral-600;
   }
   .label {
     @apply block text-xs font-medium text-neutral-500 mb-1 uppercase tracking-wide
-           dark:text-neutral-500;
+           dark:text-neutral-400;
   }
   .badge {
     @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
@@ -51,6 +56,17 @@
   }
   .badge-solid {
     @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+           bg-neutral-900 text-white dark:bg-neutral-700 dark:text-neutral-100;
+  }
+  /* Badges are labels; chips are things you tap. The filter row was using badges, which
+     put a 21px-tall target on a touchscreen. */
+  .chip {
+    @apply inline-flex items-center justify-center px-3 min-h-11 min-w-11 md:min-h-0 md:min-w-0 md:py-1 rounded-md text-sm md:text-xs font-medium cursor-pointer
+           border border-neutral-200 text-neutral-600 hover:text-neutral-900
+           dark:border-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-100;
+  }
+  .chip-solid {
+    @apply inline-flex items-center justify-center px-3 min-h-11 min-w-11 md:min-h-0 md:min-w-0 md:py-1 rounded-md text-sm md:text-xs font-medium cursor-pointer
            bg-neutral-900 text-white dark:bg-neutral-700 dark:text-neutral-100;
   }
 }

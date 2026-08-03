@@ -125,7 +125,7 @@ export default function ProgramEditor({ initial, onCancel, onSaved }) {
           <input type="number" min="1" step="1" className="input" value={totalWeeks}
             placeholder="ongoing"
             onChange={(e) => setTotalWeeks(e.target.value)} />
-          <p className="text-xs text-neutral-500 dark:text-neutral-500 mt-1">Leave blank for an ongoing program.</p>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">Leave blank for an ongoing program.</p>
         </div>
       </div>
 

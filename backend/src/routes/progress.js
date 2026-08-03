@@ -3,7 +3,7 @@ const router = express.Router();
 const db = require('../db');
 const { serverError } = require('../util/errors');
 const { LANDMARKS } = require('../db/muscles');
-const { resolveWorkoutDate } = require('../util/dates');
+const { resolveWorkoutDate, currentWeekStart } = require('../util/dates');
 
 // GET /api/progress/exercise/:exerciseId — per-date max weight and volume
 router.get('/exercise/:exerciseId', async (req, res) => {
@@ -141,6 +141,9 @@ const HARD_SET = "ws.reps IS NOT NULL AND ws.reps > 0 AND ws.set_type <> 'warmup
 // Fractional: a set counts 1.0 for what it primarily trains, 0.5 for what it assists.
 router.get('/muscle-volume', async (req, res) => {
   const weeks = Math.min(Math.max(parseInt(req.query.weeks, 10) || 8, 1), 52);
+  // The week boundary is a local-time question, same as `workouts.date` itself — see
+  // currentWeekStart(). CURRENT_DATE here would be the UTC server's idea of the week.
+  const currentWeek = currentWeekStart();
   try {
     const { rows } = await db.query(
       `SELECT
@@ -153,10 +156,10 @@ router.get('/muscle-volume', async (req, res) => {
        JOIN exercise_muscles em ON em.exercise_id = we.exercise_id
        WHERE w.status = 'completed'
          AND ${HARD_SET}
-         AND w.date >= DATE_TRUNC('week', CURRENT_DATE) - ($1 || ' weeks')::INTERVAL
+         AND w.date >= $2::date - ($1 || ' weeks')::INTERVAL
        GROUP BY week_start, em.muscle
        ORDER BY week_start ASC`,
-      [weeks]
+      [weeks, currentWeek]
     );
 
     // Pivot into one row per week with every muscle present, so the client doesn't have to
@@ -171,9 +174,19 @@ router.get('/muscle-volume', async (req, res) => {
     }
 
     const series = [...byWeek.entries()].map(([week_start, counts]) => ({ week_start, ...counts }));
-    const current = series.length ? series[series.length - 1] : null;
 
-    // Status is only meaningful for the week in progress; earlier weeks are history.
+    // The week in progress, not "the most recent week with data" — those are the same
+    // thing only while you're training. After a lay-off the latter reports a fortnight-old
+    // week as your current volume, which is the one thing this card must not do.
+    const current = series.find((s) => s.week_start === currentWeek) || null;
+
+    // Averaged over the N whole weeks before this one, counting weeks you didn't train as
+    // zero — that's what makes the window selector mean something. The current week is
+    // excluded because it's still in progress and would drag every average down.
+    const priorWeeks = series.filter((s) => s.week_start !== currentWeek);
+    const avgOf = (m) =>
+      Math.round((priorWeeks.reduce((n, wk) => n + (wk[m] || 0), 0) / weeks) * 10) / 10;
+
     const summary = muscles.map((m) => {
       const sets = current ? current[m] : 0;
       const { mev, mav, mrv, label } = LANDMARKS[m];
@@ -181,10 +194,10 @@ router.get('/muscle-volume', async (req, res) => {
       if (sets > mrv) status = 'above_mrv';
       else if (sets >= mev && sets <= mav) status = 'productive';
       else if (sets > mav) status = 'high';
-      return { muscle: m, label, sets, mev, mav, mrv, status };
-    }).sort((a, b) => b.sets - a.sets);
+      return { muscle: m, label, sets, avg_sets: avgOf(m), mev, mav, mrv, status };
+    }).sort((a, b) => b.sets - a.sets || b.avg_sets - a.avg_sets);
 
-    res.json({ weeks, landmarks: LANDMARKS, series, summary });
+    res.json({ weeks, week_start: currentWeek, landmarks: LANDMARKS, series, summary });
   } catch (err) {
     serverError(res, err);
   }

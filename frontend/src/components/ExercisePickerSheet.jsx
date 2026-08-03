@@ -1,14 +1,24 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getExercises } from '../api/client';
 import { CloseIcon } from './icons';
 import CreateExerciseForm from './CreateExerciseForm';
 
-function groupByMuscle(exercises) {
-  return exercises.reduce((acc, ex) => {
+// Share of the viewport height a downward drag must cover before the sheet dismisses.
+const DISMISS_TRAVEL_FRACTION = 0.2;
+
+// Groups are alphabetical, which put Arms/Back/Chest/Core between you and Legs every time
+// you went to swap a squat. The group you're already in comes first instead.
+function groupByMuscle(exercises, primaryGroup) {
+  const acc = {};
+  for (const ex of exercises) {
     (acc[ex.muscle_group] = acc[ex.muscle_group] || []).push(ex);
-    return acc;
-  }, {});
+  }
+  if (!primaryGroup || !acc[primaryGroup]) return acc;
+  return {
+    [primaryGroup]: acc[primaryGroup],
+    ...Object.fromEntries(Object.entries(acc).filter(([g]) => g !== primaryGroup)),
+  };
 }
 
 function BackArrowIcon({ size = 18 }) {
@@ -39,6 +49,8 @@ export default function ExercisePickerSheet({
   const [query, setQuery] = useState('');
   const [mode, setMode] = useState('list'); // 'list' | 'create'
   const [createPrefill, setCreatePrefill] = useState('');
+  const [dragOffset, setDragOffset] = useState(0);
+  const dragStartRef = useRef(null);
   const { data: exercises = [] } = useQuery({ queryKey: ['exercises'], queryFn: getExercises });
 
   useEffect(() => {
@@ -46,6 +58,8 @@ export default function ExercisePickerSheet({
     setQuery('');
     setMode('list');
     setCreatePrefill('');
+    setDragOffset(0);
+    dragStartRef.current = null;
   }, [open]);
 
   useEffect(() => {
@@ -71,7 +85,11 @@ export default function ExercisePickerSheet({
     if (!q) return exercises;
     return exercises.filter((e) => e.name.toLowerCase().includes(q));
   }, [exercises, query]);
-  const grouped = useMemo(() => groupByMuscle(filtered), [filtered]);
+  const currentGroup = useMemo(
+    () => exercises.find((e) => e.id === currentExerciseId)?.muscle_group || null,
+    [exercises, currentExerciseId]
+  );
+  const grouped = useMemo(() => groupByMuscle(filtered, currentGroup), [filtered, currentGroup]);
 
   const handleSelect = (ex) => {
     if (currentExerciseId && ex.id === currentExerciseId) {
@@ -92,6 +110,25 @@ export default function ExercisePickerSheet({
     setMode('create');
   };
 
+  // Drag down to dismiss. Only tracks downward movement, and only commits past
+  // DISMISS_TRAVEL_FRACTION, so a hesitant grab springs back rather than closing over
+  // your place in an 80-row list.
+  const onDragStart = (e) => {
+    dragStartRef.current = e.clientY;
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+  };
+  const onDragMove = (e) => {
+    if (dragStartRef.current == null) return;
+    setDragOffset(Math.max(0, e.clientY - dragStartRef.current));
+  };
+  const onDragEnd = (e) => {
+    if (dragStartRef.current == null) return;
+    const travelled = Math.max(0, e.clientY - dragStartRef.current);
+    dragStartRef.current = null;
+    setDragOffset(0);
+    if (travelled > window.innerHeight * DISMISS_TRAVEL_FRACTION) onClose();
+  };
+
   if (!open) return null;
 
   const inCreate = mode === 'create';
@@ -102,16 +139,28 @@ export default function ExercisePickerSheet({
       onClick={onClose}
     >
       <div
+        style={dragOffset ? { transform: `translateY(${dragOffset}px)` } : undefined}
         className="w-full md:max-w-md h-[85vh] h-[85dvh] md:h-auto md:max-h-[80vh] flex flex-col bg-white dark:bg-neutral-950 border-t md:border border-neutral-200 dark:border-neutral-800 rounded-t-xl md:rounded-xl shadow-xl animate-[slideUp_180ms_ease-out] md:animate-[fadeIn_120ms_ease-out]"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Grab area — a bottom sheet you can only leave via a 26px ✕ reads as stuck. */}
+        <div
+          className="md:hidden shrink-0 pt-2 pb-1 flex justify-center touch-none cursor-grab active:cursor-grabbing"
+          onPointerDown={onDragStart}
+          onPointerMove={onDragMove}
+          onPointerUp={onDragEnd}
+          onPointerCancel={onDragEnd}
+        >
+          <span className="w-10 h-1 rounded-full bg-neutral-300 dark:bg-neutral-700" aria-hidden="true" />
+        </div>
+
         {/* Header */}
         <div className="flex items-center justify-between px-4 h-12 border-b border-neutral-200 dark:border-neutral-900 shrink-0 gap-2">
           {inCreate ? (
             <button
               onClick={() => setMode('list')}
               aria-label="Back"
-              className="text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200 p-1 -ml-1 flex items-center gap-1"
+              className="text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 -ml-2 px-2 h-11 flex items-center gap-1"
             >
               <BackArrowIcon />
               <span className="font-semibold text-neutral-900 dark:text-neutral-200">New exercise</span>
@@ -122,7 +171,7 @@ export default function ExercisePickerSheet({
           <button
             onClick={onClose}
             aria-label="Close"
-            className="text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200 p-1 shrink-0"
+            className="text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 w-11 h-11 -mr-2 flex items-center justify-center shrink-0"
           >
             <CloseIcon size={18} />
           </button>
@@ -153,7 +202,7 @@ export default function ExercisePickerSheet({
             <div className="flex-1 overflow-y-auto overscroll-contain">
               {presetSubstitutes.length > 0 && !query.trim() && (
                 <section>
-                  <h3 className="px-4 pt-3 pb-1 text-[10px] uppercase tracking-wide font-medium text-neutral-500 dark:text-neutral-500">
+                  <h3 className="sticky top-0 z-10 bg-white dark:bg-neutral-950 px-4 pt-3 pb-1 text-[10px] uppercase tracking-wide font-medium text-neutral-500 dark:text-neutral-400">
                     Substitutes
                   </h3>
                   <ul>
@@ -165,7 +214,7 @@ export default function ExercisePickerSheet({
                           className="w-full text-left px-4 py-3 flex items-center justify-between hover:bg-neutral-100 dark:hover:bg-neutral-900 transition-colors"
                         >
                           <span className="text-neutral-900 dark:text-neutral-200">{s.exercise_name}</span>
-                          <span className="text-[10px] uppercase tracking-wide text-neutral-500 dark:text-neutral-500">{s.muscle_group}</span>
+                          <span className="text-[10px] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">{s.muscle_group}</span>
                         </button>
                       </li>
                     ))}
@@ -176,7 +225,7 @@ export default function ExercisePickerSheet({
 
               {Object.keys(grouped).length === 0 ? (
                 <div className="px-4 py-8 space-y-3 text-center">
-                  <p className="text-sm text-neutral-500 dark:text-neutral-500">
+                  <p className="text-sm text-neutral-500 dark:text-neutral-400">
                     {query.trim() ? `No exercises match "${query.trim()}".` : 'No exercises match.'}
                   </p>
                   <button
@@ -192,7 +241,7 @@ export default function ExercisePickerSheet({
                 <>
                   {Object.entries(grouped).map(([group, exs]) => (
                     <section key={group}>
-                      <h3 className="px-4 pt-3 pb-1 text-[10px] uppercase tracking-wide font-medium text-neutral-500 dark:text-neutral-500">
+                      <h3 className="sticky top-0 z-10 bg-white dark:bg-neutral-950 px-4 pt-3 pb-1 text-[10px] uppercase tracking-wide font-medium text-neutral-500 dark:text-neutral-400">
                         {group}
                       </h3>
                       <ul>
@@ -211,7 +260,7 @@ export default function ExercisePickerSheet({
                               >
                                 <span className="text-neutral-900 dark:text-neutral-200">{ex.name}</span>
                                 {isCurrent && (
-                                  <span className="text-[10px] uppercase tracking-wide text-neutral-500 dark:text-neutral-500">Current</span>
+                                  <span className="text-[10px] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Current</span>
                                 )}
                               </button>
                             </li>
@@ -224,7 +273,7 @@ export default function ExercisePickerSheet({
                     <button
                       type="button"
                       onClick={() => openCreate(query.trim())}
-                      className="w-full flex items-center justify-center gap-1.5 py-2 text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200 border border-dashed border-neutral-200 dark:border-neutral-800 rounded hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
+                      className="w-full flex items-center justify-center gap-1.5 py-2 text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 border border-dashed border-neutral-200 dark:border-neutral-800 rounded hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
                     >
                       <PlusIcon />
                       Create new exercise

@@ -1,5 +1,6 @@
+import { useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   getStats, getRecentWorkouts, getActiveProgram, getInProgressWorkout, startWorkout,
   skipUpcomingWorkout,
@@ -7,22 +8,6 @@ import {
 import { Skeleton } from '../components/Skeleton';
 import StatusBadge from '../components/StatusBadge';
 import { formatDay } from '../utils/format';
-
-function StatCard({ label, value, unit, loading }) {
-  return (
-    <div className="card">
-      <p className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">{label}</p>
-      {loading ? (
-        <Skeleton className="h-7 w-16 mt-2" />
-      ) : (
-        <p className="text-2xl font-semibold mt-1 text-neutral-900 dark:text-neutral-100">
-          {value ?? '—'}
-          {unit && <span className="text-sm font-normal ml-1 text-neutral-500 dark:text-neutral-500">{unit}</span>}
-        </p>
-      )}
-    </div>
-  );
-}
 
 function WorkoutRow({ workout }) {
   return (
@@ -82,12 +67,12 @@ function NextWorkoutCard({ program }) {
   if (!progress?.next_routine) {
     return (
       <div className="card">
-        <p className="text-xs uppercase tracking-wide text-neutral-500">Program complete</p>
+        <p className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Program complete</p>
         <p className="text-lg font-semibold mt-1">
           {progress?.completed_workouts}{progress?.total_workouts ? `/${progress.total_workouts}` : ''} workouts done
           {progress?.skipped_workouts ? ` · ${progress.skipped_workouts} skipped` : ''}
         </p>
-        <p className="text-sm text-neutral-500 mt-1">Start a new program when you're ready.</p>
+        <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">Start a new program when you're ready.</p>
         <Link to="/program" className="btn-primary mt-4 inline-flex">New program</Link>
       </div>
     );
@@ -157,7 +142,7 @@ function NextWorkoutSkeleton() {
 function InProgressCard({ workout }) {
   return (
     <Link to={`/session/${workout.id}`} className="card block hover:border-neutral-300 dark:hover:border-neutral-700 transition-colors">
-      <p className="text-xs uppercase tracking-wide text-neutral-500">In progress</p>
+      <p className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">In progress</p>
       <p className="text-lg font-semibold mt-1">{workout.routine_name || 'Workout'}</p>
       <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
         Started {new Date(workout.created_at).toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' })} · tap to continue
@@ -166,8 +151,34 @@ function InProgressCard({ workout }) {
   );
 }
 
+// The manifest's "Start next workout" shortcut lands here with ?start=next. An unfinished
+// session wins over starting a new one, and the param is stripped either way so a refresh
+// (or the back button) can't start a second workout.
+function useStartNextShortcut({ active, inProgress, resolved }) {
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+  const [params, setParams] = useSearchParams();
+  const firedRef = useRef(false);
+
+  useEffect(() => {
+    if (params.get('start') !== 'next' || !resolved || firedRef.current) return;
+    firedRef.current = true;
+    setParams({}, { replace: true });
+
+    if (inProgress) { navigate(`/session/${inProgress.id}`); return; }
+    const routineId = active?.progress?.next_routine?.id;
+    if (!routineId) return;
+    startWorkout({ routine_id: routineId })
+      .then((w) => {
+        qc.invalidateQueries({ queryKey: ['in-progress-workout'] });
+        navigate(`/session/${w.id}`);
+      })
+      .catch(() => { /* stay on the dashboard; the Start button is right there */ });
+  }, [params, resolved, inProgress, active, navigate, qc, setParams]);
+}
+
 export default function Dashboard() {
-  const { data: stats, isLoading: statsLoading } = useQuery({ queryKey: ['stats'], queryFn: getStats, staleTime: 10 * 60_000 });
+  const { data: stats } = useQuery({ queryKey: ['stats'], queryFn: getStats, staleTime: 10 * 60_000 });
   const { data: recent, isLoading: recentLoading } = useQuery({ queryKey: ['recent-workouts'], queryFn: getRecentWorkouts, staleTime: 10 * 60_000 });
   const { data: active, isLoading: activeLoading } = useQuery({ queryKey: ['active-program'], queryFn: getActiveProgram });
   const { data: inProgress, isLoading: inProgressLoading } = useQuery({
@@ -177,6 +188,7 @@ export default function Dashboard() {
   });
 
   const programResolved = !activeLoading;
+  useStartNextShortcut({ active, inProgress, resolved: programResolved && !inProgressLoading });
 
   return (
     <div className="space-y-6">
@@ -184,6 +196,9 @@ export default function Dashboard() {
         <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
         <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
           {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
+          {/* The four totals live on Progress; the only one that changes what you do
+              today is how many sessions this week already has. */}
+          {stats && ` · ${stats.workouts_this_week} ${stats.workouts_this_week === 1 ? 'workout' : 'workouts'} this week`}
         </p>
       </div>
 
@@ -203,23 +218,11 @@ export default function Dashboard() {
         !inProgress && <NextWorkoutCard program={active} />
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard label="Total workouts" value={stats?.total_workouts} loading={statsLoading} />
-        <StatCard label="This week" value={stats?.workouts_this_week} loading={statsLoading} />
-        <StatCard label="Total sets" value={stats?.total_sets} loading={statsLoading} />
-        <StatCard
-          label="Total volume"
-          value={stats ? Math.round(stats.total_volume_kg).toLocaleString() : '—'}
-          unit="kg"
-          loading={statsLoading}
-        />
-      </div>
-
       <div className="card">
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Recent workouts</h2>
           {recent?.length > 0 && (
-            <Link to="/history" className="text-xs font-medium text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100">See all →</Link>
+            <Link to="/history" className="text-xs font-medium text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 inline-flex items-center min-h-11 md:min-h-0 pl-3">See all →</Link>
           )}
         </div>
         {recentLoading ? (
@@ -229,7 +232,7 @@ export default function Dashboard() {
             <WorkoutRowSkeleton />
           </div>
         ) : recent?.length === 0 ? (
-          <p className="text-sm text-neutral-500 py-4">No workouts logged yet.</p>
+          <p className="text-sm text-neutral-500 dark:text-neutral-400 py-4">No workouts logged yet.</p>
         ) : (
           <div className="divide-y divide-neutral-200 dark:divide-neutral-800">
             {recent?.map((w) => <WorkoutRow key={w.id} workout={w} />)}

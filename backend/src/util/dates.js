@@ -29,4 +29,18 @@ function resolveWorkoutDate(clientDate) {
   return isValidDateString(clientDate) ? clientDate : todayInAppTimezone();
 }
 
-module.exports = { APP_TIMEZONE, todayInAppTimezone, isValidDateString, resolveWorkoutDate };
+// Monday of the current week, in the app's timezone — matching Postgres DATE_TRUNC('week').
+// Deriving this from the database's CURRENT_DATE instead would put "this week" an hour or
+// ten off: Vercel and Neon are UTC, so a Monday-morning Melbourne session falls in the
+// previous ISO week by the server's reckoning.
+function currentWeekStart() {
+  const [y, m, d] = todayInAppTimezone().split('-').map(Number);
+  const today = new Date(Date.UTC(y, m - 1, d));
+  const mondayOffset = (today.getUTCDay() + 6) % 7;
+  today.setUTCDate(today.getUTCDate() - mondayOffset);
+  return today.toISOString().slice(0, 10);
+}
+
+module.exports = {
+  APP_TIMEZONE, todayInAppTimezone, isValidDateString, resolveWorkoutDate, currentWeekStart,
+};
