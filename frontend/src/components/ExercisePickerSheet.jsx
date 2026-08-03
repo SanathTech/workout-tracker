@@ -4,6 +4,9 @@ import { getExercises } from '../api/client';
 import { CloseIcon } from './icons';
 import CreateExerciseForm from './CreateExerciseForm';
 
+// Share of the viewport height a downward drag must cover before the sheet dismisses.
+const DISMISS_TRAVEL_FRACTION = 0.2;
+
 // Groups are alphabetical, which put Arms/Back/Chest/Core between you and Legs every time
 // you went to swap a squat. The group you're already in comes first instead.
 function groupByMuscle(exercises, primaryGroup) {
@@ -107,8 +110,9 @@ export default function ExercisePickerSheet({
     setMode('create');
   };
 
-  // Drag down to dismiss. Only tracks downward movement, and only commits past a third of
-  // the sheet, so a hesitant grab springs back rather than closing over your place.
+  // Drag down to dismiss. Only tracks downward movement, and only commits past
+  // DISMISS_TRAVEL_FRACTION, so a hesitant grab springs back rather than closing over
+  // your place in an 80-row list.
   const onDragStart = (e) => {
     dragStartRef.current = e.clientY;
     e.currentTarget.setPointerCapture?.(e.pointerId);
@@ -122,7 +126,7 @@ export default function ExercisePickerSheet({
     const travelled = Math.max(0, e.clientY - dragStartRef.current);
     dragStartRef.current = null;
     setDragOffset(0);
-    if (travelled > window.innerHeight * 0.2) onClose();
+    if (travelled > window.innerHeight * DISMISS_TRAVEL_FRACTION) onClose();
   };
 
   if (!open) return null;
