@@ -238,12 +238,12 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
 - No linter or types, and no frontend unit tests — CI builds the frontend, which catches
   bad imports and syntax but not behaviour.
 - **The session screen is a ledger, and cells-not-boxes is the load-bearing idea.** One
-  44px grid row per set (`LEDGER_COLS`: set# / prev / kg / reps / tick), no card borders,
+  44px grid row per set (`LEDGER_COLS`: set# / prev / kg / reps / rir / tick), no card
   no input boxes — values are bare text in tappable cells, the empty cells show last
   session's numbers as placeholders, tapping PREV copies them in, and ticking a row with
   blanks commits them. This is the Strong/Hevy layout, chosen deliberately (2026-08-04)
   after the boxed two-line version read as cluttered. Consequences that are easy to break:
-  - **RIR is the sixth column, ghosted.** The per-set target shows as the cell's
+  - **RIR is the fifth column, ghosted.** The per-set target shows as the cell's
     placeholder; typing overrides it, blank backfills the target server-side. It earns
     its place by absorbing the slack the `1fr` PREV column otherwise collects — remove
     it and PREV balloons (owner call, 2026-08-04, reversing the brief chip-only
