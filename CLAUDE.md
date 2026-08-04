@@ -118,8 +118,8 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
   `.section-label` (11px uppercase), with small data facts as `.tag` chips (sets×reps,
   rest ranges, statuses, workout summary numbers) and digits in `tabular-nums`. `.card`
   survives only for genuinely floating surfaces (login panel, error boundary, popover
-  menus, bottom sheets) and the program editor's form panels. Don't reintroduce bordered
-  boxes for page content.
+  menus, bottom sheets). The editors flattened in P4 — don't reintroduce bordered boxes
+  for page content anywhere.
 - **Mobile is the primary target, and the shared classes encode that.** `.btn` and `.chip`
   carry `min-h-11 md:min-h-0` (44px is the touch minimum; `py-2` alone gave 37px). `.input`
   is `text-base md:text-sm` because iOS Safari zooms the page on focusing any input under

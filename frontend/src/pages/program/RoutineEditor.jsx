@@ -34,7 +34,7 @@ export default function RoutineEditor({ routine, allExercises, onChange, onRemov
   };
 
   return (
-    <div className="card space-y-3">
+    <div className="py-3 space-y-2">
       <div className="flex items-center gap-2">
         <input
           className="input font-medium"

@@ -43,7 +43,7 @@
   /* text-base on mobile is not a style choice: iOS Safari zooms the page whenever a
      focused input is under 16px, so every tap into a weight field jolted the layout. */
   .input {
-    @apply w-full px-3 py-2 bg-white border border-neutral-200 rounded-md text-base md:text-sm text-neutral-900
+    @apply w-full px-3 py-2 min-h-11 md:min-h-0 bg-white border border-neutral-200 rounded-md text-base md:text-sm text-neutral-900
            focus:outline-none focus:ring-1 focus:ring-neutral-400 focus:border-neutral-400 transition
            dark:bg-neutral-900 dark:border-neutral-800 dark:text-neutral-200 dark:placeholder-neutral-600
            dark:focus:ring-neutral-600 dark:focus:border-neutral-600;
