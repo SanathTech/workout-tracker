@@ -110,7 +110,9 @@ export default function ProgramEditor({ initial, onCancel, onSaved }) {
   };
 
   return (
-    <form onSubmit={submit} className="space-y-4">
+    {/* noValidate: the browser's native bubbles would block submit() and the inline
+        errors below the fold would never render; `required` stays for semantics. */}
+    <form onSubmit={submit} noValidate className="space-y-4">
       <section className="space-y-3">
         <div>
           <label className="label">Program name</label>
