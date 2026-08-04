@@ -1,19 +1,43 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getExercises, getExerciseGroups, deleteExercise } from '../api/client';
 import { Skeleton } from '../components/Skeleton';
 import CreateExerciseForm from '../components/CreateExerciseForm';
 import MoreMenu from '../components/MoreMenu';
 
+// A bottom sheet, not a centered card. A centered card taller than the viewport clips at
+// BOTH ends once the keyboard shrinks the layout viewport (interactive-widget=
+// resizes-content) — 537px of form in ~460px of screen put the title 27px off-screen.
+// The sheet caps at the dynamic viewport, pins the title, and scrolls the form instead.
 function AddExerciseModal({ onClose }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 w-full max-w-md">
-        <div className="flex items-center justify-between px-4 pt-4">
+    <div
+      className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="w-full md:max-w-md max-h-[85vh] max-h-[85dvh] flex flex-col bg-white dark:bg-neutral-900 border-t md:border border-neutral-200 dark:border-neutral-800 rounded-t-xl md:rounded-lg shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between pl-4 pr-2 h-12 border-b border-neutral-200 dark:border-neutral-800 shrink-0">
           <h2 className="font-semibold">Add exercise</h2>
-          <button onClick={onClose} className="btn-ghost px-2" aria-label="Close">×</button>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="w-11 h-11 flex items-center justify-center rounded text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200"
+          >
+            ×
+          </button>
         </div>
-        <CreateExerciseForm showDescription submitLabel="Add" onCancel={onClose} onCreated={onClose} />
+        <div className="flex-1 overflow-y-auto overscroll-contain">
+          <CreateExerciseForm showDescription submitLabel="Add" onCancel={onClose} onCreated={onClose} />
+        </div>
       </div>
     </div>
   );
