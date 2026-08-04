@@ -20,8 +20,8 @@
      primary action wears it too. emerald-700 base — white on emerald-600 is 3.8:1 and
      fails AA at button sizes; 700 clears it in both themes. */
   .btn-primary {
-    @apply btn bg-emerald-700 text-white hover:bg-emerald-600 active:bg-emerald-800
-           dark:bg-emerald-700 dark:text-white dark:hover:bg-emerald-600 dark:active:bg-emerald-800;
+    @apply btn bg-emerald-700 text-white hover:bg-emerald-800 active:bg-emerald-900
+           dark:bg-emerald-700 dark:text-white dark:hover:bg-emerald-800 dark:active:bg-emerald-900;
   }
   .btn-secondary {
     @apply btn bg-transparent text-neutral-700 border border-neutral-200 hover:bg-neutral-50 active:bg-neutral-100

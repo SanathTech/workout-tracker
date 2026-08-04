@@ -6,7 +6,7 @@ import { getAuthStatus, logout } from '../api/client';
 
 function HomeIcon(props) {
   return (
-    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.7" {...props}>
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true" {...props}>
       <path d="M3 10.5 12 3l9 7.5" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M5.5 9.5V20a1 1 0 0 0 1 1H10v-6h4v6h3.5a1 1 0 0 0 1-1V9.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
@@ -14,7 +14,7 @@ function HomeIcon(props) {
 }
 function ProgramIcon(props) {
   return (
-    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.7" {...props}>
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true" {...props}>
       <rect x="4" y="4" width="16" height="17" rx="2" />
       <path d="M8 3v3M16 3v3M8 11h8M8 15.5h5" strokeLinecap="round" />
     </svg>
@@ -22,14 +22,14 @@ function ProgramIcon(props) {
 }
 function ProgressIcon(props) {
   return (
-    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.7" {...props}>
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true" {...props}>
       <path d="M4 20V10M10 20V4M16 20v-7M21 20H3.5" strokeLinecap="round" />
     </svg>
   );
 }
 function DumbbellIcon(props) {
   return (
-    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.7" {...props}>
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true" {...props}>
       <path d="M7 8v8M4.5 9.5v5M17 8v8M19.5 9.5v5M7 12h10" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );

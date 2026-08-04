@@ -96,8 +96,10 @@ export default function Progress() {
           label="Total volume"
           value={stats ? (stats.total_volume_kg < 1000
             ? Math.round(stats.total_volume_kg).toLocaleString()
-            : (stats.total_volume_kg / 1000).toLocaleString(undefined, { maximumFractionDigits: stats.total_volume_kg < 10000 ? 1 : 0 })) : '—'}
-          unit={stats && stats.total_volume_kg < 1000 ? 'kg' : 't'}
+            : (stats.total_volume_kg / 1000).toLocaleString(undefined, stats.total_volume_kg < 10000
+                ? { minimumFractionDigits: 1, maximumFractionDigits: 1 }
+                : { maximumFractionDigits: 0 })) : '—'}
+          unit={stats ? (stats.total_volume_kg < 1000 ? 'kg' : 't') : ''}
           loading={statsLoading}
         />
       </div>
