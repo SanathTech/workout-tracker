@@ -16,9 +16,12 @@
   .btn {
     @apply inline-flex items-center justify-center gap-2 px-4 py-2 min-h-11 md:min-h-0 rounded-md font-medium text-sm transition-colors duration-150 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed;
   }
+  /* Emerald is THE accent (2026-08-04): it already meant done/active everywhere, so the
+     primary action wears it too. emerald-700 base — white on emerald-600 is 3.8:1 and
+     fails AA at button sizes; 700 clears it in both themes. */
   .btn-primary {
-    @apply btn bg-neutral-900 text-white hover:bg-neutral-800 active:bg-neutral-700
-           dark:bg-neutral-700 dark:text-neutral-100 dark:border dark:border-neutral-600 dark:hover:bg-neutral-600 dark:active:bg-neutral-500;
+    @apply btn bg-emerald-700 text-white hover:bg-emerald-600 active:bg-emerald-800
+           dark:bg-emerald-700 dark:text-white dark:hover:bg-emerald-600 dark:active:bg-emerald-800;
   }
   .btn-secondary {
     @apply btn bg-transparent text-neutral-700 border border-neutral-200 hover:bg-neutral-50 active:bg-neutral-100
@@ -62,7 +65,7 @@
      Non-interactive — wrap in a padded <button> when it needs to be tappable. */
   .tag {
     @apply inline-flex items-center px-2 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800
-           text-[10px] uppercase tracking-wide font-medium text-neutral-600 dark:text-neutral-400;
+           text-[11px] uppercase tracking-wide font-medium text-neutral-600 dark:text-neutral-400;
   }
   /* Flat sections replaced cards app-wide (2026-08-04); this is their heading. */
   .section-label {

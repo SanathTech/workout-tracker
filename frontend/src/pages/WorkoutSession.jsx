@@ -132,7 +132,7 @@ function SetRow({ set, previousSet, showPrev, targetRir, onChange, onRemove, onD
           onClick={() => { if (revealed) { close(); return; } onChange({ ...set, set_type: nextSetType(set.set_type) }); }}
           title={SET_TYPE_TITLE[set.set_type || 'working']}
           aria-label={`Set ${set.set_number}: ${set.set_type || 'working'} — tap to change type`}
-          className={`h-11 text-[13px] tabular-nums text-left pl-2 rounded-md font-medium ${
+          className={`h-11 text-xs tabular-nums text-left pl-2 rounded-md font-medium ${
             set.set_type === 'warmup'
               ? 'text-amber-600 dark:text-amber-500'
               : set.set_type === 'drop' || set.set_type === 'failure'
@@ -148,7 +148,7 @@ function SetRow({ set, previousSet, showPrev, targetRir, onChange, onRemove, onD
           disabled={!showPrev}
           title={showPrev ? prevTitle : undefined}
           aria-label={showPrev ? prevTitle : 'No previous session for this exercise'}
-          className="h-11 min-w-0 truncate text-left text-[13px] tabular-nums text-neutral-500 dark:text-neutral-400 disabled:text-neutral-400 dark:disabled:text-neutral-600 rounded-md"
+          className="h-11 min-w-0 truncate text-left text-xs tabular-nums text-neutral-500 dark:text-neutral-400 disabled:text-neutral-400 dark:disabled:text-neutral-600 rounded-md"
         >
           {showPrev ? prevLabel : '—'}
         </button>
@@ -377,7 +377,7 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove, onR
               aria-expanded={showReason}
               className="py-2.5 -my-2.5"
             >
-              <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] uppercase tracking-wide font-medium ${
+              <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] uppercase tracking-wide font-medium ${
                 suggestion.action === 'increase'
                   ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-400'
                   : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300'
@@ -409,7 +409,7 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove, onR
       )}
 
       {block.sets.length > 0 && (
-        <div className={`${LEDGER_COLS} h-6 text-[10px] font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400`} aria-hidden="true">
+        <div className={`${LEDGER_COLS} h-6 text-[11px] font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400`} aria-hidden="true">
           <span className="pl-2">Set</span>
           <span>Prev</span>
           <span className="text-center">kg</span>

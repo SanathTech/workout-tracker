@@ -118,7 +118,7 @@ export default function WorkoutDetail() {
             ) : (
             <table className="w-full text-sm tabular-nums">
               <thead>
-                <tr className="text-left text-[10px] font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                <tr className="text-left text-[11px] font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
                   <th className="pb-1 font-semibold w-8">Set</th>
                   <th className="pb-1 font-semibold">Weight</th>
                   <th className="pb-1 font-semibold">Reps</th>
@@ -134,7 +134,7 @@ export default function WorkoutDetail() {
                   const rir = set.rir ?? targetRir[set.set_number - 1] ?? null;
                   return (
                     <tr key={set.id}>
-                      <td className="py-1.5 text-[13px] text-neutral-500 dark:text-neutral-400">{set.set_number}</td>
+                      <td className="py-1.5 text-xs text-neutral-500 dark:text-neutral-400">{set.set_number}</td>
                       <td className="py-1.5">{formatKg(set.weight_kg)}</td>
                       <td className="py-1.5">{set.reps ?? '—'}</td>
                       <td className="py-1.5">{rir ?? '—'}</td>

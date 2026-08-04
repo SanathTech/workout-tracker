@@ -7,7 +7,7 @@ export default function StatusBadge({ status, className = '' }) {
   const style = STYLES[status];
   if (!style) return null;
   return (
-    <span className={`text-[10px] uppercase tracking-wide ${style.className} ${className}`}>
+    <span className={`text-[11px] uppercase tracking-wide ${style.className} ${className}`}>
       {style.label}
     </span>
   );
