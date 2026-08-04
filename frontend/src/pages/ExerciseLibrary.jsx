@@ -22,7 +22,7 @@ function AddExerciseModal({ onClose }) {
       onClick={onClose}
     >
       <div
-        className="w-full md:max-w-md max-h-[85dvh] flex flex-col bg-white dark:bg-neutral-900 border-t md:border border-neutral-200 dark:border-neutral-800 rounded-t-xl md:rounded-lg shadow-xl"
+        className="w-full md:max-w-md max-h-[85vh] max-h-[85dvh] flex flex-col bg-white dark:bg-neutral-900 border-t md:border border-neutral-200 dark:border-neutral-800 rounded-t-xl md:rounded-lg shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between pl-4 pr-2 h-12 border-b border-neutral-200 dark:border-neutral-800 shrink-0">
