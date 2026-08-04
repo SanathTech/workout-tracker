@@ -1,7 +1,7 @@
 import { formatRestRange } from '../../utils/format';
 
-export const dashedAddBtn = 'w-full text-center py-2 text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 border border-dashed border-neutral-200 dark:border-neutral-800 rounded hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors';
-export const iconBtn = 'text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 p-1 shrink-0';
+export const dashedAddBtn = 'w-full text-center py-2 min-h-11 md:min-h-0 text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 border border-dashed border-neutral-200 dark:border-neutral-800 rounded hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors';
+export const iconBtn = 'text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 w-11 h-11 flex items-center justify-center rounded shrink-0';
 
 export const genId = () => crypto.randomUUID();
 

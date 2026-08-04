@@ -36,7 +36,7 @@ export default function ExerciseEditor({ ex, allExercises, expanded, onToggle, o
         <button
           type="button"
           onClick={onToggle}
-          className="flex items-start gap-2 flex-1 min-w-0 text-left -mx-1 px-1 py-1 rounded hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
+          className="flex items-start gap-2 flex-1 min-w-0 min-h-11 text-left -mx-1 px-1 py-1 rounded hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
         >
           <span className="text-neutral-400 dark:text-neutral-400 shrink-0 mt-1">
             <ChevronIcon open={expanded} />
@@ -47,8 +47,8 @@ export default function ExerciseEditor({ ex, allExercises, expanded, onToggle, o
               {ex.is_main && <MainBadge className="shrink-0" />}
             </div>
             {!expanded && chips.length > 0 && (
-              <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 truncate">
-                {chips.join(' · ')}
+              <div className="flex flex-wrap gap-1 mt-1">
+                {chips.map((c) => <span key={c} className="tag">{c}</span>)}
               </div>
             )}
           </div>
@@ -64,7 +64,7 @@ export default function ExerciseEditor({ ex, allExercises, expanded, onToggle, o
           <button
             type="button"
             onClick={() => setPicker({ kind: 'primary' })}
-            className="flex items-center gap-1.5 text-left w-full min-w-0 px-3 py-2 rounded border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
+            className="flex items-center gap-1.5 text-left w-full min-w-0 min-h-11 px-3 py-2 rounded border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
           >
             <span className={`flex-1 min-w-0 truncate ${primary ? 'text-neutral-900 dark:text-neutral-200' : 'text-neutral-500 dark:text-neutral-400'}`}>
               {primary ? primary.name : 'Pick an exercise'}
@@ -145,7 +145,7 @@ export default function ExerciseEditor({ ex, allExercises, expanded, onToggle, o
                 }}
               />
             </div>
-            <label className="flex items-end gap-2 pb-2 cursor-pointer select-none">
+            <label className="flex items-center gap-2 min-h-11 cursor-pointer select-none">
               <input
                 type="checkbox"
                 className="w-4 h-4 rounded border-neutral-300 dark:border-neutral-700 accent-amber-500"
@@ -170,7 +170,7 @@ export default function ExerciseEditor({ ex, allExercises, expanded, onToggle, o
                       <input
                         data-editor-input="true"
                         type="number" inputMode="numeric" min="0" placeholder="1"
-                        className="input w-14 py-1.5 text-center"
+                        className="input w-14 h-11 py-0 text-center"
                         value={value == null ? '' : value}
                         onFocus={selectOnFocus}
                         onChange={(e) => {
@@ -204,7 +204,7 @@ export default function ExerciseEditor({ ex, allExercises, expanded, onToggle, o
                   <button
                     type="button"
                     onClick={() => setPicker({ kind: 'sub', subIndex: i })}
-                    className="flex items-center gap-1.5 text-left flex-1 min-w-0 px-3 py-1.5 rounded border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
+                    className="flex items-center gap-1.5 text-left flex-1 min-w-0 min-h-11 px-3 py-1.5 rounded border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
                   >
                     <span className={`flex-1 min-w-0 truncate text-sm ${subEx ? 'text-neutral-900 dark:text-neutral-200' : 'text-neutral-500 dark:text-neutral-400'}`}>
                       {subEx ? subEx.name : 'Pick substitute'}
@@ -225,7 +225,7 @@ export default function ExerciseEditor({ ex, allExercises, expanded, onToggle, o
             <button
               type="button"
               onClick={() => onChange({ ...ex, substitutes: [...ex.substitutes, { exercise_id: '' }] })}
-              className={`${dashedAddBtn} text-xs py-1.5`}
+              className={`${dashedAddBtn} text-xs`}
             >
               + Add substitute
             </button>

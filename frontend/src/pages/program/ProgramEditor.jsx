@@ -13,6 +13,7 @@ export default function ProgramEditor({ initial, onCancel, onSaved }) {
   const [totalWeeks, setTotalWeeks] = useState(
     initial?.total_weeks === undefined ? 12 : (initial.total_weeks ?? '')
   );
+  const [error, setError] = useState('');
   const [routines, setRoutines] = useState(
     initial?.routines?.length
       ? initial.routines.map((r) => ({
@@ -65,8 +66,9 @@ export default function ProgramEditor({ initial, onCancel, onSaved }) {
 
   const submit = (e) => {
     e.preventDefault();
-    if (!name.trim()) return alert('Program name required');
-    if (!routines.length) return alert('Add at least one routine');
+    setError('');
+    if (!name.trim()) return setError('Give the program a name.');
+    if (!routines.length) return setError('Add at least one routine.');
     const cleaned = routines.map((r) => ({
       name: r.name || 'Untitled',
       exercises: r.exercises
@@ -100,7 +102,7 @@ export default function ProgramEditor({ initial, onCancel, onSaved }) {
     if (totalWeeks !== '' && totalWeeks != null) {
       const n = Number(totalWeeks);
       if (!Number.isInteger(n) || n < 1) {
-        return alert('Total weeks must be a whole number ≥ 1, or left blank for an ongoing program.');
+        return setError('Total weeks must be a whole number ≥ 1, or blank for ongoing.');
       }
       weeks = n;
     }
@@ -109,7 +111,7 @@ export default function ProgramEditor({ initial, onCancel, onSaved }) {
 
   return (
     <form onSubmit={submit} className="space-y-4">
-      <div className="card space-y-3">
+      <section className="space-y-3">
         <div>
           <label className="label">Program name</label>
           <input className="input" value={name} onChange={(e) => setName(e.target.value)}
@@ -127,10 +129,11 @@ export default function ProgramEditor({ initial, onCancel, onSaved }) {
             onChange={(e) => setTotalWeeks(e.target.value)} />
           <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">Leave blank for an ongoing program.</p>
         </div>
-      </div>
+      </section>
 
-      <div className="space-y-3">
-        <h2 className="font-semibold">Routines</h2>
+      <div>
+        <h2 className="section-label mb-1">Routines</h2>
+        <div className="divide-y divide-neutral-200 dark:divide-neutral-800 border-t border-neutral-200 dark:border-neutral-800">
         {routines.map((r, i) => (
           <RoutineEditor
             key={r.client_id}
@@ -142,10 +145,11 @@ export default function ProgramEditor({ initial, onCancel, onSaved }) {
             onMoveDown={i < routines.length - 1 ? () => moveRoutine(i, 1) : undefined}
           />
         ))}
+        </div>
         <button
           type="button"
           onClick={() => setRoutines([...routines, emptyRoutine()])}
-          className={dashedAddBtn}
+          className={`${dashedAddBtn} mt-3`}
         >
           + Add routine
         </button>
@@ -153,6 +157,13 @@ export default function ProgramEditor({ initial, onCancel, onSaved }) {
 
       <div className="h-20" aria-hidden="true" />
       <div className="fixed bottom-0 inset-x-0 z-20 bg-white dark:bg-neutral-950 border-t border-neutral-200 dark:border-neutral-900 pb-[env(safe-area-inset-bottom)]">
+        <div className="max-w-2xl mx-auto px-4">
+          {(error || save.isError) && (
+            <p className="pt-2 text-xs text-red-600 dark:text-red-400" role="alert">
+              {error || 'Could not save the program — try again.'}
+            </p>
+          )}
+        </div>
         <div className="max-w-2xl mx-auto px-4 py-3 flex gap-2">
           <button type="button" onClick={onCancel} className="btn-secondary flex-1 justify-center">Cancel</button>
           <button type="submit" disabled={save.isPending} className="btn-primary flex-1 justify-center">
