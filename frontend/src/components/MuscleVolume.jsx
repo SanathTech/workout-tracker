@@ -54,8 +54,7 @@ function VolumeBar({ row, weeks }) {
   );
 }
 
-export default function MuscleVolume() {
-  const [weeks, setWeeks] = useState(8);
+export default function MuscleVolume({ weeks = 8 }) {
   const [showAll, setShowAll] = useState(false);
   const { data, isLoading } = useQuery({
     queryKey: ['muscle-volume', weeks],
@@ -91,16 +90,6 @@ export default function MuscleVolume() {
             Assisting muscles count as half a set. The marker is the {weeks}-week average.
           </p>
         </div>
-        <select
-          className="input w-28 h-11 py-0 text-xs shrink-0"
-          value={weeks}
-          onChange={(e) => setWeeks(Number(e.target.value))}
-          aria-label="Weeks of history for the average"
-        >
-          <option value={4}>4-wk avg</option>
-          <option value={8}>8-wk avg</option>
-          <option value={12}>12-wk avg</option>
-        </select>
       </div>
 
       {trained.length === 0 ? (

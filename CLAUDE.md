@@ -174,6 +174,12 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
   deliberate — refusing everything would brick the live app on deploy, before there's any way
   to log in. Check `/health` after changing env vars.
 - Locale is never hardcoded. Pass `undefined` to `toLocale*String` so it follows the device.
+- **Back buttons use `useSmartBack(fallback)`**, never a hard-coded Link — a workout opened
+  from History must return to History. The hook falls back when the tab has no in-app
+  history (deep link / PWA cold start).
+- **The Detail page's completion band keys off `location.state.justFinished`**, set only by
+  the session's Finish navigation. PRs-today are derived client-side from
+  `/progress/personal-bests` dates — don't add a dedicated endpoint for it.
 - **The session's unsaved edits live in `localStorage`, not the query cache.** `utils/draft.js`
   writes the pending payload *and* a snapshot of the workout shape on every edit, and clears
   it only when the server confirms that exact payload. A surviving draft therefore means

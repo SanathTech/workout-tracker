@@ -697,7 +697,7 @@ export default function WorkoutSession() {
       qc.invalidateQueries({ queryKey: ['suggestions'] });
       qc.invalidateQueries({ queryKey: ['muscle-volume'] });
       qc.invalidateQueries({ queryKey: ['in-progress-workout'] });
-      navigate(`/workouts/${id}`);
+      navigate(`/workouts/${id}`, { state: { justFinished: true } });
     },
   });
 

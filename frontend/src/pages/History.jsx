@@ -1,5 +1,6 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import { useSmartBack } from '../hooks/useSmartBack';
 import { getWorkouts } from '../api/client';
 import { Skeleton } from '../components/Skeleton';
 import StatusBadge from '../components/StatusBadge';
@@ -29,6 +30,7 @@ function Row({ w }) {
 }
 
 export default function History() {
+  const goBack = useSmartBack();
   // Offset-based paging so history is unbounded (the backend clamps `limit` to 200).
   const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
     queryKey: ['workouts-history'],
@@ -43,7 +45,7 @@ export default function History() {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div>
-        <Link to="/dashboard" className="text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 inline-flex items-center min-h-11 md:min-h-0 -ml-1 pl-1">← Back</Link>
+        <button type="button" onClick={goBack} className="text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 inline-flex items-center min-h-11 md:min-h-0 -ml-1 pl-1">← Back</button>
         <h1 className="text-2xl font-semibold tracking-tight mt-1">Workout history</h1>
       </div>
 
