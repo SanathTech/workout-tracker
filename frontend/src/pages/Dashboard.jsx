@@ -27,7 +27,7 @@ function WorkoutRow({ workout }) {
         </p>
       </div>
       {workout.duration_minutes && (
-        <span className="text-xs text-neutral-500 dark:text-neutral-400">{workout.duration_minutes} min</span>
+        <span className="text-xs text-neutral-500 dark:text-neutral-400 shrink-0 ml-3 whitespace-nowrap tabular-nums">{workout.duration_minutes} min</span>
       )}
     </Link>
   );
@@ -66,29 +66,30 @@ function NextWorkoutCard({ program }) {
   const progress = program.progress;
   if (!progress?.next_routine) {
     return (
-      <div className="card">
-        <p className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Program complete</p>
+      <section>
+        <p className="section-label">Program complete</p>
         <p className="text-lg font-semibold mt-1">
           {progress?.completed_workouts}{progress?.total_workouts ? `/${progress.total_workouts}` : ''} workouts done
           {progress?.skipped_workouts ? ` · ${progress.skipped_workouts} skipped` : ''}
         </p>
         <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">Start a new program when you're ready.</p>
         <Link to="/program" className="btn-primary mt-4 inline-flex">New program</Link>
-      </div>
+      </section>
     );
   }
 
   return (
-    <div className="card space-y-4">
+    <section className="space-y-3">
       <div>
-        <p className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Up next</p>
+        <p className="section-label">Up next</p>
         <h2 className="text-2xl font-semibold mt-1 tracking-tight">{progress.next_routine.name}</h2>
-        <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
-          {program.name} · Week {progress.week}{program.total_weeks ? ` of ${program.total_weeks}` : ''}
-          {' · '}
-          {progress.completed_workouts}{progress.total_workouts ? `/${progress.total_workouts}` : ''} done
-          {progress.skipped_workouts ? ` · ${progress.skipped_workouts} skipped` : ''}
-        </p>
+        <div className="flex flex-wrap items-center gap-1.5 mt-2">
+          <span className="tag">Week {progress.week}{program.total_weeks ? ` of ${program.total_weeks}` : ''}</span>
+          {progress.total_workouts
+            ? <span className="tag">{progress.completed_workouts}/{progress.total_workouts} done</span>
+            : <span className="tag">{progress.completed_workouts} done</span>}
+          {progress.skipped_workouts > 0 && <span className="tag">{progress.skipped_workouts} skipped</span>}
+        </div>
       </div>
 
       <p className="text-sm text-neutral-600 dark:text-neutral-400">
@@ -97,7 +98,7 @@ function NextWorkoutCard({ program }) {
         {progress.next_routine.exercises.length > 4 && '…'}
       </p>
 
-      <div className="space-y-2">
+      <div className="space-y-2 pt-1">
         <button
           onClick={() => start.mutate(progress.next_routine.id)}
           disabled={start.isPending || skip.isPending}
@@ -116,7 +117,7 @@ function NextWorkoutCard({ program }) {
       {skip.isError && (
         <p className="text-xs text-red-600 dark:text-red-400">Could not skip this workout. Try again.</p>
       )}
-    </div>
+    </section>
   );
 }
 
@@ -127,7 +128,7 @@ function confirmSkip(program, progress) {
 
 function NextWorkoutSkeleton() {
   return (
-    <div className="card space-y-4">
+    <div className="space-y-4">
       <div className="space-y-2">
         <Skeleton className="h-3 w-16" />
         <Skeleton className="h-7 w-40" />
@@ -141,10 +142,13 @@ function NextWorkoutSkeleton() {
 
 function InProgressCard({ workout }) {
   return (
-    <Link to={`/session/${workout.id}`} className="card block hover:border-neutral-300 dark:hover:border-neutral-700 transition-colors">
-      <p className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">In progress</p>
-      <p className="text-lg font-semibold mt-1">{workout.routine_name || 'Workout'}</p>
-      <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
+    <Link
+      to={`/session/${workout.id}`}
+      className="block -mx-2 px-2 py-2 rounded-lg border-l-2 border-l-emerald-500 pl-3 hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
+    >
+      <p className="section-label text-emerald-700 dark:text-emerald-400">In progress</p>
+      <p className="text-lg font-semibold mt-0.5">{workout.routine_name || 'Workout'}</p>
+      <p className="text-sm text-neutral-500 dark:text-neutral-400">
         Started {new Date(workout.created_at).toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' })} · tap to continue
       </p>
     </Link>
@@ -207,20 +211,20 @@ export default function Dashboard() {
       {!programResolved || inProgressLoading ? (
         <NextWorkoutSkeleton />
       ) : !active ? (
-        <div className="card">
+        <section>
           <p className="font-semibold">No active program</p>
           <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
             Set up a program (e.g. 12-week split with Upper/Lower routines), then start it to track workouts.
           </p>
           <Link to="/program" className="btn-primary mt-4 inline-flex">Set up a program</Link>
-        </div>
+        </section>
       ) : (
         !inProgress && <NextWorkoutCard program={active} />
       )}
 
-      <div className="card">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Recent workouts</h2>
+      <section className="border-t border-neutral-200 dark:border-neutral-800 pt-4">
+        <div className="flex items-center justify-between mb-1">
+          <h2 className="section-label">Recent workouts</h2>
           {recent?.length > 0 && (
             <Link to="/history" className="text-xs font-medium text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 inline-flex items-center min-h-11 md:min-h-0 pl-3">See all →</Link>
           )}
@@ -238,7 +242,7 @@ export default function Dashboard() {
             {recent?.map((w) => <WorkoutRow key={w.id} workout={w} />)}
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }

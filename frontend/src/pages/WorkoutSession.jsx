@@ -14,11 +14,7 @@ import { saveDraft, saveSnapshot, readDraft, clearDraft, pruneDrafts } from '../
 const isBlank = (v) => v === '' || v == null;
 
 function TargetChip({ children }) {
-  return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 text-[10px] uppercase tracking-wide font-medium text-neutral-600 dark:text-neutral-400">
-      {children}
-    </span>
-  );
+  return <span className="tag">{children}</span>;
 }
 
 const SAVE_TONE = {
@@ -924,8 +920,8 @@ export default function WorkoutSession() {
         + Add exercise
       </button>
 
-      <div className="card">
-        <label className="label" htmlFor="wt-workout-notes">Workout notes</label>
+      <section className="pt-1">
+        <label className="section-label block mb-1.5" htmlFor="wt-workout-notes">Workout notes</label>
         <textarea
           id="wt-workout-notes"
           className="input resize-none"
@@ -933,7 +929,7 @@ export default function WorkoutSession() {
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
         />
-      </div>
+      </section>
 
       {!isCompleted && (
         <button
@@ -1018,7 +1014,7 @@ function WorkoutSessionSkeleton() {
         <Skeleton className="h-3 w-64" />
       </div>
       {[0, 1, 2].map((i) => (
-        <div key={i} className="card space-y-3">
+        <div key={i} className="space-y-3 pt-3 border-t border-neutral-200 dark:border-neutral-800">
           <Skeleton className="h-5 w-40" />
           <Skeleton className="h-3 w-32" />
           <div className="space-y-2">

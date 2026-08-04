@@ -58,6 +58,16 @@
     @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
            bg-neutral-900 text-white dark:bg-neutral-700 dark:text-neutral-100;
   }
+  /* Small data label, the session ledger's chip: sets×reps, rest ranges, statuses.
+     Non-interactive — wrap in a padded <button> when it needs to be tappable. */
+  .tag {
+    @apply inline-flex items-center px-2 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800
+           text-[10px] uppercase tracking-wide font-medium text-neutral-600 dark:text-neutral-400;
+  }
+  /* Flat sections replaced cards app-wide (2026-08-04); this is their heading. */
+  .section-label {
+    @apply text-[11px] font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400;
+  }
   /* Badges are labels; chips are things you tap. The filter row was using badges, which
      put a 21px-tall target on a touchscreen. */
   .chip {

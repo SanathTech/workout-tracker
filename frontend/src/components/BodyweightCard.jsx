@@ -32,9 +32,9 @@ export default function BodyweightCard() {
   const valid = value !== '' && Number.isFinite(parsed) && parsed > 0 && parsed <= 500;
 
   return (
-    <div className="card">
+    <section className="border-t border-neutral-200 dark:border-neutral-800 pt-4">
       <div className="flex items-baseline justify-between mb-2">
-        <h2 className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Bodyweight</h2>
+        <h2 className="section-label">Bodyweight</h2>
         {latest && (
           <span className="text-xs text-neutral-500 dark:text-neutral-400">
             {latest.weight_kg}kg
@@ -92,6 +92,6 @@ export default function BodyweightCard() {
       <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1">
         One entry per day — logging again replaces today’s.
       </p>
-    </div>
+    </section>
   );
 }

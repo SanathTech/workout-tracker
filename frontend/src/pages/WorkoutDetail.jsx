@@ -79,60 +79,51 @@ export default function WorkoutDetail() {
       </div>
 
       {isSkipped && (
-        <div className="card">
-          <p className="text-sm text-neutral-600 dark:text-neutral-400">
-            You skipped this session. It holds its place in the program sequence but counts toward no stats.
-          </p>
-        </div>
+        <p className="text-sm text-neutral-600 dark:text-neutral-400">
+          You skipped this session. It holds its place in the program sequence but counts toward no stats.
+        </p>
       )}
 
       {hasExercises && !isSkipped && (
-        // Two across on a phone: at three, every label wrapped to two lines, and a fourth
-        // tile (Duration) left an orphan on its own row.
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {[
-            { label: 'Exercises', value: workout.exercises.length },
-            { label: 'Total sets', value: workout.exercises.reduce((s, ex) => s + ex.sets.length, 0) },
-            { label: 'Volume (kg)', value: Math.round(totalVolume).toLocaleString() },
-            ...(workout.duration_minutes ? [{ label: 'Duration', value: `${workout.duration_minutes} min` }] : []),
-          ].map((s) => (
-            <div key={s.label} className="card">
-              <p className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">{s.label}</p>
-              <p className="text-xl font-semibold mt-1">{s.value}</p>
-            </div>
-          ))}
+        // The four summary numbers as tags — matching the session's meta chips — instead
+        // of a grid of stat cards.
+        <div className="flex flex-wrap gap-1.5">
+          <span className="tag">{workout.exercises.length} exercises</span>
+          <span className="tag">{workout.exercises.reduce((s, ex) => s + ex.sets.length, 0)} sets</span>
+          <span className="tag">{Math.round(totalVolume).toLocaleString()} kg</span>
+          {workout.duration_minutes && <span className="tag">{workout.duration_minutes} min</span>}
         </div>
       )}
 
       {workout.notes && (
-        <div className="card">
-          <p className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400 mb-1">Notes</p>
+        <section>
+          <p className="section-label mb-1">Notes</p>
           <p className="text-sm text-neutral-700 dark:text-neutral-300">{workout.notes}</p>
-        </div>
+        </section>
       )}
 
-      <div className="space-y-3">
+      <div className="divide-y divide-neutral-200 dark:divide-neutral-800 border-t border-neutral-200 dark:border-neutral-800">
         {workout.exercises?.map((ex) => (
-          <div key={ex.exercise_id} className={`card space-y-3 ${ex.target?.is_main ? 'border-l-2 border-l-amber-400 dark:border-l-amber-500/60' : ''}`}>
+          <section key={ex.exercise_id} className="py-3 space-y-2">
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-semibold">{ex.exercise_name}</h3>
                 {ex.target?.is_main && <MainBadge />}
+                <span className="tag ml-auto">{ex.muscle_group}</span>
               </div>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400">{ex.muscle_group}</p>
             </div>
             {ex.sets.length === 0 ? (
               // A full table header over zero rows read as a rendering fault. Say it plainly.
               <p className="text-sm text-neutral-500 dark:text-neutral-400">Not logged.</p>
             ) : (
-            <table className="w-full text-sm">
+            <table className="w-full text-sm tabular-nums">
               <thead>
-                <tr className="text-neutral-500 dark:text-neutral-400 text-left text-xs uppercase tracking-wide">
-                  <th className="pb-2 font-medium w-8">Set</th>
-                  <th className="pb-2 font-medium">Weight</th>
-                  <th className="pb-2 font-medium">Reps</th>
-                  <th className="pb-2 font-medium">RIR</th>
-                  <th className="pb-2 font-medium text-right">Volume</th>
+                <tr className="text-left text-[10px] font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                  <th className="pb-1 font-semibold w-8">Set</th>
+                  <th className="pb-1 font-semibold">Weight</th>
+                  <th className="pb-1 font-semibold">Reps</th>
+                  <th className="pb-1 font-semibold">RIR</th>
+                  <th className="pb-1 font-semibold text-right">Vol</th>
                 </tr>
               </thead>
               <tbody>
@@ -142,12 +133,12 @@ export default function WorkoutDetail() {
                   const targetRir = Array.isArray(ex.target?.target_rir_per_set) ? ex.target.target_rir_per_set : [];
                   const rir = set.rir ?? targetRir[set.set_number - 1] ?? null;
                   return (
-                    <tr key={set.id} className="border-t border-neutral-200 dark:border-neutral-800">
-                      <td className="py-2 text-neutral-500 dark:text-neutral-400">{set.set_number}</td>
-                      <td className="py-2">{formatKg(set.weight_kg)}</td>
-                      <td className="py-2">{set.reps ?? '—'}</td>
-                      <td className="py-2">{rir ?? '—'}</td>
-                      <td className="py-2 text-right text-neutral-500 dark:text-neutral-400">
+                    <tr key={set.id}>
+                      <td className="py-1.5 text-[13px] text-neutral-500 dark:text-neutral-400">{set.set_number}</td>
+                      <td className="py-1.5">{formatKg(set.weight_kg)}</td>
+                      <td className="py-1.5">{set.reps ?? '—'}</td>
+                      <td className="py-1.5">{rir ?? '—'}</td>
+                      <td className="py-1.5 text-right text-neutral-500 dark:text-neutral-400">
                         {set.weight_kg && set.reps ? formatKg(set.weight_kg * set.reps) : '—'}
                       </td>
                     </tr>
@@ -156,7 +147,7 @@ export default function WorkoutDetail() {
               </tbody>
             </table>
             )}
-          </div>
+          </section>
         ))}
       </div>
     </div>
@@ -173,14 +164,14 @@ function WorkoutDetailSkeleton() {
       </div>
       <div className="grid grid-cols-3 gap-3">
         {[0, 1, 2].map((i) => (
-          <div key={i} className="card space-y-2">
+          <div key={i} className="space-y-2">
             <Skeleton className="h-3 w-16" />
             <Skeleton className="h-6 w-12" />
           </div>
         ))}
       </div>
       {[0, 1, 2].map((i) => (
-        <div key={i} className="card space-y-3">
+        <div key={i} className="space-y-3">
           <Skeleton className="h-5 w-40" />
           <Skeleton className="h-4 w-full" />
           <Skeleton className="h-4 w-full" />

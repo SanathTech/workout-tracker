@@ -67,11 +67,11 @@ export default function Program() {
       </div>
 
       {noPrograms && (
-        <div className="card">
+        <section>
           <p className="font-semibold">No programs yet</p>
           <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">Create one to get started.</p>
           <button onClick={() => setEditing('new')} className="btn-primary mt-4">Create your first program</button>
-        </div>
+        </section>
       )}
 
       {allPrograms.length > 1 && (
@@ -97,7 +97,7 @@ export default function Program() {
 function ProgramSkeleton() {
   return (
     <div className="space-y-4">
-      <div className="card space-y-3">
+      <div className="space-y-3">
         <div className="space-y-2">
           <Skeleton className="h-7 w-56" />
           <Skeleton className="h-3 w-40" />
@@ -105,7 +105,7 @@ function ProgramSkeleton() {
         <Skeleton className="h-11 w-full" />
       </div>
       {[0, 1, 2].map((i) => (
-        <div key={i} className="card space-y-2">
+        <div key={i} className="space-y-2 pt-3 border-t border-neutral-200 dark:border-neutral-800">
           <Skeleton className="h-4 w-32" />
           <Skeleton className="h-3 w-48" />
           <Skeleton className="h-3 w-44" />
