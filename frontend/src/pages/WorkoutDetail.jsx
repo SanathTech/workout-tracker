@@ -1,15 +1,19 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { getWorkout, deleteWorkout } from '../api/client';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
+import { getWorkout, deleteWorkout, getPersonalBests } from '../api/client';
 import { Skeleton } from '../components/Skeleton';
 import MainBadge from '../components/MainBadge';
 import StatusBadge from '../components/StatusBadge';
 import MoreMenu from '../components/MoreMenu';
+import { useSmartBack } from '../hooks/useSmartBack';
 import { formatDay, formatKg } from '../utils/format';
 
 export default function WorkoutDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const goBack = useSmartBack();
+  const location = useLocation();
+  const justFinished = location.state?.justFinished === true;
   const qc = useQueryClient();
 
   const { data: workout, isLoading } = useQuery({
@@ -31,6 +35,16 @@ export default function WorkoutDetail() {
     },
   });
 
+  // PRs set in this workout, derived from the personal-bests list — a best whose date is
+  // this workout's day, for an exercise this workout contains, was set here. No new
+  // backend surface needed.
+  const { data: pbs = [] } = useQuery({
+    queryKey: ['personal-bests'],
+    queryFn: getPersonalBests,
+    enabled: justFinished,
+    staleTime: 0,
+  });
+
   if (isLoading) return <WorkoutDetailSkeleton />;
   if (!workout) return <p className="text-center text-neutral-500 dark:text-neutral-400 py-20">Workout not found.</p>;
 
@@ -45,7 +59,7 @@ export default function WorkoutDetail() {
     <div className="max-w-2xl mx-auto space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <Link to="/dashboard" className="text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 inline-flex items-center min-h-11 md:min-h-0 -ml-1 pl-1">← Back</Link>
+          <button type="button" onClick={goBack} className="text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 inline-flex items-center min-h-11 md:min-h-0 -ml-1 pl-1">← Back</button>
           <h1 className="text-2xl font-semibold tracking-tight mt-1">
             {workout.routine_name || 'Workout'}
             <StatusBadge status={workout.status} className="ml-2 align-middle" />
@@ -80,6 +94,24 @@ export default function WorkoutDetail() {
         <p className="text-sm text-neutral-600 dark:text-neutral-400">
           You skipped this session. It holds its place in the program sequence but counts toward no stats.
         </p>
+      )}
+
+      {justFinished && !isSkipped && (
+        <section className="border-l-2 border-l-emerald-500 pl-3 py-1.5">
+          <p className="section-label text-emerald-700 dark:text-emerald-400">Workout complete</p>
+          {(() => {
+            const ids = new Set((workout.exercises || []).map((e) => e.exercise_id));
+            const prs = pbs.filter((pb) => pb.date === workout.date && ids.has(pb.exercise_id));
+            return prs.length > 0 ? (
+              <p className="text-sm mt-0.5">
+                {prs.length === 1 ? 'New personal best' : `${prs.length} new personal bests`}:{' '}
+                {prs.map((pr) => `${pr.exercise_name} ${formatKg(pr.best_weight)} × ${pr.reps}`).join(', ')}
+              </p>
+            ) : (
+              <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-0.5">Logged and saved. See you next session.</p>
+            );
+          })()}
+        </section>
       )}
 
       {hasExercises && !isSkipped && (

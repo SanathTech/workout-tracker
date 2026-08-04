@@ -76,7 +76,7 @@ export default function Progress() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">Progress</h1>
-        <select className="input w-40 h-11 py-0" value={weeks} onChange={(e) => setWeeks(Number(e.target.value))} aria-label="Time range">
+        <select className="input w-40 h-11 py-0" value={weeks} onChange={(e) => setWeeks(Number(e.target.value))} aria-label="Time range — drives every card on this page">
           <option value={4}>Last 4 weeks</option>
           <option value={8}>Last 8 weeks</option>
           <option value={12}>Last 12 weeks</option>
@@ -85,7 +85,7 @@ export default function Progress() {
         </select>
       </div>
 
-      <MuscleVolume />
+      <MuscleVolume weeks={Math.min(weeks, 52)} />
       <BodyweightCard />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
