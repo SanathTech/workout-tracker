@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getExercises, getExerciseGroups, deleteExercise } from '../api/client';
 import { Skeleton } from '../components/Skeleton';
 import CreateExerciseForm from '../components/CreateExerciseForm';
+import MoreMenu from '../components/MoreMenu';
 
 function AddExerciseModal({ onClose }) {
   return (
@@ -18,50 +19,18 @@ function AddExerciseModal({ onClose }) {
   );
 }
 
-// One Delete button per row, right where a thumb rests while scrolling 80 rows, was the
-// most dangerous affordance in the app — and a native confirm() is one stray tap from
-// accepting. Deleting now takes a deliberate second tap on a control that isn't there
-// until you ask for it.
 function ExerciseRow({ ex, onDelete }) {
-  const [confirming, setConfirming] = useState(false);
-
-  useEffect(() => {
-    if (!confirming) return undefined;
-    const t = setTimeout(() => setConfirming(false), 5000);
-    return () => clearTimeout(t);
-  }, [confirming]);
-
   return (
     <div className="flex items-center gap-2 py-1.5">
       <div className="flex-1 min-w-0">
         <p className="font-medium">{ex.name}</p>
         {ex.description && <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-0.5 line-clamp-2">{ex.description}</p>}
       </div>
-      {confirming ? (
-        <div className="flex items-center gap-1 shrink-0">
-          <button onClick={() => setConfirming(false)} className="btn-ghost text-xs px-2">Cancel</button>
-          <button onClick={onDelete} className="btn-danger text-xs px-2">Delete</button>
-        </div>
-      ) : (
-        <button
-          onClick={() => setConfirming(true)}
-          aria-label={`More actions for ${ex.name}`}
-          className="shrink-0 w-11 h-11 flex items-center justify-center rounded-md text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 dark:hover:text-neutral-200 dark:hover:bg-neutral-900"
-        >
-          <MoreIcon />
-        </button>
-      )}
+      <MoreMenu
+        label={`Options for ${ex.name}`}
+        items={[{ label: 'Delete exercise', confirm: 'Delete — sure?', danger: true, onSelect: onDelete }]}
+      />
     </div>
-  );
-}
-
-function MoreIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
-      <circle cx="12" cy="5" r="1.6" />
-      <circle cx="12" cy="12" r="1.6" />
-      <circle cx="12" cy="19" r="1.6" />
-    </svg>
   );
 }
 
@@ -78,7 +47,7 @@ export default function ExerciseLibrary() {
   });
 
   const [deleteError, setDeleteError] = useState('');
-  const { mutate: remove } = useMutation({
+  const { mutate: remove, isPending: removing } = useMutation({
     mutationFn: deleteExercise,
     onSuccess: () => { setDeleteError(''); qc.invalidateQueries({ queryKey: ['exercises'] }); },
     onError: (err) => setDeleteError(err?.response?.data?.error || 'Could not delete exercise.'),
@@ -147,7 +116,7 @@ export default function ExerciseLibrary() {
             </div>
             <div className="divide-y divide-neutral-200 dark:divide-neutral-800 border-t border-neutral-200 dark:border-neutral-800">
               {exs.map((ex) => (
-                <ExerciseRow key={ex.id} ex={ex} onDelete={() => remove(ex.id)} />
+                <ExerciseRow key={ex.id} ex={ex} onDelete={() => { if (!removing) remove(ex.id); }} />
               ))}
             </div>
           </section>

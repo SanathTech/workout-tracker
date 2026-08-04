@@ -4,6 +4,7 @@ import { getWorkout, deleteWorkout } from '../api/client';
 import { Skeleton } from '../components/Skeleton';
 import MainBadge from '../components/MainBadge';
 import StatusBadge from '../components/StatusBadge';
+import MoreMenu from '../components/MoreMenu';
 import { formatDay, formatKg } from '../utils/format';
 
 export default function WorkoutDetail() {
@@ -16,7 +17,7 @@ export default function WorkoutDetail() {
     queryFn: () => getWorkout(id),
   });
 
-  const { mutate: remove } = useMutation({
+  const { mutate: remove, isPending: removing } = useMutation({
     mutationFn: () => deleteWorkout(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['recent-workouts'] });
@@ -57,24 +58,21 @@ export default function WorkoutDetail() {
             {workout.program_week && ` · Week ${workout.program_week}`}
           </p>
         </div>
-        <div className="flex flex-col gap-2 shrink-0">
+        <div className="flex items-center gap-1 shrink-0">
           {workout.status === 'in_progress' && (
             <Link to={`/session/${id}`} className="btn-primary">Resume</Link>
           )}
           {workout.status === 'completed' && (
             <Link to={`/session/${id}`} className="btn-secondary">Edit</Link>
           )}
-          <button
-            onClick={() => {
-              const prompt = isSkipped
-                ? `Undo this skip? The program sequence moves back to this routine${hasExercises ? ', and anything logged on it is deleted' : ''}.`
-                : 'Delete this workout?';
-              if (confirm(prompt)) remove();
-            }}
-            className="btn-danger"
-          >
-            {isSkipped ? 'Undo skip' : 'Delete'}
-          </button>
+          <MoreMenu
+            label="Workout options"
+            items={[
+              isSkipped
+                ? { label: 'Undo skip', confirm: hasExercises ? 'Undo — logged sets go too?' : 'Undo skip — sure?', danger: true, onSelect: () => { if (!removing) remove(); } }
+                : { label: 'Delete workout', confirm: 'Delete — sure?', danger: true, onSelect: () => { if (!removing) remove(); } },
+            ]}
+          />
         </div>
       </div>
 

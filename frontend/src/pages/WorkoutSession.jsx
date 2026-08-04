@@ -10,6 +10,7 @@ import RestTimer, { useRestTimer } from '../components/RestTimer';
 import { selectOnFocus, handleEditorEnter } from './program/helpers';
 import { formatRestRange, formatWarmup, formatDay } from '../utils/format';
 import { saveDraft, saveSnapshot, readDraft, clearDraft, pruneDrafts } from '../utils/draft';
+import MoreMenu from '../components/MoreMenu';
 
 const isBlank = (v) => v === '' || v == null;
 
@@ -252,19 +253,8 @@ function useSwipeToReveal(width = 80) {
 function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove, onRest, suggestion }) {
   const [showNote, setShowNote] = useState(false);
   const [showReason, setShowReason] = useState(false);
-  const [menu, setMenu] = useState(false);          // ⋯ popover
-  const [confirmRemove, setConfirmRemove] = useState(false);
   // Collapse transient state when the exercise is swapped for a different one.
-  useEffect(() => { setShowNote(false); setShowReason(false); setMenu(false); setConfirmRemove(false); }, [block.exercise_id]);
-  useEffect(() => { if (!menu) setConfirmRemove(false); }, [menu]);
-  // Escape closes the menu — the backdrop is pointer-only, and keyboard users otherwise
-  // have to tab back to the toggle.
-  useEffect(() => {
-    if (!menu) return undefined;
-    const onKey = (e) => { if (e.key === 'Escape') setMenu(false); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [menu]);
+  useEffect(() => { setShowNote(false); setShowReason(false); }, [block.exercise_id]);
   const { data: previous } = useQuery({
     queryKey: ['last-by-exercise', block.exercise_id, workoutId],
     queryFn: () => getLastByExercise(block.exercise_id, { exclude: workoutId }),
@@ -331,40 +321,13 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove, onR
         </button>
         {/* Swap lives on the name; everything rarer sits behind ⋯ so the header is
             just the name. */}
-        <div className="relative shrink-0">
-          <button
-            type="button"
-            onClick={() => setMenu((v) => !v)}
-            aria-label={`Options for ${block.exercise_name || 'exercise'}`}
-            aria-expanded={menu}
-            className="w-11 h-11 -mr-2 flex items-center justify-center rounded text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
-          >
-            <MoreIcon />
-          </button>
-          {menu && (
-            <>
-              <div className="fixed inset-0 z-20" onClick={() => setMenu(false)} aria-hidden="true" />
-              <div className="absolute right-0 top-11 z-30 w-44 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-lg py-1 text-sm">
-                {target?.notes && (
-                  <button
-                    type="button"
-                    onClick={() => { setShowNote((v) => !v); setMenu(false); }}
-                    className="w-full text-left px-3 h-10 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                  >
-                    {showNote ? 'Hide exercise notes' : 'Exercise notes'}
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => { if (confirmRemove) { setMenu(false); onRemove(); } else setConfirmRemove(true); }}
-                  className="w-full text-left px-3 h-10 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40"
-                >
-                  {confirmRemove ? 'Remove — sure?' : 'Remove exercise'}
-                </button>
-              </div>
-            </>
-          )}
-        </div>
+        <MoreMenu
+          label={`Options for ${block.exercise_name || 'exercise'}`}
+          items={[
+            target?.notes && { label: showNote ? 'Hide exercise notes' : 'Exercise notes', onSelect: () => setShowNote((v) => !v) },
+            { label: 'Remove exercise', confirm: 'Remove — sure?', danger: true, onSelect: onRemove },
+          ]}
+        />
       </div>
 
       {(metaChips.length > 0 || suggestionLabel) && (
@@ -443,16 +406,6 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove, onR
         + Add set
       </button>
     </div>
-  );
-}
-
-function MoreIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
-      <circle cx="12" cy="5" r="1.6" />
-      <circle cx="12" cy="12" r="1.6" />
-      <circle cx="12" cy="19" r="1.6" />
-    </svg>
   );
 }
 

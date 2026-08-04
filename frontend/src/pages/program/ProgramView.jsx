@@ -5,6 +5,7 @@ import { startProgram, endProgram, deleteProgram, startWorkout, skipUpcomingWork
 import { formatRestRange, formatWarmup } from '../../utils/format';
 import { ChevronIcon } from '../../components/icons';
 import MainBadge from '../../components/MainBadge';
+import MoreMenu from '../../components/MoreMenu';
 
 export default function ProgramView({ program, onEdit, onDeleted }) {
   const qc = useQueryClient();
@@ -66,7 +67,17 @@ export default function ProgramView({ program, onEdit, onDeleted }) {
     <div className="space-y-4">
       <section className="space-y-3">
         <div className="space-y-2">
-          <h1 className="text-2xl font-semibold tracking-tight">{program.name}</h1>
+          <div className="flex items-start gap-2">
+            <h1 className="text-2xl font-semibold tracking-tight flex-1 min-w-0">{program.name}</h1>
+            <MoreMenu
+              label={`Options for ${program.name}`}
+              items={[
+                { label: 'Edit program', onSelect: onEdit },
+                isActive && { label: 'End program', confirm: 'End — archive it?', danger: true, onSelect: () => { if (!endMut.isPending) endMut.mutate(); } },
+                !isActive && { label: 'Delete program', confirm: 'Delete — sure?', danger: true, onSelect: () => { if (!deleteMut.isPending) deleteMut.mutate(); } },
+              ]}
+            />
+          </div>
           <div className="flex flex-wrap gap-1.5">
             <span className="tag">{program.total_weeks ? `${program.total_weeks} weeks` : 'Ongoing'}</span>
             <span className="tag">{program.routines.length} routines</span>
@@ -100,28 +111,14 @@ export default function ProgramView({ program, onEdit, onDeleted }) {
           </div>
         )}
 
-        <div className="flex flex-wrap gap-2">
-          {!isActive && program.status !== 'completed' && (
-            <button onClick={() => startMut.mutate()} disabled={startMut.isPending} className="btn-primary">
-              {startMut.isPending ? '…' : 'Start program'}
-            </button>
-          )}
-          <button onClick={onEdit} className="btn-secondary">Edit</button>
-          {isActive && (
-            <button
-              onClick={() => { if (confirm('End this program early? It will be archived.')) endMut.mutate(); }}
-              disabled={endMut.isPending}
-              className="btn-secondary"
-            >{endMut.isPending ? 'Ending…' : 'End'}</button>
-          )}
-          {program.status !== 'active' && (
-            <button
-              onClick={() => { if (confirm(`Delete "${program.name}"? Any unfinished workout will be discarded. Completed history is kept.`)) deleteMut.mutate(); }}
-              disabled={deleteMut.isPending}
-              className="btn-ghost"
-            >{deleteMut.isPending ? 'Deleting…' : 'Delete'}</button>
-          )}
-        </div>
+        {!isActive && program.status !== 'completed' && (
+          <button onClick={() => startMut.mutate()} disabled={startMut.isPending} className="btn-primary">
+            {startMut.isPending ? '…' : 'Start program'}
+          </button>
+        )}
+        {(endMut.isPending || deleteMut.isPending) && (
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">{endMut.isPending ? 'Ending…' : 'Deleting…'}</p>
+        )}
       </section>
 
       <div className="divide-y divide-neutral-200 dark:divide-neutral-800 border-t border-neutral-200 dark:border-neutral-800">

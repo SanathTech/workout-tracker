@@ -1,13 +1,14 @@
+// Same chip as every other small fact in the app, tinted by state.
 const STYLES = {
-  in_progress: { label: 'in progress', className: 'text-amber-600 dark:text-amber-500' },
-  skipped: { label: 'skipped', className: 'text-neutral-400 dark:text-neutral-400' },
+  in_progress: { label: 'in progress', className: '!bg-amber-100 !text-amber-800 dark:!bg-amber-500/15 dark:!text-amber-400' },
+  skipped: { label: 'skipped', className: '' },
 };
 
 export default function StatusBadge({ status, className = '' }) {
   const style = STYLES[status];
   if (!style) return null;
   return (
-    <span className={`text-[11px] uppercase tracking-wide ${style.className} ${className}`}>
+    <span className={`tag align-middle ${style.className} ${className}`}>
       {style.label}
     </span>
   );
