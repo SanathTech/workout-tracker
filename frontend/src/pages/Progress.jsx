@@ -92,7 +92,16 @@ export default function Progress() {
         <StatCard label="Total workouts" value={stats?.total_workouts} loading={statsLoading} />
         <StatCard label="This week" value={stats?.workouts_this_week} loading={statsLoading} />
         <StatCard label="Total sets" value={stats?.total_sets} loading={statsLoading} />
-        <StatCard label="Total volume" value={stats ? Math.round(stats.total_volume_kg / 1000).toLocaleString() : '—'} unit="t" loading={statsLoading} />
+        <StatCard
+          label="Total volume"
+          value={stats ? (stats.total_volume_kg < 1000
+            ? Math.round(stats.total_volume_kg).toLocaleString()
+            : (stats.total_volume_kg / 1000).toLocaleString(undefined, stats.total_volume_kg < 10000
+                ? { minimumFractionDigits: 1, maximumFractionDigits: 1 }
+                : { maximumFractionDigits: 0 })) : '—'}
+          unit={stats ? (stats.total_volume_kg < 1000 ? 'kg' : 't') : ''}
+          loading={statsLoading}
+        />
       </div>
 
       <section className="border-t border-neutral-200 dark:border-neutral-800 pt-4">

@@ -202,7 +202,7 @@ export default function ExercisePickerSheet({
             <div className="flex-1 overflow-y-auto overscroll-contain">
               {presetSubstitutes.length > 0 && !query.trim() && (
                 <section>
-                  <h3 className="sticky top-0 z-10 bg-white dark:bg-neutral-950 px-4 pt-3 pb-1 text-[10px] uppercase tracking-wide font-medium text-neutral-500 dark:text-neutral-400">
+                  <h3 className="sticky top-0 z-10 bg-white dark:bg-neutral-950 px-4 pt-3 pb-1 text-[11px] uppercase tracking-wide font-medium text-neutral-500 dark:text-neutral-400">
                     Substitutes
                   </h3>
                   <ul>
@@ -214,7 +214,7 @@ export default function ExercisePickerSheet({
                           className="w-full text-left px-4 py-3 flex items-center justify-between hover:bg-neutral-100 dark:hover:bg-neutral-900 transition-colors"
                         >
                           <span className="text-neutral-900 dark:text-neutral-200">{s.exercise_name}</span>
-                          <span className="text-[10px] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">{s.muscle_group}</span>
+                          <span className="text-[11px] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">{s.muscle_group}</span>
                         </button>
                       </li>
                     ))}
@@ -241,7 +241,7 @@ export default function ExercisePickerSheet({
                 <>
                   {Object.entries(grouped).map(([group, exs]) => (
                     <section key={group}>
-                      <h3 className="sticky top-0 z-10 bg-white dark:bg-neutral-950 px-4 pt-3 pb-1 text-[10px] uppercase tracking-wide font-medium text-neutral-500 dark:text-neutral-400">
+                      <h3 className="sticky top-0 z-10 bg-white dark:bg-neutral-950 px-4 pt-3 pb-1 text-[11px] uppercase tracking-wide font-medium text-neutral-500 dark:text-neutral-400">
                         {group}
                       </h3>
                       <ul>
@@ -260,7 +260,7 @@ export default function ExercisePickerSheet({
                               >
                                 <span className="text-neutral-900 dark:text-neutral-200">{ex.name}</span>
                                 {isCurrent && (
-                                  <span className="text-[10px] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Current</span>
+                                  <span className="text-[11px] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Current</span>
                                 )}
                               </button>
                             </li>

@@ -4,11 +4,42 @@ import { useIsFetching, useQuery, useMutation, useQueryClient } from '@tanstack/
 import { useMobileNavHidden } from '../hooks/useMobileNavVisibility';
 import { getAuthStatus, logout } from '../api/client';
 
+function HomeIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true" {...props}>
+      <path d="M3 10.5 12 3l9 7.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M5.5 9.5V20a1 1 0 0 0 1 1H10v-6h4v6h3.5a1 1 0 0 0 1-1V9.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function ProgramIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true" {...props}>
+      <rect x="4" y="4" width="16" height="17" rx="2" />
+      <path d="M8 3v3M16 3v3M8 11h8M8 15.5h5" strokeLinecap="round" />
+    </svg>
+  );
+}
+function ProgressIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true" {...props}>
+      <path d="M4 20V10M10 20V4M16 20v-7M21 20H3.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+function DumbbellIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true" {...props}>
+      <path d="M7 8v8M4.5 9.5v5M17 8v8M19.5 9.5v5M7 12h10" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 const links = [
-  { to: '/dashboard', label: 'Dashboard' },
-  { to: '/program', label: 'Program' },
-  { to: '/progress', label: 'Progress' },
-  { to: '/exercises', label: 'Exercises' },
+  { to: '/dashboard', label: 'Home', Icon: HomeIcon },
+  { to: '/program', label: 'Program', Icon: ProgramIcon },
+  { to: '/progress', label: 'Progress', Icon: ProgressIcon },
+  { to: '/exercises', label: 'Exercises', Icon: DumbbellIcon },
 ];
 
 function SunIcon(props) {
@@ -127,7 +158,7 @@ export default function Navbar() {
                 className={({ isActive }) =>
                   `px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
                     isActive
-                      ? 'bg-neutral-100 text-neutral-900 dark:bg-neutral-900 dark:text-neutral-200'
+                      ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-400'
                       : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 hover:bg-neutral-50 dark:text-neutral-400 dark:hover:text-neutral-200 dark:hover:bg-neutral-900/50'
                   }`
                 }
@@ -153,13 +184,14 @@ export default function Navbar() {
               key={l.to}
               to={l.to}
               className={({ isActive }) =>
-                `flex items-center justify-center h-14 text-xs font-medium transition-colors ${
+                `flex flex-col items-center justify-center gap-0.5 h-14 text-[11px] font-medium transition-colors ${
                   isActive
-                    ? 'text-neutral-900 dark:text-neutral-200'
+                    ? 'text-emerald-700 dark:text-emerald-400'
                     : 'text-neutral-500 dark:text-neutral-400'
                 }`
               }
             >
+              <l.Icon />
               {l.label}
             </NavLink>
           ))}
