@@ -17,7 +17,7 @@ export default function WorkoutDetail() {
     queryFn: () => getWorkout(id),
   });
 
-  const { mutate: remove } = useMutation({
+  const { mutate: remove, isPending: removing } = useMutation({
     mutationFn: () => deleteWorkout(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['recent-workouts'] });
@@ -69,8 +69,8 @@ export default function WorkoutDetail() {
             label="Workout options"
             items={[
               isSkipped
-                ? { label: 'Undo skip', confirm: hasExercises ? 'Undo — logged sets go too?' : 'Undo skip — sure?', danger: true, onSelect: remove }
-                : { label: 'Delete workout', confirm: 'Delete — sure?', danger: true, onSelect: remove },
+                ? { label: 'Undo skip', confirm: hasExercises ? 'Undo — logged sets go too?' : 'Undo skip — sure?', danger: true, onSelect: () => { if (!removing) remove(); } }
+                : { label: 'Delete workout', confirm: 'Delete — sure?', danger: true, onSelect: () => { if (!removing) remove(); } },
             ]}
           />
         </div>

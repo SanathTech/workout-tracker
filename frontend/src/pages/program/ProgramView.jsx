@@ -73,8 +73,8 @@ export default function ProgramView({ program, onEdit, onDeleted }) {
               label={`Options for ${program.name}`}
               items={[
                 { label: 'Edit program', onSelect: onEdit },
-                isActive && { label: 'End program', confirm: 'End — archive it?', danger: true, onSelect: () => endMut.mutate() },
-                !isActive && { label: 'Delete program', confirm: 'Delete — sure?', danger: true, onSelect: () => deleteMut.mutate() },
+                isActive && { label: 'End program', confirm: 'End — archive it?', danger: true, onSelect: () => { if (!endMut.isPending) endMut.mutate(); } },
+                !isActive && { label: 'Delete program', confirm: 'Delete — sure?', danger: true, onSelect: () => { if (!deleteMut.isPending) deleteMut.mutate(); } },
               ]}
             />
           </div>

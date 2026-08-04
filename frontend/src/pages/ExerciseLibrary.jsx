@@ -47,7 +47,7 @@ export default function ExerciseLibrary() {
   });
 
   const [deleteError, setDeleteError] = useState('');
-  const { mutate: remove } = useMutation({
+  const { mutate: remove, isPending: removing } = useMutation({
     mutationFn: deleteExercise,
     onSuccess: () => { setDeleteError(''); qc.invalidateQueries({ queryKey: ['exercises'] }); },
     onError: (err) => setDeleteError(err?.response?.data?.error || 'Could not delete exercise.'),
@@ -116,7 +116,7 @@ export default function ExerciseLibrary() {
             </div>
             <div className="divide-y divide-neutral-200 dark:divide-neutral-800 border-t border-neutral-200 dark:border-neutral-800">
               {exs.map((ex) => (
-                <ExerciseRow key={ex.id} ex={ex} onDelete={() => remove(ex.id)} />
+                <ExerciseRow key={ex.id} ex={ex} onDelete={() => { if (!removing) remove(ex.id); }} />
               ))}
             </div>
           </section>
