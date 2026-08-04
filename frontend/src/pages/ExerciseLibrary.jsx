@@ -32,7 +32,7 @@ function ExerciseRow({ ex, onDelete }) {
   }, [confirming]);
 
   return (
-    <div className="flex items-center gap-2 p-3">
+    <div className="flex items-center gap-2 py-1.5">
       <div className="flex-1 min-w-0">
         <p className="font-medium">{ex.name}</p>
         {ex.description && <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-0.5 line-clamp-2">{ex.description}</p>}
@@ -140,17 +140,17 @@ export default function ExerciseLibrary() {
         <p className="text-center text-neutral-500 dark:text-neutral-400 py-20 text-sm">No exercises found.</p>
       ) : (
         Object.entries(grouped).map(([group, exs]) => (
-          <div key={group} className="space-y-2">
-            <div className="flex items-center gap-2">
-              <h2 className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">{group}</h2>
-              <span className="text-xs text-neutral-500 dark:text-neutral-400">{exs.length}</span>
+          <section key={group}>
+            <div className="flex items-center gap-2 mb-1">
+              <h2 className="section-label">{group}</h2>
+              <span className="text-xs text-neutral-500 dark:text-neutral-400 tabular-nums">{exs.length}</span>
             </div>
-            <div className="divide-y divide-neutral-200 dark:divide-neutral-800 border border-neutral-200 dark:border-neutral-800 rounded-md">
+            <div className="divide-y divide-neutral-200 dark:divide-neutral-800 border-t border-neutral-200 dark:border-neutral-800">
               {exs.map((ex) => (
                 <ExerciseRow key={ex.id} ex={ex} onDelete={() => remove(ex.id)} />
               ))}
             </div>
-          </div>
+          </section>
         ))
       )}
 

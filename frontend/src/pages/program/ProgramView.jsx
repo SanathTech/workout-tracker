@@ -64,12 +64,16 @@ export default function ProgramView({ program, onEdit, onDeleted }) {
 
   return (
     <div className="space-y-4">
-      <div className="card space-y-3">
-        <div className="space-y-1.5">
+      <section className="space-y-3">
+        <div className="space-y-2">
           <h1 className="text-2xl font-semibold tracking-tight">{program.name}</h1>
-          <p className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-            {program.total_weeks ? `${program.total_weeks} weeks` : 'Ongoing'} · {program.routines.length} routines · {program.status}
-          </p>
+          <div className="flex flex-wrap gap-1.5">
+            <span className="tag">{program.total_weeks ? `${program.total_weeks} weeks` : 'Ongoing'}</span>
+            <span className="tag">{program.routines.length} routines</span>
+            <span className={isActive
+              ? 'tag !bg-emerald-100 !text-emerald-800 dark:!bg-emerald-500/15 dark:!text-emerald-400'
+              : 'tag'}>{program.status}</span>
+          </div>
           {program.description && <ClampedDescription text={program.description} />}
         </div>
 
@@ -118,16 +122,14 @@ export default function ProgramView({ program, onEdit, onDeleted }) {
             >{deleteMut.isPending ? 'Deleting…' : 'Delete'}</button>
           )}
         </div>
-      </div>
+      </section>
 
+      <div className="divide-y divide-neutral-200 dark:divide-neutral-800 border-t border-neutral-200 dark:border-neutral-800">
       {program.routines.map((r, i) => {
         const open = openRoutines.has(r.id);
         const isNext = nextRoutine?.id === r.id;
         return (
-          <div
-            key={r.id}
-            className={`card ${isNext ? 'border-neutral-900 dark:border-neutral-100' : ''}`}
-          >
+          <section key={r.id} className="py-1">
             {/* The routine name is what you're scanning for, so it gets the line to
                 itself — packing the count onto the same row truncated "Day B — Hinge /
                 Row" to "Day B — Hing…" at 390px. */}
@@ -150,7 +152,7 @@ export default function ProgramView({ program, onEdit, onDeleted }) {
               <span className="text-neutral-400 dark:text-neutral-400 shrink-0"><ChevronIcon open={open} /></span>
             </button>
             {open && (
-              <div className="space-y-2 mt-3">
+              <div className="space-y-2 mt-1 mb-3">
                 {r.exercises.map((ex) => {
                   const warmup = formatWarmup(ex.warmup_sets_low, ex.warmup_sets_high);
                   return (
@@ -160,13 +162,18 @@ export default function ProgramView({ program, onEdit, onDeleted }) {
                         <span className="truncate">{ex.exercise_name}</span>
                         {ex.is_main && <MainBadge className="shrink-0" />}
                       </p>
-                      <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                        {warmup && `${warmup} · `}
-                        {ex.target_sets} sets
-                        {(ex.rep_range_low || ex.rep_range_high) && ` · ${ex.rep_range_low || '?'}–${ex.rep_range_high || '?'} reps`}
-                        {Array.isArray(ex.target_rir_per_set) && ex.target_rir_per_set.some((v) => v != null) && ` · RIR ${ex.target_rir_per_set.map((v) => v == null ? '–' : v).join('/')}`}
-                        {(ex.rest_seconds != null || ex.rest_seconds_high != null) && ` · ${formatRestRange(ex.rest_seconds, ex.rest_seconds_high)} rest`}
-                      </p>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        <span className="tag">{(ex.rep_range_low || ex.rep_range_high)
+                          ? `${ex.target_sets} × ${ex.rep_range_low || '?'}–${ex.rep_range_high || '?'}`
+                          : `${ex.target_sets} sets`}</span>
+                        {Array.isArray(ex.target_rir_per_set) && ex.target_rir_per_set.some((v) => v != null) && (
+                          <span className="tag">RIR {ex.target_rir_per_set.map((v) => v == null ? '–' : v).join('/')}</span>
+                        )}
+                        {(ex.rest_seconds != null || ex.rest_seconds_high != null) && (
+                          <span className="tag">{formatRestRange(ex.rest_seconds, ex.rest_seconds_high)} rest</span>
+                        )}
+                        {warmup && <span className="tag">{warmup}</span>}
+                      </div>
                       {ex.notes && <p className="text-xs text-neutral-500 dark:text-neutral-400 italic mt-0.5">{ex.notes}</p>}
                       {ex.substitutes?.length > 0 && (
                         <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
@@ -179,9 +186,10 @@ export default function ProgramView({ program, onEdit, onDeleted }) {
                 })}
               </div>
             )}
-          </div>
+          </section>
         );
       })}
+      </div>
     </div>
   );
 }

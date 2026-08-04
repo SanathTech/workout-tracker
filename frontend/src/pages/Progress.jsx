@@ -37,12 +37,12 @@ function useChartTheme() {
 
 function StatCard({ label, value, unit, loading }) {
   return (
-    <div className="card">
-      <p className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">{label}</p>
+    <div>
+      <p className="section-label">{label}</p>
       {loading ? (
         <Skeleton className="h-7 w-16 mt-2" />
       ) : (
-        <p className="text-2xl font-semibold mt-1">
+        <p className="text-2xl font-semibold mt-0.5 tabular-nums">
           {value}
           {unit && <span className="text-sm font-normal text-neutral-500 dark:text-neutral-400 ml-1">{unit}</span>}
         </p>
@@ -95,8 +95,8 @@ export default function Progress() {
         <StatCard label="Total volume" value={stats ? Math.round(stats.total_volume_kg / 1000).toLocaleString() : '—'} unit="t" loading={statsLoading} />
       </div>
 
-      <div className="card">
-        <h2 className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400 mb-4">Weekly training volume (kg)</h2>
+      <section className="border-t border-neutral-200 dark:border-neutral-800 pt-4">
+        <h2 className="section-label mb-4">Weekly training volume (kg)</h2>
         {volumeLoading ? (
           <Skeleton className="h-[240px] w-full" />
         ) : volumeData.length === 0 ? (
@@ -116,11 +116,11 @@ export default function Progress() {
             </BarChart>
           </ResponsiveContainer>
         )}
-      </div>
+      </section>
 
-      <div className="card space-y-4">
+      <section className="border-t border-neutral-200 dark:border-neutral-800 pt-4 space-y-4">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400 shrink-0">Exercise progress</h2>
+          <h2 className="section-label shrink-0">Exercise progress</h2>
           <button
             type="button"
             onClick={() => setPickerOpen(true)}
@@ -158,10 +158,10 @@ export default function Progress() {
             </LineChart>
           </ResponsiveContainer>
         )}
-      </div>
+      </section>
 
-      <div className="card">
-        <h2 className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400 mb-3">Personal bests</h2>
+      <section className="border-t border-neutral-200 dark:border-neutral-800 pt-4">
+        <h2 className="section-label mb-2">Personal bests</h2>
         {pbsLoading ? (
           <div className="space-y-2 py-2">
             {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-7 w-full" />)}
@@ -220,7 +220,7 @@ export default function Progress() {
             </div>
           </>
         )}
-      </div>
+      </section>
 
       <ExercisePickerSheet
         open={pickerOpen}

@@ -47,7 +47,7 @@ export default function History() {
         <h1 className="text-2xl font-semibold tracking-tight mt-1">Workout history</h1>
       </div>
 
-      <div className="card">
+      <div className="border-t border-neutral-200 dark:border-neutral-800">
         {isLoading ? (
           <div className="divide-y divide-neutral-200 dark:divide-neutral-800">
             {[0, 1, 2, 3].map((i) => (

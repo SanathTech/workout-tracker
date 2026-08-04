@@ -65,7 +65,7 @@ export default function MuscleVolume() {
 
   if (isLoading) {
     return (
-      <div className="card space-y-3">
+      <div className="space-y-3">
         <Skeleton className="h-4 w-40" />
         {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-6 w-full" />)}
       </div>
@@ -81,10 +81,10 @@ export default function MuscleVolume() {
     : null;
 
   return (
-    <div className="card">
+    <section>
       <div className="flex items-start justify-between gap-3 mb-1">
         <div className="min-w-0">
-          <h2 className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+          <h2 className="section-label">
             Sets per muscle{weekLabel ? ` · week of ${weekLabel}` : ''}
           </h2>
           <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">
@@ -123,6 +123,6 @@ export default function MuscleVolume() {
           {showAll ? 'Hide untrained' : `Show ${untrained.length} untrained`}
         </button>
       )}
-    </div>
+    </section>
   );
 }

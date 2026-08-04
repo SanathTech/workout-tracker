@@ -112,7 +112,14 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
 
 ### Styling
 - **Dark mode is the default.** Class-based (`darkMode: 'class'` in `tailwind.config.js`). An inline script in `index.html` sets `.dark` on `<html>` before paint based on `localStorage.theme` (defaults to dark). Toggle is in the Navbar.
-- Shared component classes (`.card`, `.input`, `.btn-secondary`, `.btn-ghost`, `.label`) carry `dark:` variants in `src/index.css`.
+- Shared component classes (`.card`, `.input`, `.btn-secondary`, `.btn-ghost`, `.label`, `.tag`, `.section-label`, `.chip`) carry `dark:` variants in `src/index.css`.
+- **The design language is flat, not carded** (2026-08-04, matching the session ledger):
+  pages are sections separated by hairline `divide-y`/`border-t` rules, headed by
+  `.section-label` (11px uppercase), with small data facts as `.tag` chips (sets×reps,
+  rest ranges, statuses, workout summary numbers) and digits in `tabular-nums`. `.card`
+  survives only for genuinely floating surfaces (login panel, error boundary, popover
+  menus, bottom sheets) and the program editor's form panels. Don't reintroduce bordered
+  boxes for page content.
 - **Mobile is the primary target, and the shared classes encode that.** `.btn` and `.chip`
   carry `min-h-11 md:min-h-0` (44px is the touch minimum; `py-2` alone gave 37px). `.input`
   is `text-base md:text-sm` because iOS Safari zooms the page on focusing any input under
