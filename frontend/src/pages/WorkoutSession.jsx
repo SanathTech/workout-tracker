@@ -791,7 +791,7 @@ export default function WorkoutSession() {
       {/* Replaces the global header on mobile (hidden by Navbar during a session): the
           pinned strip carries the routine, how far through you are and the save state,
           rather than the app's own name. */}
-      <div className="md:hidden sticky top-0 z-10 -mx-4 px-4 h-12 flex items-center gap-3 bg-white/95 dark:bg-neutral-950/95 backdrop-blur border-b border-neutral-200 dark:border-neutral-900">
+      <div className="md:hidden sticky top-0 z-10 -mx-4 px-4 h-12 flex items-center gap-3 bg-white dark:bg-neutral-950 border-b border-neutral-200 dark:border-neutral-900">
         <button
           onClick={() => navigate(-1)}
           aria-label="Back"

@@ -142,7 +142,7 @@ export default function Navbar() {
           during a session, where the page supplies its own pinned context strip.
           Desktop: full nav, sticky. */}
       <header
-        className={`bg-white/80 backdrop-blur border-b border-neutral-200 md:sticky md:top-0 z-10 dark:bg-neutral-950/80 dark:border-neutral-900 ${
+        className={`bg-white border-b border-neutral-200 md:sticky md:top-0 z-10 dark:bg-neutral-950 dark:border-neutral-900 ${
           inSession ? 'hidden md:block' : ''
         }`}
       >
@@ -177,26 +177,26 @@ export default function Navbar() {
 
       {/* Bottom tab bar — mobile only, hidden during a workout session or when an editor explicitly hides it */}
       {showBottomNav && (
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-20 bg-white/95 backdrop-blur border-t border-neutral-200 dark:bg-neutral-950/95 dark:border-neutral-900 pb-[env(safe-area-inset-bottom)]">
-        <div className="grid grid-cols-4">
-          {links.map((l) => (
-            <NavLink
-              key={l.to}
-              to={l.to}
-              className={({ isActive }) =>
-                `flex flex-col items-center justify-center gap-0.5 h-14 text-[11px] font-medium transition-colors ${
-                  isActive
-                    ? 'text-emerald-700 dark:text-emerald-400'
-                    : 'text-neutral-500 dark:text-neutral-400'
-                }`
-              }
-            >
-              <l.Icon />
-              {l.label}
-            </NavLink>
-          ))}
-        </div>
-      </nav>
+        <nav className="md:hidden fixed bottom-0 inset-x-0 z-20 bg-white border-t border-neutral-200 dark:bg-neutral-950 dark:border-neutral-900 pb-[env(safe-area-inset-bottom)]">
+          <div className="grid grid-cols-4">
+            {links.map((l) => (
+              <NavLink
+                key={l.to}
+                to={l.to}
+                className={({ isActive }) =>
+                  `flex flex-col items-center justify-center gap-0.5 h-14 text-[11px] font-medium transition-colors ${
+                    isActive
+                      ? 'text-emerald-700 dark:text-emerald-400'
+                      : 'text-neutral-500 dark:text-neutral-400'
+                  }`
+                }
+              >
+                <l.Icon />
+                {l.label}
+              </NavLink>
+            ))}
+          </div>
+        </nav>
       )}
     </>
   );
