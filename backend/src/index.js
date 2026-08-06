@@ -6,6 +6,7 @@ const exercisesRouter = require('./routes/exercises');
 const programsRouter = require('./routes/programs');
 const workoutsRouter = require('./routes/workouts');
 const progressRouter = require('./routes/progress');
+const coachRouter = require('./routes/coach');
 const authRouter = require('./routes/auth');
 const { requireAuth, isConfigured } = require('./util/auth');
 
@@ -63,6 +64,7 @@ app.use('/api/exercises', exercisesRouter);
 app.use('/api/programs', programsRouter);
 app.use('/api/workouts', workoutsRouter);
 app.use('/api/progress', progressRouter);
+app.use('/api/coach', coachRouter);
 
 // 404 handler
 app.use((req, res) => res.status(404).json({ error: 'Route not found' }));

@@ -92,3 +92,19 @@ export const logBodyweight = (data) =>
   api.post('/progress/bodyweight', { date: localDate(), ...data }).then((r) => r.data);
 export const deleteBodyweight = (id) =>
   api.delete(`/progress/bodyweight/${id}`).then((r) => r.data);
+
+// ── Coach ────────────────────────────────────────────────────
+export const getCoachLatest = () => api.get('/coach/latest').then((r) => r.data);
+export const getCoachHistory = (params) =>
+  api.get('/coach/history', { params }).then((r) => r.data);
+export const getReadiness = () => api.get('/coach/readiness').then((r) => r.data);
+export const getCheckin = () =>
+  api.get('/coach/checkin', { params: { date: localDate() } }).then((r) => r.data);
+export const getCheckins = (params) =>
+  api.get('/coach/checkins', { params }).then((r) => r.data);
+export const saveCheckin = (data) =>
+  api.post('/coach/checkin', { date: localDate(), ...data }).then((r) => r.data);
+export const getSessionFeel = (workoutId) =>
+  api.get(`/coach/session-feel/${workoutId}`).then((r) => r.data);
+export const saveSessionFeel = (data) =>
+  api.post('/coach/session-feel', data).then((r) => r.data);

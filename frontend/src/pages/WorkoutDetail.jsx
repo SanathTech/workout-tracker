@@ -5,6 +5,7 @@ import { Skeleton } from '../components/Skeleton';
 import MainBadge from '../components/MainBadge';
 import StatusBadge from '../components/StatusBadge';
 import MoreMenu from '../components/MoreMenu';
+import SessionFeel from '../components/SessionFeel';
 import { useSmartBack } from '../hooks/useSmartBack';
 import { formatDay, formatKg } from '../utils/format';
 
@@ -111,6 +112,7 @@ export default function WorkoutDetail() {
               <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-0.5">Logged and saved. See you next session.</p>
             );
           })()}
+          <SessionFeel workoutId={id} />
         </section>
       )}
 

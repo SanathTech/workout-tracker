@@ -1,0 +1,217 @@
+const express = require('express');
+const router = express.Router();
+const db = require('../db');
+const { serverError } = require('../util/errors');
+const { resolveWorkoutDate } = require('../util/dates');
+
+// The hub tables (coach_advice, checkins, session_feel, wellness_daily, training_load)
+// come from schema_hub.sql, not schema.sql. They're written by the nas-laptop timers;
+// this router is the read surface plus the two things only the phone can supply —
+// the daily check-in and how a session actually felt.
+
+const RATING = (v) => Number.isInteger(v) && v >= 1 && v <= 5;
+
+// GET /api/coach/latest — the most recent call of each kind, for the Coach tab header.
+router.get('/latest', async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      `SELECT DISTINCT ON (kind) kind, id, for_date, advice, markdown, model, created_at
+         FROM coach_advice
+        ORDER BY kind, for_date DESC, id DESC`
+    );
+    const byKind = Object.fromEntries(rows.map((r) => [r.kind, r]));
+    res.json({ daily: byKind.daily || null, weekly: byKind.weekly || null });
+  } catch (err) {
+    serverError(res, err);
+  }
+});
+
+// GET /api/coach/history — past calls, newest first.
+router.get('/history', async (req, res) => {
+  const limit = Math.min(Number(req.query.limit) || 20, 100);
+  const kind = req.query.kind === 'weekly' ? 'weekly' : req.query.kind === 'daily' ? 'daily' : null;
+  try {
+    const { rows } = await db.query(
+      `SELECT id, kind, for_date, advice, markdown, model, created_at
+         FROM coach_advice
+        WHERE ($1::text IS NULL OR kind = $1)
+        ORDER BY for_date DESC, id DESC
+        LIMIT $2`,
+      [kind, limit]
+    );
+    res.json(rows);
+  } catch (err) {
+    serverError(res, err);
+  }
+});
+
+// GET /api/coach/readiness — the numbers behind today's call.
+//
+// The 10-day average travels with the reading because a single night is unreadable
+// without it: Body Battery 61 is a bad morning at a baseline of 85 and a good one at 40.
+// `stale_hours` is the age of the *sync*, not the data — the UI says so rather than
+// rendering week-old numbers as if they were this morning's.
+router.get('/readiness', async (req, res) => {
+  try {
+    const [latest, baseline, load, freshness] = await Promise.all([
+      // Garmin fills today's row as the day happens, so the newest row is a half-empty
+      // stub until the watch syncs the night — no sleep, no wake battery. Rendering that
+      // shows an empty "Last night" card on a morning where the data simply hasn't
+      // arrived. Take the most recent row that actually contains a night; its `date` is
+      // displayed, so a stale one reads as stale rather than as an outage.
+      db.query(
+        `SELECT date, body_battery_at_wake, body_battery_high, body_battery_low,
+                sleep_score, sleep_secs, sleep_deep_secs, sleep_rem_secs, sleep_awake_secs,
+                resting_hr, stress_avg, steps
+           FROM wellness_daily
+          WHERE sleep_score IS NOT NULL OR body_battery_at_wake IS NOT NULL
+          ORDER BY date DESC LIMIT 1`
+      ),
+      db.query(
+        `SELECT ROUND(AVG(body_battery_at_wake)) AS body_battery_at_wake,
+                ROUND(AVG(sleep_score))          AS sleep_score,
+                ROUND(AVG(resting_hr))           AS resting_hr,
+                ROUND(AVG(stress_avg))           AS stress_avg,
+                COUNT(*)::int                    AS days
+           FROM wellness_daily WHERE date >= CURRENT_DATE - 10`
+      ),
+      db.query(
+        `SELECT date, ROUND(ctl, 1) AS ctl, ROUND(atl, 1) AS atl, ROUND(tsb, 1) AS tsb
+           FROM training_load ORDER BY date DESC LIMIT 1`
+      ),
+      db.query(
+        `SELECT MIN(ROUND(EXTRACT(EPOCH FROM (NOW() - last_success)) / 3600))::int AS stale_hours
+           FROM sync_state WHERE last_success IS NOT NULL`
+      ),
+    ]);
+    res.json({
+      last_night: latest.rows[0] || null,
+      baseline_10d: baseline.rows[0] || null,
+      training_load: load.rows[0] || null,
+      stale_hours: freshness.rows[0]?.stale_hours ?? null,
+    });
+  } catch (err) {
+    serverError(res, err);
+  }
+});
+
+// GET /api/coach/checkin — today's check-in, or null if it hasn't been done.
+router.get('/checkin', async (req, res) => {
+  const date = resolveWorkoutDate(req.query.date);
+  try {
+    const { rows } = await db.query(
+      `SELECT date, mood, energy, soreness, note FROM checkins WHERE date = $1`,
+      [date]
+    );
+    res.json(rows[0] || null);
+  } catch (err) {
+    serverError(res, err);
+  }
+});
+
+// GET /api/coach/checkins — recent check-ins, for the trend strip.
+router.get('/checkins', async (req, res) => {
+  const days = Math.min(Number(req.query.days) || 14, 120);
+  try {
+    const { rows } = await db.query(
+      `SELECT date, mood, energy, soreness, note FROM checkins
+        WHERE date >= CURRENT_DATE - $1::int ORDER BY date DESC`,
+      [days]
+    );
+    res.json(rows);
+  } catch (err) {
+    serverError(res, err);
+  }
+});
+
+// POST /api/coach/checkin — upsert today's check-in.
+//
+// Every field is optional on its own: the form is three taps and a note, and tapping
+// only "energy" is a legitimate check-in. But an entirely empty body is a mistake,
+// not an entry — reject it rather than writing a row of nulls the coach will read as
+// "he checked in and felt nothing".
+router.post('/checkin', async (req, res) => {
+  const { mood, energy, soreness } = req.body;
+  const note = typeof req.body.note === 'string' ? req.body.note.trim() || null : null;
+  const date = resolveWorkoutDate(req.body.date);
+
+  for (const [name, value] of Object.entries({ mood, energy, soreness })) {
+    if (value != null && !RATING(value)) {
+      return res.status(400).json({ error: `${name} must be an integer from 1 to 5` });
+    }
+  }
+  if (mood == null && energy == null && soreness == null && !note) {
+    return res.status(400).json({ error: 'Nothing to save' });
+  }
+
+  try {
+    const { rows } = await db.query(
+      `INSERT INTO checkins (date, mood, energy, soreness, note)
+            VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (date) DO UPDATE SET
+             mood     = COALESCE(EXCLUDED.mood, checkins.mood),
+             energy   = COALESCE(EXCLUDED.energy, checkins.energy),
+             soreness = COALESCE(EXCLUDED.soreness, checkins.soreness),
+             note     = COALESCE(EXCLUDED.note, checkins.note),
+             updated_at = NOW()
+        RETURNING date, mood, energy, soreness, note`,
+      [date, mood ?? null, energy ?? null, soreness ?? null, note]
+    );
+    res.json(rows[0]);
+  } catch (err) {
+    serverError(res, err);
+  }
+});
+
+// GET /api/coach/session-feel/:workoutId
+router.get('/session-feel/:workoutId', async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      `SELECT workout_id, date, rpe, note FROM session_feel WHERE workout_id = $1`,
+      [req.params.workoutId]
+    );
+    res.json(rows[0] || null);
+  } catch (err) {
+    serverError(res, err);
+  }
+});
+
+// POST /api/coach/session-feel — how the session that just finished actually felt.
+//
+// `date` is read off the workout rather than taken from the client: the prompt appears
+// right after Finish, but a session logged late at night and rated after midnight still
+// belongs to the day it was trained.
+router.post('/session-feel', async (req, res) => {
+  const { workout_id: workoutId, rpe } = req.body;
+  const note = typeof req.body.note === 'string' ? req.body.note.trim() || null : null;
+
+  if (!Number.isInteger(workoutId)) {
+    return res.status(400).json({ error: 'workout_id is required' });
+  }
+  if (rpe != null && !(Number.isInteger(rpe) && rpe >= 1 && rpe <= 10)) {
+    return res.status(400).json({ error: 'rpe must be an integer from 1 to 10' });
+  }
+  if (rpe == null && !note) {
+    return res.status(400).json({ error: 'Nothing to save' });
+  }
+
+  try {
+    const workout = await db.query(`SELECT date FROM workouts WHERE id = $1`, [workoutId]);
+    if (!workout.rows.length) return res.status(404).json({ error: 'Workout not found' });
+
+    const { rows } = await db.query(
+      `INSERT INTO session_feel (workout_id, date, rpe, note)
+            VALUES ($1, $2, $3, $4)
+       ON CONFLICT (workout_id) DO UPDATE SET
+             rpe  = COALESCE(EXCLUDED.rpe, session_feel.rpe),
+             note = COALESCE(EXCLUDED.note, session_feel.note)
+        RETURNING workout_id, date, rpe, note`,
+      [workoutId, workout.rows[0].date, rpe ?? null, note]
+    );
+    res.json(rows[0]);
+  } catch (err) {
+    serverError(res, err);
+  }
+});
+
+module.exports = router;
