@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { getCoachLatest, getReadiness, getCoachHistory } from '../api/client';
+import { getCoachLatest, getReadiness, getCoachHistory, getAdherence } from '../api/client';
 import CheckinCard from '../components/CheckinCard';
+import CoachChat from '../components/CoachChat';
 import { Skeleton } from '../components/Skeleton';
 import { formatDay } from '../utils/format';
 
@@ -205,6 +206,65 @@ function WeeklyAdvice({ entry }) {
   );
 }
 
+// Whether a call was followed can't be inferred from the call alone, so this shows the
+// pairing and lets him read it: the call, and what the day actually contained. It stays
+// descriptive on purpose — scoring "followed / ignored" would need to know that a rest
+// day with no activity is compliance while a rest day he spent swimming is not, and the
+// data can't tell those apart without asking him.
+function Adherence() {
+  const [open, setOpen] = useState(false);
+  const { data = [] } = useQuery({
+    queryKey: ['adherence'],
+    queryFn: () => getAdherence({ days: 14 }),
+    enabled: open,
+    staleTime: 5 * 60_000,
+  });
+
+  return (
+    <section className="border-t border-neutral-200 dark:border-neutral-800 pt-4">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-baseline justify-between text-left min-h-11 md:min-h-0"
+      >
+        <span className="section-label">Calls vs. what you did</span>
+        <span className="text-xs text-neutral-500 dark:text-neutral-400">{open ? '▲' : '▼'}</span>
+      </button>
+      {open && (
+        <ul className="divide-y divide-neutral-200 dark:divide-neutral-800">
+          {data.length === 0 && (
+            <li className="py-2 text-sm text-neutral-500 dark:text-neutral-400">
+              Nothing to compare yet.
+            </li>
+          )}
+          {data.map((d) => {
+            const did = [
+              ...(d.activities || []).map((a) => a.type),
+              d.strength_session,
+            ].filter(Boolean);
+            return (
+              <li key={d.for_date} className="py-2 flex items-baseline gap-3">
+                <span className="text-[11px] text-neutral-500 dark:text-neutral-400 tabular-nums w-12 shrink-0">
+                  {formatDay(d.for_date, { month: 'short', day: 'numeric' })}
+                </span>
+                <span className={`text-[11px] uppercase tracking-wide w-20 shrink-0 ${CALL_TEXT[d.call] || ''}`}>
+                  {CALL_LABEL[d.call] || '—'}
+                </span>
+                <span className="text-sm text-neutral-700 dark:text-neutral-300 flex-1">
+                  {did.length ? did.join(', ') : 'nothing logged'}
+                  {d.rpe != null && (
+                    <span className="text-neutral-500 dark:text-neutral-400"> · RPE {d.rpe}</span>
+                  )}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 function History() {
   const [open, setOpen] = useState(false);
   const { data = [] } = useQuery({
@@ -267,7 +327,9 @@ export default function Coach() {
       </section>
 
       <CheckinCard />
+      <CoachChat />
       <WeeklyAdvice entry={data?.weekly} />
+      <Adherence />
       <History />
     </div>
   );
