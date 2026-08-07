@@ -5,13 +5,12 @@ const { serverError } = require('../util/errors');
 const { resolveWorkoutDate, todayInAppTimezone } = require('../util/dates');
 const { buildChatContext, buildAdherence } = require('../util/coachContext');
 const { chatSystemPrompt } = require('../util/coachPrompt');
+const { MONTHLY_BUDGET_USD, costUsd, monthlySpend } = require('../util/coachSpend');
 
 // Chat runs on Haiku: it is answering one question against a compact bundle, it is paid
 // for on every message, and it shares a monthly cap with the scheduled runs. Sonnet is a
 // one-line change if the answers ever feel thin.
 const CHAT_MODEL = 'claude-haiku-4-5';
-const CHAT_PRICING = { in: 1.0, out: 5.0 }; // USD per million tokens
-const MONTHLY_BUDGET_USD = 5.0; // must match MONTHLY_BUDGET_USD in /srv/fitness/coach.py
 const MAX_HISTORY_TURNS = 20;
 
 // The hub tables (coach_advice, checkins, session_feel, wellness_daily, training_load)
@@ -291,17 +290,9 @@ router.post('/chat', async (req, res) => {
   }
 
   try {
-    // Chat and the scheduled runs spend from the same pocket, so the cap has to see
-    // both — summing only one of the two tables would enforce half a budget.
-    const { rows: spend } = await db.query(
-      `SELECT COALESCE(
-                (SELECT SUM(cost_usd) FROM coach_advice
-                  WHERE created_at >= date_trunc('month', NOW())), 0)
-            + COALESCE(
-                (SELECT SUM(cost_usd) FROM coach_messages
-                  WHERE created_at >= date_trunc('month', NOW())), 0) AS usd`
-    );
-    const spent = Number(spend[0].usd);
+    // Chat and the scheduled runs spend from the same pocket — monthlySpend() sums
+    // both tables.
+    const spent = await monthlySpend();
     if (spent >= MONTHLY_BUDGET_USD) {
       return res.status(429).json({
         error: `Monthly coach budget reached ($${spent.toFixed(2)} of $${MONTHLY_BUDGET_USD.toFixed(2)}). Resets next month.`,
@@ -345,9 +336,7 @@ router.post('/chat', async (req, res) => {
     if (!reply) return res.status(502).json({ error: 'Empty reply from the coach.' });
 
     const usage = response.usage;
-    const cost =
-      (usage.input_tokens * CHAT_PRICING.in + usage.output_tokens * CHAT_PRICING.out) /
-      1_000_000;
+    const cost = costUsd(CHAT_MODEL, usage);
 
     // Both turns in one transaction: a stored question with no answer would replay as
     // an unanswered turn in the next request's history and skew the conversation.
