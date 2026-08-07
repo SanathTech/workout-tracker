@@ -108,3 +108,9 @@ export const getSessionFeel = (workoutId) =>
   api.get(`/coach/session-feel/${workoutId}`).then((r) => r.data);
 export const saveSessionFeel = (data) =>
   api.post('/coach/session-feel', data).then((r) => r.data);
+export const getAdherence = (params) =>
+  api.get('/coach/adherence', { params }).then((r) => r.data);
+export const getCoachMessages = (params) =>
+  api.get('/coach/messages', { params }).then((r) => r.data);
+export const sendCoachMessage = (message) =>
+  api.post('/coach/chat', { message }).then((r) => r.data);

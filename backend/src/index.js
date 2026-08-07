@@ -7,6 +7,7 @@ const programsRouter = require('./routes/programs');
 const workoutsRouter = require('./routes/workouts');
 const progressRouter = require('./routes/progress');
 const coachRouter = require('./routes/coach');
+const coachRunRouter = require('./routes/coachRun');
 const authRouter = require('./routes/auth');
 const { requireAuth, isConfigured } = require('./util/auth');
 
@@ -54,8 +55,11 @@ app.use('/api', (req, res, next) => {
 // rather than inferred — it reads "off" until both auth env vars are set.
 app.get('/health', (req, res) => res.json({ status: 'ok', auth: isConfigured() ? 'on' : 'off' }));
 
-// Login/logout are the only unauthenticated API routes.
+// Login/logout are the only session-unauthenticated API routes — plus the coach run
+// endpoint, which is machine-to-machine: the nas-laptop timers have no browser
+// session, so it authenticates with its own shared secret instead.
 app.use('/api/auth', authRouter);
+app.use('/api/coach/run', coachRunRouter);
 
 // Everything below requires a valid session cookie once auth is configured.
 app.use('/api', requireAuth);

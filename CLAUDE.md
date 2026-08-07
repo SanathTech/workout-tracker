@@ -246,6 +246,21 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
 - Substitutes: preset list per exercise + fall back to the full library.
 - Wiping was OK when we restructured — the old `workout_plans`/`plan_exercises`/`workouts` shape was dropped in the Programs rebuild.
 
+## The coach
+
+The AI coach's brain lives entirely in this repo: persona and prompts
+(`src/util/coachPrompt.js`), all three context bundles (`src/util/coachContext.js`),
+pricing/budget (`src/util/coachSpend.js`), and the generation endpoint
+(`src/routes/coachRun.js`, machine-authed via `COACH_RUN_SECRET`, mounted before
+`requireAuth`). The nas-laptop timers are dumb triggers — they pull Garmin and curl
+`POST /api/coach/run?kind=daily|weekly`. Data ingest (garth/intervals.icu syncs) stays
+on nas-laptop; it only writes rows. There is deliberately no prompt text outside this
+repo — that was tried and the two copies drifted. Hub tables come from
+`src/db/schema_hub.sql` (additive-only, own `db:init-hub`; never merge into schema.sql,
+which wipes). Backend env vars: `ANTHROPIC_API_KEY`, `COACH_RUN_SECRET`,
+`COACH_NTFY_URL`. Anchor any hub date window to `todayInAppTimezone()`, never Postgres
+`CURRENT_DATE` — Neon is UTC and a Melbourne morning is still "yesterday" there.
+
 ## Known quirks / open follow-ups
 
 - No linter or types, and no frontend unit tests — CI builds the frontend, which catches

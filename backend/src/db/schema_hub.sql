@@ -148,8 +148,15 @@ CREATE TABLE IF NOT EXISTS coach_messages (
   model          VARCHAR(60),
   input_tokens   INTEGER,
   output_tokens  INTEGER,
+  -- Chat spends from the same monthly pocket as the scheduled runs, so it has to be
+  -- costed the same way — the budget check sums coach_advice and coach_messages
+  -- together. Without this column, chat would be free in the accounting and the cap
+  -- would be enforced against half the spend.
+  cost_usd       NUMERIC(8, 5),
   created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE coach_messages ADD COLUMN IF NOT EXISTS cost_usd NUMERIC(8, 5);
 
 CREATE INDEX IF NOT EXISTS idx_coach_messages_created ON coach_messages(created_at DESC);
 
