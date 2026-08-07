@@ -6,6 +6,7 @@ import Program from './pages/Program';
 import WorkoutSession from './pages/WorkoutSession';
 import WorkoutDetail from './pages/WorkoutDetail';
 import History from './pages/History';
+import Coach from './pages/Coach';
 import ExerciseLibrary from './pages/ExerciseLibrary';
 import { Skeleton } from './components/Skeleton';
 
@@ -32,6 +33,7 @@ export default function App() {
         <Route path="program" element={<Program />} />
         <Route path="workouts/:id" element={<WorkoutDetail />} />
         <Route path="history" element={<History />} />
+        <Route path="coach" element={<Coach />} />
         <Route path="session/:id" element={<WorkoutSession />} />
         <Route
           path="progress"

@@ -35,8 +35,19 @@ function DumbbellIcon(props) {
   );
 }
 
+function CoachIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true" {...props}>
+      <path d="M12 20.5s-7-4.35-7-9.5a4 4 0 0 1 7-2.65A4 4 0 0 1 19 11c0 5.15-7 9.5-7 9.5z" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+// Coach sits second: after a night's sleep the readiness call is the first thing worth
+// seeing, and on mobile the two leftmost tabs are the ones reachable one-handed.
 const links = [
   { to: '/dashboard', label: 'Home', Icon: HomeIcon },
+  { to: '/coach', label: 'Coach', Icon: CoachIcon },
   { to: '/program', label: 'Program', Icon: ProgramIcon },
   { to: '/progress', label: 'Progress', Icon: ProgressIcon },
   { to: '/exercises', label: 'Exercises', Icon: DumbbellIcon },
@@ -178,7 +189,7 @@ export default function Navbar() {
       {/* Bottom tab bar — mobile only, hidden during a workout session or when an editor explicitly hides it */}
       {showBottomNav && (
         <nav className="md:hidden fixed bottom-0 inset-x-0 z-20 bg-white border-t border-neutral-200 dark:bg-neutral-950 dark:border-neutral-900 pb-[env(safe-area-inset-bottom)]">
-          <div className="grid grid-cols-4">
+          <div className="grid grid-cols-5">
             {links.map((l) => (
               <NavLink
                 key={l.to}
