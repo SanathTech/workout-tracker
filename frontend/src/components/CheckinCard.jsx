@@ -73,7 +73,9 @@ export default function CheckinCard({ compact = false }) {
               className="flex gap-2 mt-2"
               onSubmit={(e) => {
                 e.preventDefault();
-                if (note.trim()) save.mutate({ note: note.trim() });
+                // Send the trimmed value or an explicit null — submitting an empty field
+                // is how you clear a note, so an empty string can't be a no-op here.
+                save.mutate({ note: note.trim() || null });
                 setNote('');
                 setNoteOpen(false);
               }}

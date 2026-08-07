@@ -12,11 +12,21 @@ const CALL_LABEL = {
   rest: 'Rest',
 };
 
-const CALL_STYLE = {
-  push: 'text-emerald-700 dark:text-emerald-400 border-l-emerald-500',
-  as_planned: 'text-sky-700 dark:text-sky-400 border-l-sky-500',
-  go_easy: 'text-amber-700 dark:text-amber-500 border-l-amber-500',
-  rest: 'text-red-700 dark:text-red-400 border-l-red-500',
+// Text and border are separate maps because the history list wants the colour without
+// the rule. Splitting a combined string on the first space would drop the `dark:`
+// half — and dark is the app's default theme, so that breaks the common case.
+const CALL_TEXT = {
+  push: 'text-emerald-700 dark:text-emerald-400',
+  as_planned: 'text-sky-700 dark:text-sky-400',
+  go_easy: 'text-amber-700 dark:text-amber-500',
+  rest: 'text-red-700 dark:text-red-400',
+};
+
+const CALL_BORDER = {
+  push: 'border-l-emerald-500',
+  as_planned: 'border-l-sky-500',
+  go_easy: 'border-l-amber-500',
+  rest: 'border-l-red-500',
 };
 
 function hours(secs) {
@@ -101,10 +111,12 @@ function DailyAdvice({ entry }) {
     );
   }
   const a = entry.advice || {};
-  const style = CALL_STYLE[a.call] || 'border-l-neutral-300 dark:border-l-neutral-700';
+  // The colour goes on the label itself, not the container: `.section-label` sets its
+  // own text colour, so an inherited one never reached it and the call read as a
+  // grey word next to a coloured rule.
   return (
-    <div className={`border-l-2 pl-3 ${style}`}>
-      <p className="section-label">{CALL_LABEL[a.call] || 'Today'}</p>
+    <div className={`border-l-2 pl-3 ${CALL_BORDER[a.call] || 'border-l-neutral-300 dark:border-l-neutral-700'}`}>
+      <p className={`section-label ${CALL_TEXT[a.call] || ''}`}>{CALL_LABEL[a.call] || 'Today'}</p>
       <h3 className="font-semibold tracking-tight mt-0.5 text-neutral-900 dark:text-neutral-100">{a.headline}</h3>
       {a.why && <p className="text-sm text-neutral-700 dark:text-neutral-300 mt-1.5">{a.why}</p>}
       {a.session_guidance && (
@@ -220,7 +232,7 @@ function History() {
           {data.map((e) => (
             <li key={e.id} className="py-2">
               <div className="flex items-baseline gap-2">
-                <span className={`text-[11px] uppercase tracking-wide ${CALL_STYLE[e.advice?.call]?.split(' ')[0] || ''}`}>
+                <span className={`text-[11px] uppercase tracking-wide ${CALL_TEXT[e.advice?.call] || ''}`}>
                   {CALL_LABEL[e.advice?.call] || '—'}
                 </span>
                 <span className="text-[11px] text-neutral-500 dark:text-neutral-400 tabular-nums">

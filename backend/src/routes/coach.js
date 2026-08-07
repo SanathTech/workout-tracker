@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const { serverError } = require('../util/errors');
-const { resolveWorkoutDate } = require('../util/dates');
+const { resolveWorkoutDate, todayInAppTimezone } = require('../util/dates');
 
 // The hub tables (coach_advice, checkins, session_feel, wellness_daily, training_load)
 // come from schema_hub.sql, not schema.sql. They're written by the nas-laptop timers;
@@ -10,6 +10,19 @@ const { resolveWorkoutDate } = require('../util/dates');
 // the daily check-in and how a session actually felt.
 
 const RATING = (v) => Number.isInteger(v) && v >= 1 && v <= 5;
+
+// Neon runs in UTC, so `CURRENT_DATE` is a day behind for most of a Melbourne morning
+// and every window anchored to it silently shifts. Anchor to the app's calendar day
+// instead — the same rule util/dates.js already enforces for workouts.date.
+const anchor = () => todayInAppTimezone();
+
+// Nullable text distinguishes "not provided" from "cleared", per the pattern in
+// workouts.notes: COALESCE would read a cleared note as absent and restore the old one,
+// so the caller could never erase it. Returns `undefined` when the key is absent.
+function readNote(body) {
+  if (!Object.prototype.hasOwnProperty.call(body, 'note')) return undefined;
+  return typeof body.note === 'string' ? body.note.trim() || null : null;
+}
 
 // GET /api/coach/latest — the most recent call of each kind, for the Coach tab header.
 router.get('/latest', async (req, res) => {
@@ -73,7 +86,8 @@ router.get('/readiness', async (req, res) => {
                 ROUND(AVG(resting_hr))           AS resting_hr,
                 ROUND(AVG(stress_avg))           AS stress_avg,
                 COUNT(*)::int                    AS days
-           FROM wellness_daily WHERE date >= CURRENT_DATE - 10`
+           FROM wellness_daily WHERE date >= $1::date - 10`,
+        [anchor()]
       ),
       db.query(
         `SELECT date, ROUND(ctl, 1) AS ctl, ROUND(atl, 1) AS atl, ROUND(tsb, 1) AS tsb
@@ -115,8 +129,8 @@ router.get('/checkins', async (req, res) => {
   try {
     const { rows } = await db.query(
       `SELECT date, mood, energy, soreness, note FROM checkins
-        WHERE date >= CURRENT_DATE - $1::int ORDER BY date DESC`,
-      [days]
+        WHERE date >= $2::date - $1::int ORDER BY date DESC`,
+      [days, anchor()]
     );
     res.json(rows);
   } catch (err) {
@@ -132,7 +146,8 @@ router.get('/checkins', async (req, res) => {
 // "he checked in and felt nothing".
 router.post('/checkin', async (req, res) => {
   const { mood, energy, soreness } = req.body;
-  const note = typeof req.body.note === 'string' ? req.body.note.trim() || null : null;
+  const note = readNote(req.body);
+  const noteProvided = note !== undefined;
   const date = resolveWorkoutDate(req.body.date);
 
   for (const [name, value] of Object.entries({ mood, energy, soreness })) {
@@ -140,22 +155,25 @@ router.post('/checkin', async (req, res) => {
       return res.status(400).json({ error: `${name} must be an integer from 1 to 5` });
     }
   }
-  if (mood == null && energy == null && soreness == null && !note) {
+  if (mood == null && energy == null && soreness == null && !noteProvided) {
     return res.status(400).json({ error: 'Nothing to save' });
   }
 
   try {
     const { rows } = await db.query(
+      // The ratings COALESCE on purpose — each one is saved by its own tap, so an
+      // absent field means "not tapped this time", never "cleared". The note can't work
+      // that way: it's the one field the user can deliberately empty.
       `INSERT INTO checkins (date, mood, energy, soreness, note)
             VALUES ($1, $2, $3, $4, $5)
        ON CONFLICT (date) DO UPDATE SET
              mood     = COALESCE(EXCLUDED.mood, checkins.mood),
              energy   = COALESCE(EXCLUDED.energy, checkins.energy),
              soreness = COALESCE(EXCLUDED.soreness, checkins.soreness),
-             note     = COALESCE(EXCLUDED.note, checkins.note),
+             note     = CASE WHEN $6::boolean THEN EXCLUDED.note ELSE checkins.note END,
              updated_at = NOW()
         RETURNING date, mood, energy, soreness, note`,
-      [date, mood ?? null, energy ?? null, soreness ?? null, note]
+      [date, mood ?? null, energy ?? null, soreness ?? null, note ?? null, noteProvided]
     );
     res.json(rows[0]);
   } catch (err) {
@@ -165,10 +183,16 @@ router.post('/checkin', async (req, res) => {
 
 // GET /api/coach/session-feel/:workoutId
 router.get('/session-feel/:workoutId', async (req, res) => {
+  // Validated rather than handed to Postgres: a non-numeric param would fail the
+  // integer cast and surface as a 500, which reads as an outage rather than a bad URL.
+  const workoutId = Number(req.params.workoutId);
+  if (!Number.isInteger(workoutId)) {
+    return res.status(400).json({ error: 'workoutId must be an integer' });
+  }
   try {
     const { rows } = await db.query(
       `SELECT workout_id, date, rpe, note FROM session_feel WHERE workout_id = $1`,
-      [req.params.workoutId]
+      [workoutId]
     );
     res.json(rows[0] || null);
   } catch (err) {
@@ -183,7 +207,8 @@ router.get('/session-feel/:workoutId', async (req, res) => {
 // belongs to the day it was trained.
 router.post('/session-feel', async (req, res) => {
   const { workout_id: workoutId, rpe } = req.body;
-  const note = typeof req.body.note === 'string' ? req.body.note.trim() || null : null;
+  const note = readNote(req.body);
+  const noteProvided = note !== undefined;
 
   if (!Number.isInteger(workoutId)) {
     return res.status(400).json({ error: 'workout_id is required' });
@@ -191,7 +216,7 @@ router.post('/session-feel', async (req, res) => {
   if (rpe != null && !(Number.isInteger(rpe) && rpe >= 1 && rpe <= 10)) {
     return res.status(400).json({ error: 'rpe must be an integer from 1 to 10' });
   }
-  if (rpe == null && !note) {
+  if (rpe == null && !noteProvided) {
     return res.status(400).json({ error: 'Nothing to save' });
   }
 
@@ -204,9 +229,9 @@ router.post('/session-feel', async (req, res) => {
             VALUES ($1, $2, $3, $4)
        ON CONFLICT (workout_id) DO UPDATE SET
              rpe  = COALESCE(EXCLUDED.rpe, session_feel.rpe),
-             note = COALESCE(EXCLUDED.note, session_feel.note)
+             note = CASE WHEN $5::boolean THEN EXCLUDED.note ELSE session_feel.note END
         RETURNING workout_id, date, rpe, note`,
-      [workoutId, workout.rows[0].date, rpe ?? null, note]
+      [workoutId, workout.rows[0].date, rpe ?? null, note ?? null, noteProvided]
     );
     res.json(rows[0]);
   } catch (err) {

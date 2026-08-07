@@ -45,7 +45,8 @@ export default function SessionFeel({ workoutId }) {
           className="flex gap-2 mt-2"
           onSubmit={(e) => {
             e.preventDefault();
-            if (note.trim()) save.mutate({ note: note.trim() });
+            // Explicit null on an empty field — that's how the note gets cleared.
+            save.mutate({ note: note.trim() || null });
             setNote('');
             setNoteOpen(false);
           }}
