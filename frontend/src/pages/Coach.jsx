@@ -243,7 +243,7 @@ function Adherence() {
               d.strength_session,
             ].filter(Boolean);
             return (
-              <li key={d.for_date} className="py-2 flex items-baseline gap-3">
+              <li key={d.id} className="py-2 flex items-baseline gap-3">
                 <span className="text-[11px] text-neutral-500 dark:text-neutral-400 tabular-nums w-12 shrink-0">
                   {formatDay(d.for_date, { month: 'short', day: 'numeric' })}
                 </span>

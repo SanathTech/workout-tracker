@@ -91,7 +91,14 @@ async function buildChatContext() {
 // assistant that says "go easy" every day looks exactly like one that reads the data.
 async function buildAdherence(days = 28) {
   const { rows } = await db.query(
-    `SELECT ca.for_date,
+    // DISTINCT ON collapses a date to its latest call. Nothing stops two daily rows
+    // sharing a for_date — a manual re-run does exactly that — and rendering both
+    // would show the same day's activities twice under two different calls. The last
+    // call of the day is the operative one. `id` comes back so callers have a stable
+    // key that doesn't depend on the date being unique.
+    `SELECT DISTINCT ON (ca.for_date)
+            ca.id,
+            ca.for_date,
             ca.advice->>'call'     AS call,
             ca.advice->>'headline' AS headline,
             COALESCE((
@@ -104,7 +111,7 @@ async function buildAdherence(days = 28) {
             (SELECT sf.rpe FROM session_feel sf WHERE sf.date = ca.for_date LIMIT 1) AS rpe
        FROM coach_advice ca
       WHERE ca.kind = 'daily' AND ca.for_date >= $2::date - $1::int
-      ORDER BY ca.for_date DESC`,
+      ORDER BY ca.for_date DESC, ca.id DESC`,
     [days, todayInAppTimezone()]
   );
   return rows;
