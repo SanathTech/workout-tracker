@@ -282,4 +282,20 @@ async function buildChatContext() {
   };
 }
 
-module.exports = { buildDailyBundle, buildWeeklyBundle, buildChatContext, buildAdherence };
+module.exports = {
+  buildDailyBundle,
+  buildWeeklyBundle,
+  buildChatContext,
+  buildAdherence,
+  // Individual blocks, exported for the MCP server — its tools must serve the same
+  // numbers the coach reasons over, so they call these rather than re-querying.
+  readiness,
+  loadBlock,
+  recentActivities,
+  strengthSessions,
+  nextSession,
+  bodyweight,
+  checkins,
+  pastAdvice,
+  dataFreshness,
+};

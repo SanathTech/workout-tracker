@@ -8,6 +8,7 @@ const workoutsRouter = require('./routes/workouts');
 const progressRouter = require('./routes/progress');
 const coachRouter = require('./routes/coach');
 const coachRunRouter = require('./routes/coachRun');
+const mcpRouter = require('./routes/mcp');
 const authRouter = require('./routes/auth');
 const { requireAuth, isConfigured } = require('./util/auth');
 
@@ -60,6 +61,8 @@ app.get('/health', (req, res) => res.json({ status: 'ok', auth: isConfigured() ?
 // session, so it authenticates with its own shared secret instead.
 app.use('/api/auth', authRouter);
 app.use('/api/coach/run', coachRunRouter);
+// The claude.ai MCP connector — capability-URL auth (token in path), not session auth.
+app.use('/api/mcp/:token', mcpRouter);
 
 // Everything below requires a valid session cookie once auth is configured.
 app.use('/api', requireAuth);

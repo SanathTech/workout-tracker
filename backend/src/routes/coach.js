@@ -5,7 +5,7 @@ const { serverError } = require('../util/errors');
 const { resolveWorkoutDate, todayInAppTimezone } = require('../util/dates');
 const { buildChatContext, buildAdherence } = require('../util/coachContext');
 const { chatSystemPrompt } = require('../util/coachPrompt');
-const { MONTHLY_BUDGET_USD, costUsd, monthlySpend } = require('../util/coachSpend');
+const { CHAT_BUDGET_USD, costUsd, monthlySpend } = require('../util/coachSpend');
 
 // Chat runs on Haiku: it is answering one question against a compact bundle, it is paid
 // for on every message, and it shares a monthly cap with the scheduled runs. Sonnet is a
@@ -290,12 +290,14 @@ router.post('/chat', async (req, res) => {
   }
 
   try {
-    // Chat and the scheduled runs spend from the same pocket — monthlySpend() sums
-    // both tables.
+    // Chat and the scheduled runs spend from the same pocket, but chat stops at its
+    // own lower line — the 06:30 call must never go silent because of a chatty
+    // fortnight. For anything past this, the MCP connector on claude.ai is the
+    // depth surface and spends allowance, not this key.
     const spent = await monthlySpend();
-    if (spent >= MONTHLY_BUDGET_USD) {
+    if (spent >= CHAT_BUDGET_USD) {
       return res.status(429).json({
-        error: `Monthly coach budget reached ($${spent.toFixed(2)} of $${MONTHLY_BUDGET_USD.toFixed(2)}). Resets next month.`,
+        error: `Chat budget reached ($${spent.toFixed(2)} of $${CHAT_BUDGET_USD.toFixed(2)} this month) — scheduled calls keep the remainder. For longer discussions use the coach connector in Claude. Resets next month.`,
       });
     }
 
