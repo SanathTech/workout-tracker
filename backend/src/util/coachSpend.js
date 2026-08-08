@@ -11,6 +11,12 @@ const PRICING = {
 // Summing only one of the two tables would enforce half a budget.
 const MONTHLY_BUDGET_USD = 5.0;
 
+// Chat stops before the pocket is empty. The scheduled calls are the product — the
+// thing that reliably arrives at 06:30 — and a chatty fortnight must not be able to
+// silence them. The reserve covers a full month of scheduled runs (~$0.20 daily +
+// ~$0.25 weekly) with margin.
+const CHAT_BUDGET_USD = 3.5;
+
 function costUsd(model, usage) {
   let { in: rateIn, out: rateOut, after } = PRICING[model];
   if (after && new Date() > new Date(`${after.date}T23:59:59Z`)) {
@@ -40,4 +46,4 @@ async function monthlySpend() {
   return Number(rows[0].usd);
 }
 
-module.exports = { PRICING, MONTHLY_BUDGET_USD, costUsd, monthlySpend };
+module.exports = { PRICING, MONTHLY_BUDGET_USD, CHAT_BUDGET_USD, costUsd, monthlySpend };
