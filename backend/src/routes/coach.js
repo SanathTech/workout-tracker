@@ -290,14 +290,18 @@ router.post('/chat', async (req, res) => {
   }
 
   try {
-    // Chat and the scheduled runs spend from the same pocket, but chat stops at its
-    // own lower line — the 06:30 call must never go silent because of a chatty
-    // fortnight. For anything past this, the MCP connector on claude.ai is the
-    // depth surface and spends allowance, not this key.
+    // Deliberately COMBINED spend against the lower line, not chat-only spend. The
+    // invariant is "the 06:30 call can never be starved": scheduled runs stop at the
+    // $5 pocket, so chat must stop while at least (pocket − chat line) = $1.50 is
+    // still unspent in total. Counting only coach_messages here would let a $3.50
+    // chat month plus a normal run month reach the pocket ceiling and silence the
+    // morning call — the exact failure this guard exists to prevent. Chat gives way
+    // first because the scheduled calls are the product; past this line, the MCP
+    // connector on claude.ai is the depth surface and spends allowance, not this key.
     const spent = await monthlySpend();
     if (spent >= CHAT_BUDGET_USD) {
       return res.status(429).json({
-        error: `Chat budget reached ($${spent.toFixed(2)} of $${CHAT_BUDGET_USD.toFixed(2)} this month) — scheduled calls keep the remainder. For longer discussions use the coach connector in Claude. Resets next month.`,
+        error: `Coach spend is $${spent.toFixed(2)} this month; chat pauses at $${CHAT_BUDGET_USD.toFixed(2)} so the scheduled calls keep the rest of the pocket. For longer discussions use the coach connector in Claude. Resets next month.`,
       });
     }
 
