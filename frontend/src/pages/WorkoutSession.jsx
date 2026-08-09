@@ -67,7 +67,7 @@ const LEDGER_COLS = 'grid grid-cols-[2.5rem_1fr_4rem_4rem_3.25rem] items-center'
 // There used to be a tick column and a rest timer (removed 2026-08-10 — the owner
 // rests by Garmin, and with the timer gone the tick was a second button for what the
 // PREV tap already does). The green done-tint stays, keyed off the row carrying data.
-function SetRow({ set, previousSet, showPrev, targetRir, onChange, onRemove }) {
+function SetRow({ set, previousSet, showPrev, targetRir, suggestion, onChange, onRemove }) {
   const prevWeight = previousSet?.weight_kg != null ? Number(previousSet.weight_kg) : null;
   // Either half can be null on its own — a weight-only or reps-only previous set still
   // shows the half it has rather than collapsing to a dash.
@@ -95,6 +95,19 @@ function SetRow({ set, previousSet, showPrev, targetRir, onChange, onRemove }) {
   // Swipe left to reveal Remove — the ledger has no room for an always-visible ✕, and
   // this keeps deletion a deliberate two-step (swipe, then tap). See useSwipeToReveal.
   const { offset, revealed, close, handlers } = useSwipeToReveal();
+
+  // Ghost text is the AIM, not an echo of PREV (owner call, 2026-08-10 — the old
+  // prev-as-placeholder duplicated the PREV column one cell over). Increase: the
+  // suggested weight at the bottom of the range. Hold: same weight, beat last time's
+  // reps by one, capped at the top of the range. No suggestion: plain unit labels.
+  const ghostWeight = suggestion?.suggested_weight_kg ?? null;
+  const ghostReps = suggestion == null
+    ? null
+    : suggestion.action === 'increase'
+      ? suggestion.suggested_reps_low ?? null
+      : previousSet?.reps != null
+        ? Math.min(previousSet.reps + 1, suggestion.suggested_reps_high ?? previousSet.reps + 1)
+        : suggestion.suggested_reps_low ?? null;
 
   const typeLabel = SET_TYPE_LABEL[set.set_type || 'working'];
   const cellInput = 'w-full h-11 bg-transparent border-0 p-0 text-center text-base tabular-nums text-neutral-900 dark:text-neutral-200 placeholder:text-neutral-400 dark:placeholder:text-neutral-600 focus:outline-none focus:bg-neutral-100 dark:focus:bg-neutral-800/70 rounded-md transition-colors';
@@ -138,7 +151,7 @@ function SetRow({ set, previousSet, showPrev, targetRir, onChange, onRemove }) {
         </button>
         <button
           type="button"
-          onClick={showPrev ? fillFromPrev : undefined}
+          onClick={showPrev ? () => { if (revealed) { close(); return; } fillFromPrev(); } : undefined}
           disabled={!showPrev}
           title={showPrev ? prevTitle : undefined}
           aria-label={showPrev ? prevTitle : 'No previous session for this exercise'}
@@ -150,7 +163,7 @@ function SetRow({ set, previousSet, showPrev, targetRir, onChange, onRemove }) {
           data-editor-input="true"
           type="number" inputMode="decimal" min="0" step="0.5"
           enterKeyHint="next"
-          placeholder={prevWeight != null ? `${prevWeight}` : 'kg'}
+          placeholder={ghostWeight != null ? `${ghostWeight}` : 'kg'}
           aria-label={`Set ${set.set_number} weight in kilograms`}
           value={set.weight_kg ?? ''}
           onFocus={selectOnFocus}
@@ -161,7 +174,7 @@ function SetRow({ set, previousSet, showPrev, targetRir, onChange, onRemove }) {
           data-editor-input="true"
           type="number" inputMode="numeric" min="0"
           enterKeyHint="next"
-          placeholder={previousSet?.reps != null ? `${previousSet.reps}` : 'reps'}
+          placeholder={ghostReps != null ? `${ghostReps}` : 'reps'}
           aria-label={`Set ${set.set_number} reps`}
           value={set.reps ?? ''}
           onFocus={selectOnFocus}
@@ -366,6 +379,7 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove, sug
             previousSet={prevBySet[s.set_number]}
             showPrev={hasPrev}
             targetRir={Array.isArray(target?.target_rir_per_set) ? target.target_rir_per_set[i] ?? null : null}
+            suggestion={hasSuggestion ? suggestion : null}
             onChange={(u) => updateSet(i, u)}
             onRemove={() => removeSet(i)}
           />

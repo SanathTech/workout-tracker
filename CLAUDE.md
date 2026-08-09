@@ -263,9 +263,13 @@ which wipes). Backend env vars: `ANTHROPIC_API_KEY`, `COACH_RUN_SECRET`,
   bad imports and syntax but not behaviour.
 - **The session screen is a ledger, and cells-not-boxes is the load-bearing idea.** One
   44px grid row per set (`LEDGER_COLS`: set# / prev / kg / reps / rir), no card, no
-  input boxes — values are bare text in tappable cells, the empty cells show last
-  session's numbers as placeholders, and **tapping PREV is the one-tap log**: it copies
-  last session's numbers into the blanks and the row counts as done. "Done" is derived
+  input boxes — values are bare text in tappable cells, and **tapping PREV is the
+  one-tap log**: it copies last session's numbers into the blanks and the row counts as
+  done. **Ghost placeholders are the AIM, not an echo of PREV** (owner call,
+  2026-08-10): they show the progression engine's suggestion — new weight at the bottom
+  of the range on increase, same weight and one more rep (capped at the top) on hold —
+  and plain unit labels when there's no suggestion. PREV shows what happened; ghost
+  shows what to do. "Done" is derived
   from the row carrying data (the green tint), not stored — there is nothing to
   uncheck; clearing the cells or swipe-removing the row is the undo. This is the
   Strong/Hevy layout, chosen deliberately (2026-08-04) after the boxed two-line version
