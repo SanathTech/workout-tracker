@@ -5,8 +5,7 @@ import { getWorkout, updateWorkout, completeWorkout, skipWorkout, getLastByExerc
 import { Skeleton } from '../components/Skeleton';
 import ExercisePickerSheet from '../components/ExercisePickerSheet';
 import MainBadge from '../components/MainBadge';
-import { ChevronIcon, CheckIcon } from '../components/icons';
-import RestTimer, { useRestTimer } from '../components/RestTimer';
+import { ChevronIcon } from '../components/icons';
 import { selectOnFocus, handleEditorEnter } from './program/helpers';
 import { formatRestRange, formatWarmup, formatDay } from '../utils/format';
 import { saveDraft, saveSnapshot, readDraft, clearDraft, pruneDrafts } from '../utils/draft';
@@ -59,13 +58,16 @@ const nextSetType = (t) =>
   SET_TYPE_CYCLE[(SET_TYPE_CYCLE.indexOf(t || 'working') + 1) % SET_TYPE_CYCLE.length];
 
 // Grid template shared by the header row and every set row, so the columns can't drift.
-const LEDGER_COLS = 'grid grid-cols-[2.5rem_1fr_4rem_4rem_3.25rem_2.75rem] items-center';
+const LEDGER_COLS = 'grid grid-cols-[2.5rem_1fr_4rem_4rem_3.25rem] items-center';
 
 // The ledger row — one 44px line per set, the layout Strong and Hevy converged on.
-// No boxed inputs: values are bare text in tappable cells, last session's numbers sit in
-// the empty cells as placeholders, and ticking a row with blanks commits them. Cells,
-// not boxes, is where the density comes from; the row itself is still a 44px target.
-function SetRow({ set, previousSet, showPrev, targetRir, onChange, onRemove, onDone }) {
+// No boxed inputs: values are bare text in tappable cells, last session's numbers sit
+// in the empty cells as placeholders, and tapping PREV copies them in. Cells, not
+// boxes, is where the density comes from; the row itself is still a 44px target.
+// There used to be a tick column and a rest timer (removed 2026-08-10 — the owner
+// rests by Garmin, and with the timer gone the tick was a second button for what the
+// PREV tap already does). The green done-tint stays, keyed off the row carrying data.
+function SetRow({ set, previousSet, showPrev, targetRir, onChange, onRemove }) {
   const prevWeight = previousSet?.weight_kg != null ? Number(previousSet.weight_kg) : null;
   // Either half can be null on its own — a weight-only or reps-only previous set still
   // shows the half it has rather than collapsing to a dash.
@@ -80,18 +82,9 @@ function SetRow({ set, previousSet, showPrev, targetRir, onChange, onRemove, onD
   // persists — so the tick survives a reload without needing a column to store it in.
   const done = !isBlank(set.weight_kg) || !isBlank(set.reps);
 
-  // One tap for the common case: you did the set at last session's numbers, so fill them
-  // in and start the rest. Anything already typed is left alone.
-  const markDone = () => {
-    const next = { ...set };
-    if (isBlank(next.weight_kg) && prevWeight != null) next.weight_kg = prevWeight;
-    if (isBlank(next.reps) && previousSet?.reps != null) next.reps = previousSet.reps;
-    if (next.weight_kg !== set.weight_kg || next.reps !== set.reps) onChange(next);
-    onDone();
-  };
-
-  // The Hevy interaction: tapping PREV copies last session's numbers into the set
-  // without marking it done — you're loading the bar, not finishing the set.
+  // The one-tap log for the common case: you did the set at last session's numbers,
+  // so tapping PREV copies them into the blanks and the row counts as done. Anything
+  // already typed is left alone.
   const fillFromPrev = () => {
     const next = { ...set };
     if (isBlank(next.weight_kg) && prevWeight != null) next.weight_kg = prevWeight;
@@ -187,21 +180,6 @@ function SetRow({ set, previousSet, showPrev, targetRir, onChange, onRemove, onD
           onChange={(e) => onChange({ ...set, rir: e.target.value })}
           className={cellInput}
         />
-        <button
-          type="button"
-          onClick={markDone}
-          aria-label={done ? `Set ${set.set_number} done — restart rest` : `Mark set ${set.set_number} done and start rest`}
-          title={done ? 'Restart rest' : 'Done — start rest'}
-          className="h-11 flex items-center justify-center"
-        >
-          <span className={`w-7 h-7 rounded-md border-[1.5px] flex items-center justify-center transition-colors ${
-            done
-              ? 'bg-emerald-600 border-emerald-600 text-white'
-              : 'border-neutral-300 dark:border-neutral-700 text-transparent'
-          }`}>
-            <CheckIcon size={15} />
-          </span>
-        </button>
       </div>
     </div>
   );
@@ -250,7 +228,7 @@ function useSwipeToReveal(width = 80) {
   return { offset, revealed, close, handlers };
 }
 
-function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove, onRest, suggestion }) {
+function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove, suggestion }) {
   const [showNote, setShowNote] = useState(false);
   const [showReason, setShowReason] = useState(false);
   // Collapse transient state when the exercise is swapped for a different one.
@@ -378,7 +356,6 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove, onR
           <span className="text-center">kg</span>
           <span className="text-center">Reps</span>
           <span className="text-center">RIR</span>
-          <span></span>
         </div>
       )}
       <div>
@@ -391,10 +368,6 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove, onR
             targetRir={Array.isArray(target?.target_rir_per_set) ? target.target_rir_per_set[i] ?? null : null}
             onChange={(u) => updateSet(i, u)}
             onRemove={() => removeSet(i)}
-            // Rest the TOP of the prescribed range — owner call ("I prefer more
-            // rest"): being buzzed at the bottom of 3–5m defeats setting a range, and
-            // −15s is right there when the bar feels ready sooner. Falls back to 2 min.
-            onDone={() => onRest(target?.rest_seconds_high ?? target?.rest_seconds ?? 120)}
           />
         ))}
       </div>
@@ -522,10 +495,9 @@ export default function WorkoutSession() {
     [suggestions]
   );
 
-  const rest = useRestTimer();
   const [recovered, setRecovered] = useState(false);
 
-  // The fixed action bar changes height (rest timer, save error), and content has to be
+  // The fixed action bar changes height (save error), and content has to be
   // able to scroll clear of whatever it currently is.
   const barRef = useRef(null);
   const [barHeight, setBarHeight] = useState(80);
@@ -689,7 +661,6 @@ export default function WorkoutSession() {
       return completeWorkout(id);
     },
     onSuccess: () => {
-      rest.stop();
       clearDraft(id);
       qc.invalidateQueries({ queryKey: ['active-program'] });
       qc.invalidateQueries({ queryKey: ['recent-workouts'] });
@@ -710,7 +681,6 @@ export default function WorkoutSession() {
       return skipWorkout(id);
     },
     onSuccess: () => {
-      rest.stop();
       // A skip doesn't block on the save, so a draft can outlive it. Nothing logged here
       // counts any more, and leaving it would resurrect those sets on a later visit.
       clearDraft(id);
@@ -859,7 +829,6 @@ export default function WorkoutSession() {
             onOpenPicker={() => setPicker({ mode: 'replace', forIndex: i })}
             onChange={(u) => setExercises(exercises.map((x, j) => j === i ? u : x))}
             onRemove={() => setExercises(exercises.filter((_, j) => j !== i))}
-            onRest={rest.start}
             suggestion={suggestionByExercise[ex.exercise_id]}
           />
         ))}
@@ -912,12 +881,6 @@ export default function WorkoutSession() {
                 || 'Could not finish the workout.'}
             </p>
           )}
-          <RestTimer
-            remaining={rest.remaining}
-            target={rest.target}
-            onStop={rest.stop}
-            onAdjust={rest.adjust}
-          />
           <div className="py-3 flex gap-2">
             {autosave === 'error' && (
               <button
