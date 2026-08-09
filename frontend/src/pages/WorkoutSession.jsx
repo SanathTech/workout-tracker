@@ -858,9 +858,12 @@ export default function WorkoutSession() {
 
       <section className="pt-1">
         <label className="section-label block mb-1.5" htmlFor="wt-workout-notes">Workout notes</label>
+        {/* field-sizing grows the box with its contents; rows={2} is the floor and the
+            fallback on browsers without it. Capped so a long note scrolls within the
+            box instead of pushing Finish off screen. */}
         <textarea
           id="wt-workout-notes"
-          className="input resize-none"
+          className="input resize-none [field-sizing:content] max-h-[40vh]"
           rows={2}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
