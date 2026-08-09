@@ -661,6 +661,28 @@ export default function WorkoutSession() {
     return () => window.removeEventListener('beforeunload', handler);
   }, []);
 
+  // Self-healing kick: whenever the page comes back to the foreground (or the network
+  // returns) with edits still pending, flush immediately instead of trusting that a
+  // debounce timer survived the phone being pocketed. Mobile browsers freeze timers
+  // and kill in-flight requests between sets — this fires at exactly the moment the
+  // user is looking at the indicator again, which is when a stuck save is noticed.
+  useEffect(() => {
+    const kick = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (pendingRef.current && pendingRef.current !== lastSavedRef.current) {
+        flushRef.current?.();
+      }
+    };
+    document.addEventListener('visibilitychange', kick);
+    window.addEventListener('online', kick);
+    window.addEventListener('focus', kick);
+    return () => {
+      document.removeEventListener('visibilitychange', kick);
+      window.removeEventListener('online', kick);
+      window.removeEventListener('focus', kick);
+    };
+  }, []);
+
   const saveNow = useCallback(() => {
     pendingRef.current = JSON.stringify(serializePayload(exercises, notes));
     return flush();

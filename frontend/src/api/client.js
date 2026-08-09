@@ -10,6 +10,11 @@ const api = axios.create({
   // The session lives in an httpOnly cookie. In production the API is proxied to the
   // same origin by a Vercel rewrite, so this is a same-site request.
   withCredentials: true,
+  // A request that dies silently (network handoff, phone locked mid-PUT) must reject,
+  // not hang: the session autosave holds one in-flight promise, and a promise that
+  // never settles wedges every save after it. 15s is beyond any healthy response —
+  // the weekly coach call is the slowest thing here and it's not made from the app.
+  timeout: 15_000,
 });
 
 // A 401 means the session lapsed. Announce it once so AuthGate can re-check and show
