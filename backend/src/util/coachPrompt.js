@@ -96,7 +96,7 @@ const WEEKLY_SCHEMA = {
 
 const DAILY_ASK = `Give today's readiness call.
 
-Open the "why" with the protocol verdict for last night: bed time against the 22:30
+Open the "why" with the protocol verdict for last night: bedtime against the 22:30
 anchor, and the current daily-movement streak. One sentence, factual, no ceremony —
 then the readiness reasoning.
 

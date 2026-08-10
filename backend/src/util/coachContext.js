@@ -216,12 +216,14 @@ const PROTOCOL_TARGETS = {
   bedtime_anchor: '22:30',
   bedtime_tolerance_minutes: 30,
   last_meal_cutoff: '19:30 (3h before anchor; unmeasured — a commitment, not a metric)',
-  daily_movement: '>=30 min deliberate movement every day; an evening walk counts; 8000+ steps also satisfies it',
+  daily_movement: '>=30 min deliberate movement every day; an evening walk counts; 8000+ steps also satisfies it (measured as >=25 recorded moving minutes — see MOVEMENT_MIN_SECONDS)',
   weekly_gym_cycle: 'complete Day A, Day B and Day C each week',
   weekly_endurance: '2 endurance sessions (swim/run/ride)',
   weight_trend: 'flat or down (92 -> 95kg drift since late June is the thing being reversed)',
   watch_worn_nightly: 'sleep tracked every night — untracked nights blind the whole readiness picture',
 };
+
+const MOVEMENT_MIN_SECONDS = 25 * 60;
 
 // Minutes past noon, so a 01:30 bedtime sorts after 23:30 instead of before it.
 function bedMinutes(hm) {
@@ -246,11 +248,16 @@ async function protocolStatus() {
         ORDER BY date DESC`,
       [today()]
     ),
-    // A movement day is: a recorded activity of 25+ min, OR a completed app workout
-    // (covers the forgotten watch), OR 8000+ steps. Walks count by construction.
+    // A movement day is: a recorded activity that evidences the 30-minute target, OR
+    // a completed app workout (covers the forgotten watch), OR 8000+ steps. Walks
+    // count by construction. The activity bar sits at 25 recorded moving minutes on
+    // purpose: Garmin's moving_time trims kerb-waits and pauses, so an honest 30-min
+    // walk routinely logs 26–28 — demanding 1800s would fail the exact behaviour the
+    // target asks for. The tolerance is one-way slack on measurement, not a lower
+    // target.
     db.query(
       `SELECT d::date AS date,
-              EXISTS(SELECT 1 FROM activities a WHERE a.date = d::date AND a.moving_time >= 1500) AS activity,
+              EXISTS(SELECT 1 FROM activities a WHERE a.date = d::date AND a.moving_time >= ${MOVEMENT_MIN_SECONDS}) AS activity,
               EXISTS(SELECT 1 FROM workouts w WHERE w.date = d::date AND w.status = 'completed') AS gym,
               (SELECT wd.steps FROM wellness_daily wd WHERE wd.date = d::date) AS steps
          FROM generate_series($1::date - 13, $1::date, '1 day') d
@@ -378,10 +385,13 @@ async function buildChatContext() {
     strength_14d: strength,
     checkins_14d: checks,
     recent_advice: advice,
-    protocol: { targets: protocol.targets, bedtime_last_night: protocol.bedtime.last_night,
-                nights_within_anchor_last7: protocol.bedtime.nights_within_anchor_last7,
-                movement_streak: protocol.movement.current_streak_days,
-                this_week: protocol.this_week },
+    protocol: {
+      targets: protocol.targets,
+      bedtime_last_night: protocol.bedtime.last_night,
+      nights_within_anchor_last7: protocol.bedtime.nights_within_anchor_last7,
+      movement_streak: protocol.movement.current_streak_days,
+      this_week: protocol.this_week,
+    },
     data_freshness: fresh.map(({ source, hours_ago }) => ({ source, hours_ago })),
   };
 }
