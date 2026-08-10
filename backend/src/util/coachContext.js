@@ -72,7 +72,7 @@ async function recentActivities(days = 14) {
 // its set volume; that pairing is the point of running both sources.
 async function strengthSessions(days = 14) {
   const { rows } = await db.query(
-    `SELECT w.date, w.routine_name, w.duration_minutes,
+    `SELECT w.date, w.routine_name, w.duration_minutes, w.notes,
             COUNT(*) FILTER (WHERE s.set_type <> 'warmup')::int AS working_sets,
             ROUND(SUM(s.weight_kg * s.reps) FILTER (WHERE s.set_type <> 'warmup')) AS volume_kg,
             (SELECT ROUND(a.training_load) FROM activities a

@@ -112,7 +112,7 @@ export default function WorkoutDetail() {
               <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-0.5">Logged and saved. See you next session.</p>
             );
           })()}
-          <SessionFeel workoutId={id} />
+          <SessionFeel workoutId={id} workoutNotes={workout.notes} />
         </section>
       )}
 
