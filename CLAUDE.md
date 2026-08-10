@@ -186,10 +186,6 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
   unsaved work. `['workout', id]` stays out of the persisted query cache (see `main.jsx`) so
   stale server data can't land on live edits — the draft is what makes a cold offline reload
   render, so don't "simplify" by persisting the query instead.
-- **The rest timer's audio context is created on the tap that starts the rest.** Browsers
-  only let a user gesture unlock audio, and the tap that ends a set is the last one before
-  the phone goes in a pocket. Creating it lazily at zero would produce a silent timer —
-  which is the whole failure mode being fixed, since `navigator.vibrate` is a no-op on iOS.
 - **The service worker must never auto-reload, but it must not go quiet either.** A worker
   taking over on its own would remount the page and drop anything typed inside the 1200ms
   autosave debounce. Waiting for every client to close instead means an installed PWA sits on
@@ -266,11 +262,20 @@ which wipes). Backend env vars: `ANTHROPIC_API_KEY`, `COACH_RUN_SECRET`,
 - No linter or types, and no frontend unit tests — CI builds the frontend, which catches
   bad imports and syntax but not behaviour.
 - **The session screen is a ledger, and cells-not-boxes is the load-bearing idea.** One
-  44px grid row per set (`LEDGER_COLS`: set# / prev / kg / reps / rir / tick), no card
-  no input boxes — values are bare text in tappable cells, the empty cells show last
-  session's numbers as placeholders, tapping PREV copies them in, and ticking a row with
-  blanks commits them. This is the Strong/Hevy layout, chosen deliberately (2026-08-04)
-  after the boxed two-line version read as cluttered. Consequences that are easy to break:
+  44px grid row per set (`LEDGER_COLS`: set# / prev / kg / reps / rir), no card, no
+  input boxes — values are bare text in tappable cells, and **tapping PREV is the
+  one-tap log**: it copies last session's numbers into the blanks and the row counts as
+  done. **Ghost placeholders are the AIM, not an echo of PREV** (owner call,
+  2026-08-10): they show the progression engine's suggestion — new weight at the bottom
+  of the range on increase, same weight and one more rep (capped at the top) on hold —
+  and plain unit labels when there's no suggestion. PREV shows what happened; ghost
+  shows what to do. "Done" is derived
+  from the row carrying REPS (the green tint), not stored — weight alone is staging,
+  because the owner keys the weight in before starting the set; reps are what make it
+  history. There is nothing to uncheck; clearing the cells or swipe-removing the row
+  is the undo. This is the
+  Strong/Hevy layout, chosen deliberately (2026-08-04) after the boxed two-line version
+  read as cluttered. Consequences that are easy to break:
   - **RIR is the fifth column, ghosted.** The per-set target shows as the cell's
     placeholder; typing overrides it, blank backfills the target server-side. It earns
     its place by absorbing the slack the `1fr` PREV column otherwise collects — remove
@@ -283,10 +288,10 @@ which wipes). Backend env vars: `ANTHROPIC_API_KEY`, `COACH_RUN_SECRET`,
     coloured suggestion chip whose reason expands on tap (owner preference, 2026-08-04 —
     chips over a muted text line). Swap-exercise stays on the name; notes and remove
     live behind ⋯.
-  - **The auto rest-timer uses the TOP of the rest range** (`rest_seconds_high` first),
-    not the bottom — owner call: "I prefer more rest", and −15s is one tap away. The
-    bottom of the range is what the chip displays first, so don't "fix" the timer back
-    to it.
+  - **There is no tick column and no rest timer — removed 2026-08-10, don't reintroduce
+    them.** The owner rests by his Garmin, and with the timer gone the tick was a second
+    button for what the PREV tap already does (both only ever filled the blanks). The
+    rest chips stay: they're the program's prescription, useful as information.
   - `± steppers` still don't fit and are still out.
 - The service worker precaches the shell only. API responses are never cached — stale sets
   are worse than an error, and a cached 401 would outlive a re-login.
