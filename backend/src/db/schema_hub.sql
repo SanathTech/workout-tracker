@@ -83,9 +83,17 @@ CREATE TABLE IF NOT EXISTS wellness_daily (
   sleep_awake_secs     INTEGER,
   respiration_avg      NUMERIC(5, 2),
   steps                INTEGER,
+  -- Local wall-clock sleep window (no timezone, same convention as
+  -- activities.start_date_local). Added 2026-08-10 for the protocol's bedtime
+  -- anchor — the score alone can't say WHEN he went to bed.
+  sleep_start          TIMESTAMP,
+  sleep_end            TIMESTAMP,
   raw                  JSONB NOT NULL,
   synced_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE wellness_daily ADD COLUMN IF NOT EXISTS sleep_start TIMESTAMP;
+ALTER TABLE wellness_daily ADD COLUMN IF NOT EXISTS sleep_end TIMESTAMP;
 
 -- Weight has two sources: Garmin (training_load.weight_kg, ~179 days) and the app's
 -- manual bodyweight_logs. bodyweight_logs wins where a row exists for the date — it is

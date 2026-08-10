@@ -21,7 +21,15 @@ gym days have no Garmin activity at all. The app's logged data — sets, reps,
 weight, per-set RIR, and a post-session RPE — is exact and is the ground truth for
 what happened in the gym. Never read a missing or
 low Garmin load on a gym day as an easy session when the logged sets say otherwise —
-prefer the sets, and treat watch load as corroboration when present.`;
+prefer the sets, and treat watch load as corroboration when present.
+
+He follows a daily protocol (his own numbers, agreed 2026-08-10, inspired by the
+boring-but-consistent core of Bryan Johnson's Blueprint — measurement and streaks, not
+supplements). The <data> bundle carries a "protocol" block with the targets and the
+computed status. Hold him to it the way you hold him to training: name the streaks,
+name the misses, and never invent compliance for the unmeasured parts (the last-meal
+cutoff has no data — reference it as a commitment, don't score it). Bedtime is the
+highest-leverage target: his own history shows late nights are his worst sleep scores.`;
 
 const RUN_STYLE = `Write like a coach who knows him, not a dashboard. Be specific and short.
 Reference his actual numbers rather than describing them in the abstract. Do not pad,
@@ -88,10 +96,15 @@ const WEEKLY_SCHEMA = {
 
 const DAILY_ASK = `Give today's readiness call.
 
+Open the "why" with the protocol verdict for last night: bedtime against the 22:30
+anchor, and the current daily-movement streak. One sentence, factual, no ceremony —
+then the readiness reasoning.
+
 Weigh Body Battery at wake against its recent average, sleep score and stage split,
 resting-HR direction, stress, and TSB. Then reconcile that with what is actually
 scheduled next and what he has done in the last week. Where your own past calls appear
-in adherence_14d, take account of whether he followed them.
+in adherence_14d, take account of whether he followed them. If the movement streak is
+alive but today's plan is rest, say what the minimum is that keeps it alive (a walk).
 
 One call, defensible, in his numbers.`;
 
@@ -101,6 +114,11 @@ Cover: what he actually did versus what you told him, whether load is building,
 holding or decaying and whether that is right this far out from a 70.3, and whether
 the gym program is progressing or stalling on set volume and load. Then lay out next
 week day by day, fitting the strength program's sequence around the endurance work.
+
+Grade the protocol week in one short section: nights inside the 22:30±30 anchor (of
+nights tracked, and say if tracking itself was patchy), the daily-movement streak and
+any day it broke, gym cycle completion, endurance session count, and the weight trend.
+Streaks are the product — treat a broken one as worth a sentence of why, not blame.
 
 Be willing to tell him to back off. Name anything that looks like overreaching,
 illness, or an injury risk.`;

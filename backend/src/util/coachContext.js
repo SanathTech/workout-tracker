@@ -1,5 +1,5 @@
 const db = require('../db');
-const { todayInAppTimezone } = require('./dates');
+const { todayInAppTimezone, currentWeekStart } = require('./dates');
 
 // Every context bundle the coach reasons over — daily, weekly, and chat — is built
 // here, from one set of query helpers. This file replaced coach_context.py on
@@ -208,14 +208,119 @@ async function buildAdherence(days = 28) {
   return rows;
 }
 
+// The protocol — Blueprint-derived, Sanath's numbers, agreed 2026-08-10. Targets
+// live here (not in prose) so the coach reasons over the same constants the status
+// is computed from. The last-meal cutoff has no data source yet: it is stated as a
+// commitment for the coach to reference, never to claim measurement of.
+const PROTOCOL_TARGETS = {
+  bedtime_anchor: '22:30',
+  bedtime_tolerance_minutes: 30,
+  last_meal_cutoff: '19:30 (3h before anchor; unmeasured — a commitment, not a metric)',
+  daily_movement: '>=30 min deliberate movement every day; an evening walk counts; 8000+ steps also satisfies it (measured as >=25 recorded moving minutes — see MOVEMENT_MIN_SECONDS)',
+  weekly_gym_cycle: 'complete Day A, Day B and Day C each week',
+  weekly_endurance: '2 endurance sessions (swim/run/ride)',
+  weight_trend: 'flat or down (92 -> 95kg drift since late June is the thing being reversed)',
+  watch_worn_nightly: 'sleep tracked every night — untracked nights blind the whole readiness picture',
+};
+
+const MOVEMENT_MIN_SECONDS = 25 * 60;
+
+// Minutes past noon, so a 01:30 bedtime sorts after 23:30 instead of before it.
+function bedMinutes(hm) {
+  const [h, m] = hm.split(':').map(Number);
+  return ((h + 12) % 24) * 60 + m;
+}
+
+function addDaysIso(iso, delta) {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d + delta)).toISOString().slice(0, 10);
+}
+
+async function protocolStatus() {
+  const anchor = bedMinutes(PROTOCOL_TARGETS.bedtime_anchor);
+  const tol = PROTOCOL_TARGETS.bedtime_tolerance_minutes;
+
+  const [beds, movement, endurance, gym] = await Promise.all([
+    db.query(
+      `SELECT date, to_char(sleep_start, 'HH24:MI') AS bed, to_char(sleep_end, 'HH24:MI') AS wake
+         FROM wellness_daily
+        WHERE sleep_start IS NOT NULL AND date >= $1::date - 14
+        ORDER BY date DESC`,
+      [today()]
+    ),
+    // A movement day is: a recorded activity that evidences the 30-minute target, OR
+    // a completed app workout (covers the forgotten watch), OR 8000+ steps. Walks
+    // count by construction. The activity bar sits at 25 recorded moving minutes on
+    // purpose: Garmin's moving_time trims kerb-waits and pauses, so an honest 30-min
+    // walk routinely logs 26–28 — demanding 1800s would fail the exact behaviour the
+    // target asks for. The tolerance is one-way slack on measurement, not a lower
+    // target.
+    db.query(
+      `SELECT d::date AS date,
+              EXISTS(SELECT 1 FROM activities a WHERE a.date = d::date AND a.moving_time >= ${MOVEMENT_MIN_SECONDS}) AS activity,
+              EXISTS(SELECT 1 FROM workouts w WHERE w.date = d::date AND w.status = 'completed') AS gym,
+              (SELECT wd.steps FROM wellness_daily wd WHERE wd.date = d::date) AS steps
+         FROM generate_series($1::date - 13, $1::date, '1 day') d
+        ORDER BY d DESC`,
+      [today()]
+    ),
+    db.query(
+      `SELECT COUNT(*)::int AS n FROM activities
+        WHERE date >= $1::date AND type IN ('Swim','Run','Ride','VirtualRun','VirtualRide')`,
+      [currentWeekStart()]
+    ),
+    db.query(
+      `SELECT routine_name FROM workouts
+        WHERE status = 'completed' AND date >= $1::date ORDER BY date`,
+      [currentWeekStart()]
+    ),
+  ]);
+
+  const nights = beds.rows.map((r) => {
+    const delta = bedMinutes(r.bed) - anchor;
+    return { date: r.date, bed: r.bed, wake: r.wake, minutes_vs_anchor: delta, within_anchor: Math.abs(delta) <= tol };
+  });
+  const last7 = nights.filter((n) => n.date >= addDaysIso(today(), -7));
+
+  const days = movement.rows.map((r) => ({
+    date: r.date,
+    met: r.activity || r.gym || (r.steps != null && Number(r.steps) >= 8000),
+  }));
+  // Streak counts back from yesterday — today isn't a miss while it's still in progress.
+  let streak = 0;
+  for (const d of days.filter((x) => x.date < today())) {
+    if (d.met) streak += 1;
+    else break;
+  }
+
+  return {
+    targets: PROTOCOL_TARGETS,
+    bedtime: {
+      last_night: nights[0] || null,
+      nights_tracked_last7: last7.length,
+      nights_within_anchor_last7: last7.filter((n) => n.within_anchor).length,
+      last_14_nights: nights,
+    },
+    movement: {
+      today_met_so_far: days[0]?.met ?? false,
+      current_streak_days: streak,
+      last_14_days: days,
+    },
+    this_week: {
+      endurance_sessions: endurance.rows[0].n,
+      gym_sessions: gym.rows.map((r) => r.routine_name),
+    },
+  };
+}
+
 // ---------------------------------------------------------------- bundles
 
 async function buildDailyBundle() {
-  const [ready, load, acts, strength, next, weight, checks, advice, adhere, fresh] =
+  const [ready, load, acts, strength, next, weight, checks, advice, adhere, fresh, protocol] =
     await Promise.all([
       readiness(10), loadBlock(14), recentActivities(14), strengthSessions(14),
       nextSession(), bodyweight(30), checkins(14), pastAdvice('daily', 3),
-      buildAdherence(14), dataFreshness(),
+      buildAdherence(14), dataFreshness(), protocolStatus(),
     ]);
   const now = new Date();
   return {
@@ -230,16 +335,17 @@ async function buildDailyBundle() {
     checkins_14d: checks,
     recent_advice: advice,
     adherence_14d: adhere,
+    protocol,
     data_freshness: fresh,
   };
 }
 
 async function buildWeeklyBundle() {
-  const [ready, load, acts, strength, next, weight, checks, daily, weekly, adhere, fresh] =
+  const [ready, load, acts, strength, next, weight, checks, daily, weekly, adhere, fresh, protocol] =
     await Promise.all([
       readiness(28), loadBlock(42), recentActivities(42), strengthSessions(42),
       nextSession(), bodyweight(90), checkins(28), pastAdvice('daily', 7),
-      pastAdvice('weekly', 2), buildAdherence(28), dataFreshness(),
+      pastAdvice('weekly', 2), buildAdherence(28), dataFreshness(), protocolStatus(),
     ]);
   return {
     generated_for: today(),
@@ -254,6 +360,7 @@ async function buildWeeklyBundle() {
     recent_daily_advice: daily,
     recent_weekly_advice: weekly,
     adherence_28d: adhere,
+    protocol,
     data_freshness: fresh,
   };
 }
@@ -263,12 +370,12 @@ async function buildWeeklyBundle() {
 // context on every message. Questions needing six weeks of history are what the
 // weekly review is for.
 async function buildChatContext() {
-  const [ready, load, acts, strength, checks, advice, fresh] = await Promise.all([
+  const [ready, load, acts, strength, checks, advice, fresh, protocol] = await Promise.all([
     readiness(10), loadBlock(14), recentActivities(14), strengthSessions(14),
     checkins(14), pastAdvice('daily', 2).then(async (d) => [
       ...d, ...(await pastAdvice('weekly', 1)),
     ]),
-    dataFreshness(),
+    dataFreshness(), protocolStatus(),
   ]);
   return {
     today: today(),
@@ -278,11 +385,19 @@ async function buildChatContext() {
     strength_14d: strength,
     checkins_14d: checks,
     recent_advice: advice,
+    protocol: {
+      targets: protocol.targets,
+      bedtime_last_night: protocol.bedtime.last_night,
+      nights_within_anchor_last7: protocol.bedtime.nights_within_anchor_last7,
+      movement_streak: protocol.movement.current_streak_days,
+      this_week: protocol.this_week,
+    },
     data_freshness: fresh.map(({ source, hours_ago }) => ({ source, hours_ago })),
   };
 }
 
 module.exports = {
+  protocolStatus,
   buildDailyBundle,
   buildWeeklyBundle,
   buildChatContext,
