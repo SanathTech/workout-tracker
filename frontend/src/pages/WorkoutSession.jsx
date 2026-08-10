@@ -66,7 +66,7 @@ const LEDGER_COLS = 'grid grid-cols-[2.5rem_1fr_4rem_4rem_3.25rem] items-center'
 // boxes, is where the density comes from; the row itself is still a 44px target.
 // There used to be a tick column and a rest timer (removed 2026-08-10 — the owner
 // rests by Garmin, and with the timer gone the tick was a second button for what the
-// PREV tap already does). The green done-tint stays, keyed off the row carrying data.
+// PREV tap already does). The green done-tint stays, keyed off the row carrying reps.
 function SetRow({ set, previousSet, showPrev, targetRir, suggestion, onChange, onRemove }) {
   const prevWeight = previousSet?.weight_kg != null ? Number(previousSet.weight_kg) : null;
   // Either half can be null on its own — a weight-only or reps-only previous set still
@@ -78,9 +78,12 @@ function SetRow({ set, previousSet, showPrev, targetRir, suggestion, onChange, o
     ? `Last time: ${prevLabel} @ RIR ${previousSet.rir} — tap to fill`
     : `Last time: ${prevLabel} — tap to fill`;
 
-  // A set counts as done once it carries data — the same test that decides whether it
-  // persists — so the tick survives a reload without needing a column to store it in.
-  const done = !isBlank(set.weight_kg) || !isBlank(set.reps);
+  // Done means reps are in. Weight typed before the set is staging, not history —
+  // the owner loads the bar's number in first, and a green row at that point claims a
+  // set that hasn't happened. Reps only ever go in afterwards (and a bodyweight set
+  // is reps-only), so reps are the honest signal. Derived, not stored — it survives
+  // a reload because the data does.
+  const done = !isBlank(set.reps);
 
   // The one-tap log for the common case: you did the set at last session's numbers,
   // so tapping PREV copies them into the blanks and the row counts as done. Anything
@@ -530,7 +533,9 @@ export default function WorkoutSession() {
     for (const ex of exercises) {
       for (const s of ex.sets) {
         planned += 1;
-        if (!isBlank(s.weight_kg) || !isBlank(s.reps)) logged += 1;
+        // Same reps-are-the-signal rule as the row tint — a pre-loaded weight must
+        // not advance "X of N logged".
+        if (!isBlank(s.reps)) logged += 1;
       }
     }
     return { loggedSets: logged, plannedSets: planned };

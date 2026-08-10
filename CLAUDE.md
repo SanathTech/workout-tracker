@@ -270,8 +270,10 @@ which wipes). Backend env vars: `ANTHROPIC_API_KEY`, `COACH_RUN_SECRET`,
   of the range on increase, same weight and one more rep (capped at the top) on hold —
   and plain unit labels when there's no suggestion. PREV shows what happened; ghost
   shows what to do. "Done" is derived
-  from the row carrying data (the green tint), not stored — there is nothing to
-  uncheck; clearing the cells or swipe-removing the row is the undo. This is the
+  from the row carrying REPS (the green tint), not stored — weight alone is staging,
+  because the owner keys the weight in before starting the set; reps are what make it
+  history. There is nothing to uncheck; clearing the cells or swipe-removing the row
+  is the undo. This is the
   Strong/Hevy layout, chosen deliberately (2026-08-04) after the boxed two-line version
   read as cluttered. Consequences that are easy to break:
   - **RIR is the fifth column, ghosted.** The per-set target shows as the cell's
