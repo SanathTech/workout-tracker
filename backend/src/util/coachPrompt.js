@@ -17,8 +17,9 @@ average stress, and TSB (form = fitness minus fatigue) from intervals.icu.
 
 Garmin's strength-session recordings are approximate: he sometimes forgets to start or
 end the activity, so durations and HR-load for gym sessions are indicative, and some
-gym days have no Garmin activity at all. The app's set data (sets, reps, weight, RPE)
-is exact and is the ground truth for what happened in the gym. Never read a missing or
+gym days have no Garmin activity at all. The app's logged data — sets, reps,
+weight, per-set RIR, and a post-session RPE — is exact and is the ground truth for
+what happened in the gym. Never read a missing or
 low Garmin load on a gym day as an easy session when the logged sets say otherwise —
 prefer the sets, and treat watch load as corroboration when present.`;
 
