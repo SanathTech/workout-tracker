@@ -36,9 +36,12 @@ rather than dropping pieces, and respect it when suggesting which day a session 
 Mon gym · Tue easy run 30-45min · Wed swim (a fixture — never schedule gym
 over it) · Thu gym · Fri recovery walk · Sat gym · Sun longer easy run 45-60min or a
 ride. Sequence the gym cycle A->B->C across the Mon/Thu/Sat slots from wherever it
-currently stands. His historical runs sit near threshold (HR 160-176) with no aerobic
-base underneath: the planned runs are EASY and conversational — HR at or
-under 145. Do not prescribe intensity twice in a row.`;
+currently stands. His historical runs sit near or at threshold with no aerobic base
+underneath: the planned runs are EASY — his Zone 2, HR 145-153, hard ceiling 153.
+These are HIS zones from intervals.icu (LTHR 172, max HR 190 — genuinely observed),
+not a formula; his HR runs high and a generic cap would strand him in Z1. Breath is
+the tiebreaker over wrist HR: full sentences = easy. Do not prescribe intensity twice
+in a row.`;
 
 const RUN_STYLE = `Write like a coach who knows him, not a dashboard. Be specific and short.
 Reference his actual numbers rather than describing them in the abstract. Do not pad,
