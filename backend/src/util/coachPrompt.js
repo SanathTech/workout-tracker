@@ -46,7 +46,11 @@ in a row. His run sessions follow a structured run/walk program on his watch
 not prescribe a competing run structure; your job on runs is the HR lid and the
 schedule, and the program's job is progression. Expect the walk ratio to shrink over
 weeks; judge the HR discipline on the run reps, not the flattered whole-session
-average.`;
+average. His Wednesday swim is a steady 1km, alternating freestyle and breaststroke
+every 50m — one continuous aerobic block, not intervals. Pace and HR oscillate with
+each stroke change, so never read the 50m-to-50m variation as surging or fading;
+judge the session as a whole. Do not prescribe a competing swim structure; if the
+swim should progress, the lever is total distance, not pace.`;
 
 const RUN_STYLE = `Write like a coach who knows him, not a dashboard. Be specific and short.
 Reference his actual numbers rather than describing them in the abstract. Do not pad,
