@@ -58,9 +58,17 @@ async function loadBlock(days = 14) {
 }
 
 async function recentActivities(days = 14) {
+  // minutes_over_hr_ceiling: time above his Z2 top (153) — zones 3+ of the stored
+  // per-zone seconds. This is the honest run-discipline number: a walk-flattered or
+  // merely-average HR can hide long stretches at threshold, and his history did
+  // exactly that (runs averaging 157-176 carried 28-35 min over the ceiling).
   const { rows } = await db.query(
     `SELECT date, type, name, moving_time, ROUND(distance) AS distance_m,
-            average_hr, ROUND(training_load) AS training_load
+            average_hr, ROUND(training_load) AS training_load,
+            (SELECT ROUND(SUM(z.v::numeric) / 60.0, 1)
+               FROM jsonb_array_elements_text(raw->'icu_hr_zone_times')
+                    WITH ORDINALITY AS z(v, i)
+              WHERE z.i >= 3) AS minutes_over_hr_ceiling
        FROM activities WHERE date >= $1::date - $2::int ORDER BY start_date_local DESC`,
     [today(), days]
   );
