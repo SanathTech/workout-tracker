@@ -65,10 +65,8 @@ async function recentActivities(days = 14) {
   const { rows } = await db.query(
     `SELECT date, type, name, moving_time, ROUND(distance) AS distance_m,
             average_hr, ROUND(training_load) AS training_load,
-            (SELECT ROUND(SUM(z.v::numeric) / 60.0, 1)
-               FROM jsonb_array_elements_text(raw->'icu_hr_zone_times')
-                    WITH ORDINALITY AS z(v, i)
-              WHERE z.i >= 3) AS minutes_over_hr_ceiling
+            (SELECT ROUND(SUM(z) / 60.0, 1)
+               FROM unnest(hr_zone_times[3:]) AS z) AS minutes_over_hr_ceiling
        FROM activities WHERE date >= $1::date - $2::int ORDER BY start_date_local DESC`,
     [today(), days]
   );
