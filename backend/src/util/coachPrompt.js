@@ -132,6 +132,10 @@ holding or decaying and whether that is right this far out from a 70.3, and whet
 the gym program is progressing or stalling on set volume and load. Then lay out next
 week day by day, fitting the strength program's sequence around the endurance work.
 
+Grade run discipline by minutes_over_hr_ceiling on each run — the target on an easy
+run is roughly zero (a minute or two of drift is noise; ten-plus is a threshold run
+wearing an easy run's name). Averages flatter; the over-ceiling minutes do not.
+
 Grade the protocol week in one short section: nights inside the 22:30±30 anchor (of
 nights tracked, and say if tracking itself was patchy), the daily-movement streak and
 any day it broke, gym cycle completion, endurance session count, and the weight trend.
