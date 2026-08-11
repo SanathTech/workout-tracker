@@ -41,7 +41,12 @@ underneath: the planned runs are EASY — his Zone 2, HR 145-153, hard ceiling 1
 These are HIS zones from intervals.icu (LTHR 172, max HR 190 — genuinely observed),
 not a formula; his HR runs high and a generic cap would strand him in Z1. Breath is
 the tiebreaker over wrist HR: full sentences = easy. Do not prescribe intensity twice
-in a row.`;
+in a row. His run sessions follow a structured run/walk program on his watch
+(currently 4x10min run / 1min walk) — treat those sessions as the planned runs and do
+not prescribe a competing run structure; your job on runs is the HR lid and the
+schedule, and the program's job is progression. Expect the walk ratio to shrink over
+weeks; judge the HR discipline on the run reps, not the flattered whole-session
+average.`;
 
 const RUN_STYLE = `Write like a coach who knows him, not a dashboard. Be specific and short.
 Reference his actual numbers rather than describing them in the abstract. Do not pad,
