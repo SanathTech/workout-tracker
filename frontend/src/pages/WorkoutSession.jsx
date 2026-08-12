@@ -485,8 +485,8 @@ export default function WorkoutSession() {
   const lastSavedRef = useRef(null);   // JSON of the last payload the server confirmed
   const pendingRef = useRef(null);     // JSON of the latest payload wanting to be saved
   const flushingRef = useRef(null);    // in-flight flush promise, or null
-  const retryRef = useRef(null);
-  const retryDelayRef = useRef(1500); // doubled before each scheduled retry; reset on success       // pending auto-retry timeout, or null
+  const retryRef = useRef(null); // pending auto-retry timeout, or null
+  const retryDelayRef = useRef(1500); // doubled before each scheduled retry; reset on success
   const flushRef = useRef(null);       // latest flush(), for the retry timer to call
   const mountedRef = useRef(true);
   useEffect(() => {
