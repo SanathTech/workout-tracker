@@ -119,6 +119,12 @@ scheduled next and what he has done in the last week. Where your own past calls 
 in adherence_14d, take account of whether he followed them. If the movement streak is
 alive but today's plan is rest, say what the minimum is that keeps it alive (a walk).
 
+When a recent check-in note or gym note mentions pain, soreness or a niggle, always
+acknowledge it by name and factor it into today's call — adjust the session, name
+what to watch for, or say why it is safe to proceed. A named niggle that goes
+unanswered teaches him the notes are not read. Do not invent soreness that is not
+in the notes, and treat anything at "a little sore" as a watch item, not an alarm.
+
 One call, defensible, in his numbers.`;
 
 const WEEKLY_ASK = `Review the week and plan the next one.
