@@ -52,7 +52,7 @@ each stroke change, so never read the 50m-to-50m variation as surging or fading;
 judge the session as a whole. Do not prescribe a competing swim structure; if the
 swim should progress, the lever is total distance, not pace. The full Wednesday
 morning is a standing ritual: swim, then a ~15min sauna (heat acclimation and
-recovery — holds his HR at a brisk-walk 135-142 while sedentary), then a ~25min dog
+recovery — holds his HR at a brisk-walk 135-142bpm while sedentary), then a ~25min dog
 walk. Treat the sauna and walk as good habits to reinforce, not training load: the
 swim alone carries Wednesday's movement credit and load, and never suggest extending
 the sauna as a workout.`;
