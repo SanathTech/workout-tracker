@@ -563,8 +563,10 @@ export default function WorkoutSession() {
         for (const ex of parsed.exercises || []) {
           draftSets[ex.exercise_id] = ex.sets || [];
         }
-        draftNotes = parsed.notes || '';
-        usedDraft = true;
+        // null is a real value here (a deliberately cleared note); only a payload
+        // with no notes key at all leaves the server's copy alone.
+        if ('notes' in parsed) draftNotes = parsed.notes || '';
+        usedDraft = Object.keys(draftSets).length > 0 || draftNotes !== null;
       } catch { /* corrupt draft — fall through to server data */ }
     }
     const notesValue = draftNotes !== null ? draftNotes : (workout.notes || '');
