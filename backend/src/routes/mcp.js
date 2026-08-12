@@ -9,13 +9,12 @@ const { MONTHLY_BUDGET_USD, monthlySpend } = require('../util/coachSpend');
 
 const router = express.Router({ mergeParams: true });
 
-// Remote MCP server for claude.ai — the "deep discussion" escape hatch.
+// Remote MCP server for claude.ai — the interactive surface of the coach.
 //
-// The in-app chat is Haiku on a compact bundle: right for "swim or lift tonight?",
-// wrong for restructuring a training block. This server lets a claude.ai conversation
-// (Max allowance, stronger models, real multi-turn reasoning) pull LIVE hub data
-// itself. Every tool calls the same coachContext helpers the scheduled runs and the
-// in-app chat use, so claude.ai sees exactly what the coach sees — by construction,
+// The in-app chat was retired 2026-08-12: talking to Claude (plan allowance, stronger
+// models, real tools) replaced it entirely. This server lets a Claude conversation
+// pull LIVE hub data itself. Every tool calls the same coachContext helpers the
+// scheduled runs use, so Claude sees exactly what the coach sees — by construction,
 // not by discipline.
 //
 // Read-only on purpose. Nothing here writes: a claude.ai session can analyse and

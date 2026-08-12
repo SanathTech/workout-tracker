@@ -371,42 +371,10 @@ async function buildWeeklyBundle() {
   };
 }
 
-// The chat's bundle: deliberately smaller than the scheduled ones. A daily readiness
-// call has to weigh everything; a chat turn answers one question and pays for its
-// context on every message. Questions needing six weeks of history are what the
-// weekly review is for.
-async function buildChatContext() {
-  const [ready, load, acts, strength, checks, advice, fresh, protocol] = await Promise.all([
-    readiness(10), loadBlock(14), recentActivities(14), strengthSessions(14),
-    checkins(14), pastAdvice('daily', 2).then(async (d) => [
-      ...d, ...(await pastAdvice('weekly', 1)),
-    ]),
-    dataFreshness(), protocolStatus(),
-  ]);
-  return {
-    today: today(),
-    readiness: ready,
-    training_load_14d: load,
-    activities_14d: acts,
-    strength_14d: strength,
-    checkins_14d: checks,
-    recent_advice: advice,
-    protocol: {
-      targets: protocol.targets,
-      bedtime_last_night: protocol.bedtime.last_night,
-      nights_within_anchor_last7: protocol.bedtime.nights_within_anchor_last7,
-      movement_streak: protocol.movement.current_streak_days,
-      this_week: protocol.this_week,
-    },
-    data_freshness: fresh.map(({ source, hours_ago }) => ({ source, hours_ago })),
-  };
-}
-
 module.exports = {
   protocolStatus,
   buildDailyBundle,
   buildWeeklyBundle,
-  buildChatContext,
   buildAdherence,
   // Individual blocks, exported for the MCP server — its tools must serve the same
   // numbers the coach reasons over, so they call these rather than re-querying.

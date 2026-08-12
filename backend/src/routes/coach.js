@@ -3,15 +3,7 @@ const router = express.Router();
 const db = require('../db');
 const { serverError } = require('../util/errors');
 const { resolveWorkoutDate, todayInAppTimezone } = require('../util/dates');
-const { buildChatContext, buildAdherence } = require('../util/coachContext');
-const { chatSystemPrompt } = require('../util/coachPrompt');
-const { CHAT_BUDGET_USD, costUsd, monthlySpend } = require('../util/coachSpend');
-
-// Chat runs on Haiku: it is answering one question against a compact bundle, it is paid
-// for on every message, and it shares a monthly cap with the scheduled runs. Sonnet is a
-// one-line change if the answers ever feel thin.
-const CHAT_MODEL = 'claude-haiku-4-5';
-const MAX_HISTORY_TURNS = 20;
+const { buildAdherence } = require('../util/coachContext');
 
 // The hub tables (coach_advice, checkins, session_feel, wellness_daily, training_load)
 // come from schema_hub.sql, not schema.sql. They're written by the nas-laptop timers;
@@ -258,118 +250,5 @@ router.get('/adherence', async (req, res) => {
   }
 });
 
-// GET /api/coach/messages — the chat thread, oldest first so the UI can render directly.
-router.get('/messages', async (req, res) => {
-  const limit = Math.min(Number(req.query.limit) || 50, 200);
-  try {
-    const { rows } = await db.query(
-      `SELECT id, role, content, model, created_at FROM (
-         SELECT id, role, content, model, created_at FROM coach_messages
-          ORDER BY id DESC LIMIT $1
-       ) t ORDER BY id ASC`,
-      [limit]
-    );
-    res.json(rows);
-  } catch (err) {
-    serverError(res, err);
-  }
-});
-
-// POST /api/coach/chat — ask the coach something.
-//
-// The thread is shared with the scheduled calls: recent `coach_advice` goes into the
-// context, so the chat can be held to what it said this morning. Both turns are stored
-// before the response returns, so a reply is never shown that isn't also persisted.
-router.post('/chat', async (req, res) => {
-  const message = typeof req.body.message === 'string' ? req.body.message.trim() : '';
-  if (!message) return res.status(400).json({ error: 'message is required' });
-  if (message.length > 4000) return res.status(400).json({ error: 'message is too long' });
-
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return res.status(503).json({ error: 'Coach chat is not configured on this server' });
-  }
-
-  try {
-    // Deliberately COMBINED spend against the lower line, not chat-only spend. The
-    // invariant is "the 06:30 call can never be starved": scheduled runs stop at the
-    // $5 pocket, so chat must stop while at least (pocket − chat line) = $1.50 is
-    // still unspent in total. Counting only coach_messages here would let a $3.50
-    // chat month plus a normal run month reach the pocket ceiling and silence the
-    // morning call — the exact failure this guard exists to prevent. Chat gives way
-    // first because the scheduled calls are the product; past this line, the MCP
-    // connector on claude.ai is the depth surface and spends allowance, not this key.
-    const spent = await monthlySpend();
-    if (spent >= CHAT_BUDGET_USD) {
-      return res.status(429).json({
-        error: `Coach spend is $${spent.toFixed(2)} this month; chat pauses at $${CHAT_BUDGET_USD.toFixed(2)} so the scheduled calls keep the rest of the pocket. For longer discussions use the coach connector in Claude. Resets next month.`,
-      });
-    }
-
-    const [context, history] = await Promise.all([
-      buildChatContext(),
-      db.query(
-        `SELECT role, content FROM (
-           SELECT id, role, content FROM coach_messages ORDER BY id DESC LIMIT $1
-         ) t ORDER BY id ASC`,
-        [MAX_HISTORY_TURNS]
-      ),
-    ]);
-
-    // Required lazily: the module reads ANTHROPIC_API_KEY at construction, and the
-    // route is the only thing in the app that needs it.
-    const Anthropic = require('@anthropic-ai/sdk');
-    const client = new Anthropic();
-
-    const response = await client.messages.create({
-      model: CHAT_MODEL,
-      max_tokens: 1200,
-      system: chatSystemPrompt(context),
-      messages: [
-        ...history.rows.map((m) => ({ role: m.role, content: m.content })),
-        { role: 'user', content: message },
-      ],
-    });
-
-    if (response.stop_reason === 'refusal') {
-      return res.status(422).json({ error: 'The coach declined to answer that.' });
-    }
-
-    const reply = response.content
-      .filter((b) => b.type === 'text')
-      .map((b) => b.text)
-      .join('')
-      .trim();
-    if (!reply) return res.status(502).json({ error: 'Empty reply from the coach.' });
-
-    const usage = response.usage;
-    const cost = costUsd(CHAT_MODEL, usage);
-
-    // Both turns in one transaction: a stored question with no answer would replay as
-    // an unanswered turn in the next request's history and skew the conversation.
-    const client_db = await db.pool.connect();
-    try {
-      await client_db.query('BEGIN');
-      await client_db.query(
-        `INSERT INTO coach_messages (role, content) VALUES ('user', $1)`,
-        [message]
-      );
-      const { rows } = await client_db.query(
-        `INSERT INTO coach_messages (role, content, model, input_tokens, output_tokens, cost_usd)
-              VALUES ('assistant', $1, $2, $3, $4, $5)
-           RETURNING id, role, content, model, created_at`,
-        [reply, CHAT_MODEL, usage.input_tokens, usage.output_tokens, cost.toFixed(5)]
-      );
-      await client_db.query('COMMIT');
-      res.json({ reply: rows[0], spent_this_month: Number((spent + cost).toFixed(4)) });
-    } catch (err) {
-      await client_db.query('ROLLBACK');
-      throw err;
-    } finally {
-      client_db.release();
-    }
-  } catch (err) {
-    serverError(res, err);
-  }
-});
 
 module.exports = router;

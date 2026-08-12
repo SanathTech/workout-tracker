@@ -7,15 +7,10 @@ const PRICING = {
   'claude-sonnet-5': { in: 2.0, out: 10.0, after: { date: '2026-08-31', in: 3.0, out: 15.0 } },
 };
 
-// One monthly pocket for everything the coach spends — scheduled runs and chat.
-// Summing only one of the two tables would enforce half a budget.
+// One monthly pocket for everything the coach spends. The in-app chat was retired
+// 2026-08-12 (Claude conversations replaced it), but monthlySpend still sums
+// coach_messages so any historical chat spend in the current month stays counted.
 const MONTHLY_BUDGET_USD = 5.0;
-
-// Chat stops before the pocket is empty. The scheduled calls are the product — the
-// thing that reliably arrives at 06:30 — and a chatty fortnight must not be able to
-// silence them. The reserve covers a full month of scheduled runs (~$0.20 daily +
-// ~$0.25 weekly) with margin.
-const CHAT_BUDGET_USD = 3.5;
 
 function costUsd(model, usage) {
   let { in: rateIn, out: rateOut, after } = PRICING[model];
@@ -46,4 +41,4 @@ async function monthlySpend() {
   return Number(rows[0].usd);
 }
 
-module.exports = { PRICING, MONTHLY_BUDGET_USD, CHAT_BUDGET_USD, costUsd, monthlySpend };
+module.exports = { PRICING, MONTHLY_BUDGET_USD, costUsd, monthlySpend };
