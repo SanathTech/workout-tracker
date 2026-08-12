@@ -69,7 +69,7 @@ const DAILY_SCHEMA = {
   properties: {
     call: { type: 'string', enum: ['push', 'as_planned', 'go_easy', 'rest'] },
     headline: { type: 'string', description: 'Under 80 chars. This is the phone notification title.' },
-    why: { type: 'string', description: '2-3 sentences citing the specific numbers that drove the call.' },
+    why: { type: 'string', description: 'At most 4 sentences citing the specific numbers that drove the call.' },
     session_guidance: { type: 'string', description: 'What to actually do today, given the next scheduled session.' },
     watch: { type: 'array', items: { type: 'string' }, description: '0-3 things trending the wrong way.' },
     data_caveats: { type: 'array', items: { type: 'string' }, description: 'Stale or missing inputs that weakened this call. Empty if none.' },
@@ -109,8 +109,9 @@ const WEEKLY_SCHEMA = {
 
 const DAILY_ASK = `Give today's readiness call.
 
-Every fact appears exactly once in the whole message. Each section has one job, and
-none may restate another:
+Across why, session_guidance and watch, every fact appears exactly once — each of
+those sections has one job, and none may restate another. The headline and the call
+field are the compressed verdict and are allowed to echo what the sections explain.
 
 - headline: the verdict in one line — protocol, readiness, session.
 - why: the reasoning, four sentences maximum. Open with one sentence on last night's
