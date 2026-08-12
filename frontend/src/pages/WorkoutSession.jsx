@@ -485,7 +485,8 @@ export default function WorkoutSession() {
   const lastSavedRef = useRef(null);   // JSON of the last payload the server confirmed
   const pendingRef = useRef(null);     // JSON of the latest payload wanting to be saved
   const flushingRef = useRef(null);    // in-flight flush promise, or null
-  const retryRef = useRef(null);       // pending auto-retry timeout, or null
+  const retryRef = useRef(null); // pending auto-retry timeout, or null
+  const retryDelayRef = useRef(1500); // doubled before each scheduled retry; reset on success
   const flushRef = useRef(null);       // latest flush(), for the retry timer to call
   const mountedRef = useRef(true);
   useEffect(() => {
@@ -641,7 +642,11 @@ export default function WorkoutSession() {
             // Auto-retry so a transient failure heals itself instead of silently
             // leaving data unsaved until the next manual edit.
             if (mountedRef.current && !retryRef.current) {
-              retryRef.current = setTimeout(() => { retryRef.current = null; flushRef.current?.(); }, 3000);
+              // Exponential backoff, 3s -> 30s cap: a dead network shouldn't be hammered
+              // every 3s for an hour, and the foreground/online kicks bypass the wait
+              // the moment conditions actually change.
+              retryDelayRef.current = Math.min(retryDelayRef.current * 2, 30_000);
+              retryRef.current = setTimeout(() => { retryRef.current = null; flushRef.current?.(); }, retryDelayRef.current);
             }
             return; // stop this run; the retry (or a new edit/Finish) will resume
           }
@@ -651,6 +656,7 @@ export default function WorkoutSession() {
         if (pendingRef.current === lastSavedRef.current) {
           setAutosaveIfMounted('saved');
           clearDraft(id);
+          retryDelayRef.current = 1500;
         }
       } finally {
         flushingRef.current = null;
@@ -688,14 +694,15 @@ export default function WorkoutSession() {
     return () => window.removeEventListener('beforeunload', handler);
   }, []);
 
-  // Self-healing kick: whenever the page comes back to the foreground (or the network
-  // returns) with edits still pending, flush immediately instead of trusting that a
-  // debounce timer survived the phone being pocketed. Mobile browsers freeze timers
-  // and kill in-flight requests between sets — this fires at exactly the moment the
-  // user is looking at the indicator again, which is when a stuck save is noticed.
+  // Self-healing kick, both directions. On the way to hidden: per the Page Lifecycle
+  // guidance, this is the LAST reliable moment on mobile — Android kills backgrounded
+  // PWAs without firing beforeunload or unmounting React, so waiting out the debounce
+  // means a set typed just before pocketing the phone reaches the server only when the
+  // screen next wakes. On the way back to visible (or when the network returns): a
+  // frozen debounce timer or a watchdog-aborted attempt gets retried at exactly the
+  // moment the user is looking at the indicator again.
   useEffect(() => {
     const kick = () => {
-      if (document.visibilityState !== 'visible') return;
       if (pendingRef.current && pendingRef.current !== lastSavedRef.current) {
         flushRef.current?.();
       }
