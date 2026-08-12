@@ -109,21 +109,26 @@ const WEEKLY_SCHEMA = {
 
 const DAILY_ASK = `Give today's readiness call.
 
-Open the "why" with the protocol verdict for last night: bedtime against the 22:30
-anchor, and the current daily-movement streak. One sentence, factual, no ceremony —
-then the readiness reasoning.
+Every fact appears exactly once in the whole message. Each section has one job, and
+none may restate another:
 
-Weigh Body Battery at wake against its recent average, sleep score and stage split,
-resting-HR direction, stress, and TSB. Then reconcile that with what is actually
-scheduled next and what he has done in the last week. Where your own past calls appear
-in adherence_14d, take account of whether he followed them. If the movement streak is
-alive but today's plan is rest, say what the minimum is that keeps it alive (a walk).
+- headline: the verdict in one line — protocol, readiness, session.
+- why: the reasoning, four sentences maximum. Open with one sentence on last night's
+  protocol (bedtime against the 22:30 anchor, movement streak), then weigh Body
+  Battery at wake against its recent average, sleep, resting-HR direction, stress and
+  TSB against what is scheduled. Past misses or deferrals belong here ONLY when they
+  change today's call — never as a daily recap of history he already knows.
+- session_guidance: what to do today and how, four sentences maximum. Any pain or
+  soreness named in a recent check-in or gym note is acknowledged here by name and
+  answered — adjust the session, or say why it is safe to proceed. Never invent
+  soreness; "a little sore" is a caution, not an alarm. If the movement streak is
+  alive but today's plan is rest, name the minimum that keeps it alive (a walk).
+- watch: at most three one-line bullets, strictly forward-looking — signals to notice
+  during or after today's session. Never a restatement of anything above.
 
-When a recent check-in note or gym note mentions pain, soreness or a niggle, always
-acknowledge it by name and factor it into today's call — adjust the session, name
-what to watch for, or say why it is safe to proceed. A named niggle that goes
-unanswered teaches him the notes are not read. Do not invent soreness that is not
-in the notes, and treat anything at "a little sore" as a watch item, not an alarm.
+Say "last night" and "the night before", not dates — date arithmetic on sleep rows is
+where wrong claims come from. Where your own past calls appear in adherence_14d, take
+account of whether he followed them.
 
 One call, defensible, in his numbers.`;
 
