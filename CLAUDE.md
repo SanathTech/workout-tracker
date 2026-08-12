@@ -199,7 +199,14 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
   a build whose frontend changes were in an earlier commit of the same push — Phase 3's UI
   never deployed while its API did. `$VERCEL_GIT_PREVIOUS_SHA` is the last *successfully
   deployed* SHA, which is the correct baseline. The `[ -n ... ] &&` guard makes an absent
-  variable build rather than skip.
+  variable build rather than skip. **The baseline can also be missing from the shallow
+  clone**: after enough correctly-skipped backend-only merges, the last-deployed SHA falls
+  outside Vercel's clone depth, `git diff` exits 128 ("bad object"), and Vercel marks the
+  deployment ERROR instead of building — production silently froze at an old frontend for
+  a day while previews and CI stayed green (2026-08-13). Hence the `git cat-file -e` check
+  and the if/else that maps every non-skip outcome to exit 1 (= build): when the baseline
+  is unknowable, building is the only safe answer. Watch the exit codes if editing this:
+  Vercel only understands 0 (skip) and 1 (build); a 128 is a failed deploy.
 - **Cache-affecting fixes can't be verified by curling production.** The origin serving new
   bytes says nothing about what an installed client is running. Check the asset hash in the
   page, not just the deploy.
