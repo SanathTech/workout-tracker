@@ -620,7 +620,17 @@ export default function WorkoutSession() {
           const snapshot = pendingRef.current;
           setAutosaveIfMounted('saving');
           try {
-            const updated = await updateWorkout(id, JSON.parse(snapshot));
+            // Belt over the axios timeout: a request the OS kills while the app is
+            // frozen can neither resolve nor reject, and this loop is single-flight —
+            // a promise that never settles would jam every save until a full relaunch
+            // (it did, 2026-08-13). The race guarantees each attempt settles; a late
+            // zombie success is harmless because lastSavedRef stays behind and the
+            // next attempt re-sends the same idempotent payload.
+            const updated = await Promise.race([
+              updateWorkout(id, JSON.parse(snapshot)),
+              new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('save timed out')), 20_000)),
+            ]);
             qc.setQueryData(['workout', id], updated); // keep the in-memory cache in sync
             lastSavedRef.current = snapshot;
           } catch {
