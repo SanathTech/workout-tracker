@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getCoachLatest, getReadiness, getCoachHistory, getAdherence } from '../api/client';
 import CheckinCard from '../components/CheckinCard';
-import CoachChat from '../components/CoachChat';
 import { Skeleton } from '../components/Skeleton';
 import { formatDay } from '../utils/format';
 
@@ -327,7 +326,6 @@ export default function Coach() {
       </section>
 
       <CheckinCard />
-      <CoachChat />
       <WeeklyAdvice entry={data?.weekly} />
       <Adherence />
       <History />

@@ -64,19 +64,6 @@ not support a confident call, say which number you would want and give your best
 anyway. If any feed in data_freshness is more than 48 hours stale, say so plainly in
 data_caveats and lower your confidence rather than pretending the numbers are current.`;
 
-const CHAT_STYLE = `You are answering a question in a chat box on his phone, mid-day,
-probably between other things. Answer the question that was asked, in two or three
-sentences, in his actual numbers. No preamble, no restating the question, no bulleted
-summary of data he can already see on the same screen.
-
-You share a thread with the scheduled morning and weekly calls, which appear in the
-context. Stay consistent with them: if you are contradicting a call you made this
-morning, say so and say why. If he pushes back on your reasoning and he is right,
-change your answer — do not defend a bad call.
-
-If the honest answer is "the data doesn't say", say that in one sentence and tell him
-what would.`;
-
 const DAILY_SCHEMA = {
   type: 'object',
   properties: {
@@ -170,16 +157,6 @@ ${JSON.stringify(bundle, null, 1)}
 </data>`;
 }
 
-function chatSystemPrompt(context) {
-  return `${ATHLETE}
-
-${CHAT_STYLE}
-
-<data>
-${JSON.stringify(context, null, 1)}
-</data>`;
-}
-
 // The ntfy renderings — what lands on the phone. The structured advice is the record;
 // this is its push-notification shape.
 function renderDaily(a) {
@@ -204,11 +181,9 @@ function renderWeekly(a) {
 module.exports = {
   ATHLETE,
   RUN_STYLE,
-  CHAT_STYLE,
   DAILY_SCHEMA,
   WEEKLY_SCHEMA,
   buildRunPrompt,
-  chatSystemPrompt,
   renderDaily,
   renderWeekly,
 };
