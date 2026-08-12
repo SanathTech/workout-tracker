@@ -69,7 +69,8 @@ export const getInProgressWorkout = () => api.get('/workouts/in-progress').then(
 export const getWorkout = (id) => api.get(`/workouts/${id}`).then((r) => r.data);
 export const startWorkout = (data) =>
   api.post('/workouts', { date: localDate(), ...data }).then((r) => r.data);
-export const updateWorkout = (id, data) => api.put(`/workouts/${id}`, data).then((r) => r.data);
+export const updateWorkout = (id, data, config) =>
+  api.put(`/workouts/${id}`, data, config).then((r) => r.data);
 export const completeWorkout = (id) => api.post(`/workouts/${id}/complete`).then((r) => r.data);
 export const skipUpcomingWorkout = (data) =>
   api.post('/workouts/skip', { date: localDate(), ...data }).then((r) => r.data);

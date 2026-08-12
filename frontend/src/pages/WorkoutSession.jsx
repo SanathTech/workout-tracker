@@ -623,14 +623,17 @@ export default function WorkoutSession() {
             // Belt over the axios timeout: a request the OS kills while the app is
             // frozen can neither resolve nor reject, and this loop is single-flight —
             // a promise that never settles would jam every save until a full relaunch
-            // (it did, 2026-08-13). The race guarantees each attempt settles; a late
-            // zombie success is harmless because lastSavedRef stays behind and the
-            // next attempt re-sends the same idempotent payload.
-            const updated = await Promise.race([
-              updateWorkout(id, JSON.parse(snapshot)),
-              new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('save timed out')), 20_000)),
-            ]);
+            // (it did, 2026-08-13). The watchdog aborts the attempt so it settles AND
+            // dies at the network layer — an un-aborted zombie could land after a
+            // newer retry and, on a last-write-wins server, resurrect stale sets.
+            const ctrl = new AbortController();
+            const watchdog = setTimeout(() => ctrl.abort(), 20_000);
+            let updated;
+            try {
+              updated = await updateWorkout(id, JSON.parse(snapshot), { signal: ctrl.signal });
+            } finally {
+              clearTimeout(watchdog);
+            }
             qc.setQueryData(['workout', id], updated); // keep the in-memory cache in sync
             lastSavedRef.current = snapshot;
           } catch {
