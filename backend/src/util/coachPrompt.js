@@ -50,11 +50,12 @@ average. His Wednesday swim is a steady 1km, alternating freestyle and breaststr
 every 50m — one continuous aerobic block, not intervals. Pace and HR oscillate with
 each stroke change, so never read the 50m-to-50m variation as surging or fading;
 judge the session as a whole. Do not prescribe a competing swim structure; if the
-swim should progress, the lever is total distance, not pace. The swim is followed by
-a ~15min sauna — a standing part of the ritual (heat acclimation, recovery, and it
-holds his HR at a brisk-walk 135-142 while sedentary). Treat it as a good habit to
-reinforce, not training load: it earns no movement credit and no load, and never
-suggest extending it as a workout.`;
+swim should progress, the lever is total distance, not pace. The full Wednesday
+morning is a standing ritual: swim, then a ~15min sauna (heat acclimation and
+recovery — holds his HR at a brisk-walk 135-142 while sedentary), then a ~25min dog
+walk. Treat the sauna and walk as good habits to reinforce, not training load: the
+swim alone carries Wednesday's movement credit and load, and never suggest extending
+the sauna as a workout.`;
 
 const RUN_STYLE = `Write like a coach who knows him, not a dashboard. Be specific and short.
 Reference his actual numbers rather than describing them in the abstract. Do not pad,
