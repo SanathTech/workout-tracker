@@ -553,14 +553,23 @@ export default function WorkoutSession() {
     // exercise names (which the draft doesn't carry) survive.
     const draft = readDraft(id);
     const draftSets = {};
+    // Workout notes must come from the draft too: the payload is the complete pending
+    // state, and taking only its sets silently discarded typed-but-unsaved notes.
+    let draftNotes = null;
+    let usedDraft = false;
     if (draft?.payload) {
       try {
-        for (const ex of JSON.parse(draft.payload).exercises || []) {
+        const parsed = JSON.parse(draft.payload);
+        for (const ex of parsed.exercises || []) {
           draftSets[ex.exercise_id] = ex.sets || [];
         }
+        // null is a real value here (a deliberately cleared note); only a payload
+        // with no notes key at all leaves the server's copy alone.
+        if ('notes' in parsed) draftNotes = parsed.notes || '';
+        usedDraft = Object.keys(draftSets).length > 0 || draftNotes !== null;
       } catch { /* corrupt draft — fall through to server data */ }
     }
-    const usedDraft = Object.keys(draftSets).length > 0;
+    const notesValue = draftNotes !== null ? draftNotes : (workout.notes || '');
 
     const rows = workout.exercises.map((e) => {
       const base = hydrateSets(e);
@@ -583,14 +592,14 @@ export default function WorkoutSession() {
     });
 
     setExercises(rows);
-    setNotes(workout.notes || '');
+    setNotes(notesValue);
     // Baseline is the *server's* state, so recovered edits register as unsaved and get
     // flushed as soon as there's a connection again.
     lastSavedRef.current = JSON.stringify(serializePayload(
       workout.exercises.map((e) => ({ ...e, sets: hydrateSets(e) })),
       workout.notes || ''
     ));
-    pendingRef.current = JSON.stringify(serializePayload(rows, workout.notes || ''));
+    pendingRef.current = JSON.stringify(serializePayload(rows, notesValue));
     setRecovered(usedDraft && pendingRef.current !== lastSavedRef.current);
     setHydrated(true);
     // Keep the shape the page was built from, so a cold reload with no network can render
@@ -686,6 +695,15 @@ export default function WorkoutSession() {
       window.removeEventListener('online', kick);
       window.removeEventListener('focus', kick);
     };
+  }, []);
+
+  // Navigating away mid-debounce cleared the save timer without ever attempting the
+  // PUT, stranding the edit in the local draft. Fire one last flush on unmount — the
+  // request outlives the component, and the draft stays until the server confirms.
+  useEffect(() => () => {
+    if (pendingRef.current && pendingRef.current !== lastSavedRef.current) {
+      flushRef.current?.();
+    }
   }, []);
 
   const saveNow = useCallback(() => {
