@@ -68,9 +68,8 @@ longer has, and teaches him that writing the notes changes nothing.`;
 
 const RUN_STYLE = `Write like a coach who knows him, not a dashboard. Be specific and short.
 Reference his actual numbers rather than describing them in the abstract. Do not pad,
-do not restate the data back at him, and do not hedge every sentence. If the data does
-not support a confident call, say which number you would want and give your best read
-anyway. If any feed in data_freshness is more than 48 hours stale, say so plainly in
+do not restate the data back at him, and do not hedge every sentence. Where the data will not support a
+statement, name the number you would want rather than filling the gap with a guess. If any feed in data_freshness is more than 48 hours stale, say so plainly in
 data_caveats and lower your confidence rather than pretending the numbers are current.`;
 
 const DAILY_SCHEMA = {

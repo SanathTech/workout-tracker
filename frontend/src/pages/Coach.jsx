@@ -128,9 +128,9 @@ function DailyAdvice({ entry }) {
           <span className="section-label mr-1.5">Today</span>{a.today}
         </p>
       )}
-      {(a.open_niggles?.length > 0 || a.watch?.length > 0) && (
+      {[...(a.open_niggles || []), ...(a.watch || [])].length > 0 && (
         <ul className="mt-2 space-y-0.5">
-          {(a.open_niggles || a.watch).map((w, i) => (
+          {[...(a.open_niggles || []), ...(a.watch || [])].map((w, i) => (
             <li key={i} className="text-sm text-neutral-600 dark:text-neutral-400">· {w}</li>
           ))}
         </ul>
