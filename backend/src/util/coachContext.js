@@ -126,7 +126,18 @@ async function strengthSessions(days = 14) {
               WHERE a.type = 'WeightTraining' AND a.date = w.date LIMIT 1) AS garmin_load,
             (SELECT a.average_hr FROM activities a
               WHERE a.type = 'WeightTraining' AND a.date = w.date LIMIT 1) AS garmin_avg_hr,
-            (SELECT sf.rpe FROM session_feel sf WHERE sf.workout_id = w.id) AS rpe
+            (SELECT sf.rpe FROM session_feel sf WHERE sf.workout_id = w.id) AS rpe,
+            -- HIS per-exercise notes (workout_exercises.notes), never the program's
+            -- coaching cues (routine_exercises.notes) — those are prescription, not
+            -- observation, and are deliberately not copied into a workout. These carry
+            -- the specifics the session note cannot ("left shoulder clicked on
+            -- pull-ups"); the niggle rules in the persona apply to them as to the rest.
+            (SELECT json_agg(json_build_object('exercise', e2.name, 'note', we2.notes)
+                               ORDER BY we2.sort_order)
+               FROM workout_exercises we2
+               JOIN exercises e2 ON e2.id = we2.exercise_id
+              WHERE we2.workout_id = w.id AND NULLIF(TRIM(we2.notes), '') IS NOT NULL
+            ) AS exercise_notes
        FROM workouts w
        JOIN workout_exercises we ON we.workout_id = w.id
        JOIN workout_sets s ON s.workout_exercise_id = we.id

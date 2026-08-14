@@ -247,8 +247,11 @@ function useSwipeToReveal(width = 80) {
 function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove, suggestion }) {
   const [showNote, setShowNote] = useState(false);
   const [showReason, setShowReason] = useState(false);
+  // Open the editor whenever a note already exists, so an existing note is never
+  // hidden behind the menu — and stays open while typing the first one.
+  const [editingNote, setEditingNote] = useState(false);
   // Collapse transient state when the exercise is swapped for a different one.
-  useEffect(() => { setShowNote(false); setShowReason(false); }, [block.exercise_id]);
+  useEffect(() => { setShowNote(false); setShowReason(false); setEditingNote(false); }, [block.exercise_id]);
   const { data: previous } = useQuery({
     queryKey: ['last-by-exercise', block.exercise_id, workoutId],
     queryFn: () => getLastByExercise(block.exercise_id, { exclude: workoutId }),
@@ -318,7 +321,11 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove, sug
         <MoreMenu
           label={`Options for ${block.exercise_name || 'exercise'}`}
           items={[
-            target?.notes && { label: showNote ? 'Hide exercise notes' : 'Exercise notes', onSelect: () => setShowNote((v) => !v) },
+            // Two different notes, deliberately named apart: the program's coaching cue
+            // (routine_exercises.notes, read-only) vs his own log for this session
+            // (workout_exercises.notes, editable below).
+            target?.notes && { label: showNote ? 'Hide how-to' : 'How to do this', onSelect: () => setShowNote((v) => !v) },
+            { label: block.notes ? 'Edit my note' : 'Add my note', onSelect: () => setEditingNote(true) },
             { label: 'Remove exercise', confirm: 'Remove — sure?', danger: true, onSelect: onRemove },
           ]}
         />
@@ -357,13 +364,25 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove, sug
 
       {target?.notes && showNote && (
         <p className="text-xs text-neutral-600 dark:text-neutral-400 mb-1.5 whitespace-pre-line">
-          {target.notes}
+          <span className="section-label mr-1.5">How to</span>{target.notes}
         </p>
       )}
 
-      {block.notes && (
-        <p className="text-xs text-neutral-500 dark:text-neutral-400 italic mb-1">{block.notes}</p>
-      )}
+      {/* Your note on THIS exercise, distinct from target.notes above (the program's
+          prescription, read-only). Rides the same autosave as the sets — serializePayload
+          already carries notes per exercise — so there is nothing to save by hand. */}
+      {editingNote || block.notes ? (
+        <textarea
+          className="input w-full text-xs mb-1.5 min-h-[2.75rem]"
+          rows={2}
+          autoFocus={editingNote && !block.notes}
+          placeholder={`Your note on ${block.exercise_name || 'this exercise'} — how it felt, form, niggles`}
+          aria-label={`Your note on ${block.exercise_name || 'this exercise'}`}
+          value={block.notes || ''}
+          onChange={(e) => onChange({ ...block, notes: e.target.value })}
+          onBlur={() => setEditingNote(false)}
+        />
+      ) : null}
 
       {block.sets.length > 0 && (
         <div className={`${LEDGER_COLS} h-6 text-[11px] font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400`} aria-hidden="true">
