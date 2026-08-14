@@ -106,7 +106,7 @@ function DailyAdvice({ entry }) {
   if (!entry) {
     return (
       <p className="text-sm text-neutral-500 dark:text-neutral-400">
-        No call yet. The coach runs at 06:30.
+        No brief yet. It lands shortly after your watch syncs each morning.
       </p>
     );
   }
@@ -116,15 +116,21 @@ function DailyAdvice({ entry }) {
   // grey word next to a coloured rule.
   return (
     <div className={`border-l-2 pl-3 ${CALL_BORDER[a.call] || 'border-l-neutral-300 dark:border-l-neutral-700'}`}>
-      <p className={`section-label ${CALL_TEXT[a.call] || ''}`}>{CALL_LABEL[a.call] || 'Today'}</p>
+      <p className={`section-label ${CALL_TEXT[a.call] || ''}`}>{CALL_LABEL[a.call] || 'Brief'}</p>
       <h3 className="font-semibold tracking-tight mt-0.5 text-neutral-900 dark:text-neutral-100">{a.headline}</h3>
-      {a.why && <p className="text-sm text-neutral-700 dark:text-neutral-300 mt-1.5">{a.why}</p>}
-      {a.session_guidance && (
-        <p className="text-sm text-neutral-700 dark:text-neutral-300 mt-2">{a.session_guidance}</p>
+      {/* The brief's three facts. Entries written before the daily became a brief
+          carry why/session_guidance/watch instead, and still render from History. */}
+      {[a.protocol, a.readiness, a.why, a.session_guidance].filter(Boolean).map((line, i) => (
+        <p key={i} className="text-sm text-neutral-700 dark:text-neutral-300 mt-1.5">{line}</p>
+      ))}
+      {a.today && (
+        <p className="text-sm text-neutral-700 dark:text-neutral-300 mt-2">
+          <span className="section-label mr-1.5">Today</span>{a.today}
+        </p>
       )}
-      {a.watch?.length > 0 && (
+      {[...(a.open_niggles || []), ...(a.watch || [])].length > 0 && (
         <ul className="mt-2 space-y-0.5">
-          {a.watch.map((w, i) => (
+          {[...(a.open_niggles || []), ...(a.watch || [])].map((w, i) => (
             <li key={i} className="text-sm text-neutral-600 dark:text-neutral-400">· {w}</li>
           ))}
         </ul>

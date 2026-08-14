@@ -68,22 +68,21 @@ longer has, and teaches him that writing the notes changes nothing.`;
 
 const RUN_STYLE = `Write like a coach who knows him, not a dashboard. Be specific and short.
 Reference his actual numbers rather than describing them in the abstract. Do not pad,
-do not restate the data back at him, and do not hedge every sentence. If the data does
-not support a confident call, say which number you would want and give your best read
-anyway. If any feed in data_freshness is more than 48 hours stale, say so plainly in
+do not restate the data back at him, and do not hedge every sentence. Where the data will not support a
+statement, name the number you would want rather than filling the gap with a guess. If any feed in data_freshness is more than 48 hours stale, say so plainly in
 data_caveats and lower your confidence rather than pretending the numbers are current.`;
 
 const DAILY_SCHEMA = {
   type: 'object',
   properties: {
-    call: { type: 'string', enum: ['push', 'as_planned', 'go_easy', 'rest'] },
-    headline: { type: 'string', description: 'Under 80 chars. This is the phone notification title.' },
-    why: { type: 'string', description: 'At most 4 sentences citing the specific numbers that drove the call.' },
-    session_guidance: { type: 'string', description: 'What to actually do today, given the next scheduled session.' },
-    watch: { type: 'array', items: { type: 'string' }, description: '0-3 things trending the wrong way.' },
-    data_caveats: { type: 'array', items: { type: 'string' }, description: 'Stale or missing inputs that weakened this call. Empty if none.' },
+    headline: { type: 'string', description: 'Under 80 chars. This is the phone notification title. State the morning, do not advise.' },
+    protocol: { type: 'string', description: "One line: last night's bedtime against the anchor, and the movement streak." },
+    readiness: { type: 'string', description: 'One line: Body Battery at wake against its recent average, sleep score, resting HR, stress.' },
+    today: { type: 'string', description: "One line: today's rhythm slot, and which session is next in the gym cycle if today owns a gym slot." },
+    open_niggles: { type: 'array', items: { type: 'string' }, description: 'Niggles he named whose status a newer note has not settled. Empty if none.' },
+    data_caveats: { type: 'array', items: { type: 'string' }, description: 'Stale or missing inputs. Empty if none.' },
   },
-  required: ['call', 'headline', 'why', 'session_guidance', 'watch', 'data_caveats'],
+  required: ['headline', 'protocol', 'readiness', 'today', 'open_niggles', 'data_caveats'],
   additionalProperties: false,
 };
 
@@ -116,44 +115,33 @@ const WEEKLY_SCHEMA = {
   additionalProperties: false,
 };
 
-const DAILY_ASK = `Give today's readiness call.
+const DAILY_ASK = `Write this morning's brief.
 
-Across why, session_guidance and watch, every fact appears exactly once — each of
-those sections has one job, and none may restate another. The headline and the call
-field are the compressed verdict and are allowed to echo what the sections explain.
+This is a REPORT, not a coaching call. State what the numbers say and stop. Do not
+prescribe, recommend, adjust, warn, encourage, or decide anything about today's
+session — that judgement happens in conversation, where the data can actually be
+interrogated. Your job is that he wakes up knowing where he stands without asking.
 
-- headline: the verdict in one line — protocol, readiness, session.
-- why: the reasoning, four sentences maximum. Open with one sentence on last night's
-  protocol (bedtime against the 22:30 anchor, movement streak), then weigh Body
-  Battery at wake against its recent average, sleep, resting-HR direction, stress and
-  TSB against what is scheduled. Past misses or deferrals belong here ONLY when they
-  change today's call — never as a daily recap of history he already knows.
-- session_guidance: what to do today and how, four sentences maximum. Any pain or
-  soreness named in a recent check-in or gym note is acknowledged here by name and
-  answered — adjust the session, or say why it is safe to proceed. Never invent
-  soreness; "a little sore" is a caution, not an alarm. If the movement streak is
-  alive but today's plan is rest, name the minimum that keeps it alive (a walk).
-- watch: at most three one-line bullets, strictly forward-looking — signals to notice
-  during or after today's session. Never a restatement of anything above.
+- headline: the morning in one line, factual.
+- protocol: one sentence. Last night's bedtime and its minutes_vs_anchor (use the
+  computed figure verbatim), plus the movement streak.
+- readiness: one sentence. Body Battery at wake against its recent average, sleep
+  score, resting HR, stress. Numbers, no interpretation beyond above/below average.
+- today: one sentence naming today's rhythm slot from the today block, and which
+  session is next in the gym cycle if today owns a gym slot. Say what the template
+  says — never whether he should do it.
+- open_niggles: one short line each for a niggle he named that a NEWER note has not
+  settled, quoting his own words. Empty when nothing is open. Never add advice here.
 
 NEVER compute a date, a day of the week, or a difference between numbers. The bundle
 has done it for you: activities, strength sessions, check-ins, past calls and sleep
 nights each carry a "when" label ("yesterday (Friday)", "2 days ago (Thursday)") — use
 it wherever it is present and say nothing about timing where it is not. The today
 block carries the weekday and the rhythm slot that weekday owns, and figures like
-minutes_vs_anchor are already calculated. Use those
-values verbatim — every wrong claim the coach has made was arithmetic it did itself:
-a Thursday gym session called "yesterday" on a Saturday, a session deferred to a
-weekday that had already arrived, and a 104-minute bedtime miss reported as 44. If a
-fact you want is not in the bundle, leave it out.
+minutes_vs_anchor are already calculated. Use those values verbatim. If a fact you
+want is not in the bundle, leave it out.
 
-Today's rhythm slot is what the template says for today's weekday. If you are calling
-off the session that slot owns, say so as a deferral of TODAY'S session and name the
-day it moves to — do not silently plan around it as though today were another day.
-Where your own past calls appear in adherence_14d, take account of whether he
-followed them.
-
-One call, defensible, in his numbers.`;
+Short, flat, factual. No verdict.`;
 
 const WEEKLY_ASK = `Review the week and plan the next one.
 
@@ -194,9 +182,8 @@ ${JSON.stringify(bundle, null, 1)}
 // The ntfy renderings — what lands on the phone. The structured advice is the record;
 // this is its push-notification shape.
 function renderDaily(a) {
-  const lines = [`**${a.headline}**`, '', `**Call: ${a.call.replace(/_/g, ' ').toUpperCase()}**`,
-                 '', a.why, '', `_Today_: ${a.session_guidance}`];
-  if (a.watch?.length) lines.push('', '**Watch:**', ...a.watch.map((w) => `- ${w}`));
+  const lines = [`**${a.headline}**`, '', a.protocol, '', a.readiness, '', `_Today_: ${a.today}`];
+  if (a.open_niggles?.length) lines.push('', '**Open:**', ...a.open_niggles.map((n) => `- ${n}`));
   if (a.data_caveats?.length) lines.push('', `_Caveats: ${a.data_caveats.join('; ')}_`);
   return lines.join('\n');
 }
