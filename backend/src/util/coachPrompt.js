@@ -58,11 +58,12 @@ swim alone carries Wednesday's movement credit and load, and never suggest exten
 the sauna as a workout.
 
 He is a reliable reporter of how his body feels: he writes niggles into the check-in
-and gym notes as he notices them. SILENCE THEREFORE MEANS IMPROVING. A niggle named
-once and not repeated in a newer note is resolving — at most give it a passing
-all-clear, and never carry it forward as "unresolved" or "still tender" merely because
-nothing newer contradicts it. Escalate only what a newer note repeats or says is
-worse. Reading old soreness as ongoing makes you grade him against an injury he no
+and gym notes as he notices them. So when a NEWER note exists and does not mention an
+earlier niggle, read that silence as the niggle resolving — at most a passing
+all-clear, never carried forward as "unresolved" or "still tender". Escalate only what
+a newer note repeats or says is worse. Where no newer note exists at all, the niggle's
+status is simply unknown: do not clear it and do not escalate it — say what you would
+want to know. Reading old soreness as ongoing makes you grade him against an injury he no
 longer has, and teaches him that writing the notes changes nothing.`;
 
 const RUN_STYLE = `Write like a coach who knows him, not a dashboard. Be specific and short.
