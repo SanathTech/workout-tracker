@@ -42,9 +42,11 @@ function whenLabel(iso) {
   return `${rel} (${weekday})`;
 }
 
-// Stamps `when` onto any row carrying a `date`, so the model copies a label instead of
-// computing one.
-const labelRows = (rows) => rows.map((r) => ({ ...r, when: whenLabel(String(r.date)) }));
+// Stamps `when` onto each row, so the model copies a label instead of computing one.
+// The date column is named per caller (coach_advice keys on for_date); a row without
+// one is passed through unlabelled rather than stamped "in NaN days (undefined)".
+const labelRows = (rows, key = 'date') =>
+  rows.map((r) => (r[key] ? { ...r, when: whenLabel(String(r[key])) } : r));
 
 function todayBlock() {
   const iso = today();
@@ -250,7 +252,7 @@ async function buildAdherence(days = 28) {
       ORDER BY ca.for_date DESC, ca.id DESC`,
     [days, today()]
   );
-  return labelRows(rows);
+  return labelRows(rows, 'for_date');
 }
 
 // The protocol — Blueprint-derived, Sanath's numbers, agreed 2026-08-10. Targets
@@ -368,11 +370,9 @@ async function buildDailyBundle() {
       nextSession(), bodyweight(30), checkins(14), pastAdvice('daily', 3),
       buildAdherence(14), dataFreshness(), protocolStatus(),
     ]);
-  const now = new Date();
   return {
     generated_for: today(),
     today: todayBlock(),
-    weekday: now.toLocaleDateString('en-AU', { weekday: 'long', timeZone: 'Australia/Melbourne' }),
     readiness: ready,
     training_load: load,
     activities_14d: acts,

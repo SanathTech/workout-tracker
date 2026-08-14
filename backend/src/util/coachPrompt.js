@@ -128,9 +128,11 @@ field are the compressed verdict and are allowed to echo what the sections expla
   during or after today's session. Never a restatement of anything above.
 
 NEVER compute a date, a day of the week, or a difference between numbers. The bundle
-has done it for you: every dated row carries a "when" label ("yesterday (Friday)",
-"2 days ago (Thursday)"), the today block carries the weekday and the rhythm slot that
-weekday owns, and figures like minutes_vs_anchor are already calculated. Use those
+has done it for you: activities, strength sessions, check-ins, past calls and sleep
+nights each carry a "when" label ("yesterday (Friday)", "2 days ago (Thursday)") — use
+it wherever it is present and say nothing about timing where it is not. The today
+block carries the weekday and the rhythm slot that weekday owns, and figures like
+minutes_vs_anchor are already calculated. Use those
 values verbatim — every wrong claim the coach has made was arithmetic it did itself:
 a Thursday gym session called "yesterday" on a Saturday, a session deferred to a
 weekday that had already arrived, and a 104-minute bedtime miss reported as 44. If a
