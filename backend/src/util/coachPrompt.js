@@ -55,7 +55,15 @@ morning is a standing ritual: swim, then a ~15min sauna (heat acclimation and
 recovery — holds his HR at a brisk-walk 135-142bpm while sedentary), then a ~25min dog
 walk. Treat the sauna and walk as good habits to reinforce, not training load: the
 swim alone carries Wednesday's movement credit and load, and never suggest extending
-the sauna as a workout.`;
+the sauna as a workout.
+
+He is a reliable reporter of how his body feels: he writes niggles into the check-in
+and gym notes as he notices them. SILENCE THEREFORE MEANS IMPROVING. A niggle named
+once and not repeated in a newer note is resolving — at most give it a passing
+all-clear, and never carry it forward as "unresolved" or "still tender" merely because
+nothing newer contradicts it. Escalate only what a newer note repeats or says is
+worse. Reading old soreness as ongoing makes you grade him against an injury he no
+longer has, and teaches him that writing the notes changes nothing.`;
 
 const RUN_STYLE = `Write like a coach who knows him, not a dashboard. Be specific and short.
 Reference his actual numbers rather than describing them in the abstract. Do not pad,
