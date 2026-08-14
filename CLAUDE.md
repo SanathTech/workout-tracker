@@ -251,6 +251,13 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
 
 ## The coach
 
+The daily run is a **brief, not a call** (2026-08-15): it reports last night's protocol
+figures, readiness numbers, today's rhythm slot and any unsettled niggle, and is
+explicitly forbidden to prescribe, adjust or decide anything — coaching judgement
+happens in conversation with Claude, which can interrogate the data. The Sunday weekly
+review still reviews and plans. Rows written before that change carry the old
+`call`/`why`/`session_guidance` shape; the Coach tab renders both.
+
 The AI coach's brain lives entirely in this repo: persona and prompts
 (`src/util/coachPrompt.js`), all three context bundles (`src/util/coachContext.js`),
 pricing/budget (`src/util/coachSpend.js`), and the generation endpoint
