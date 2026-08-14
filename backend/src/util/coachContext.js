@@ -13,6 +13,45 @@ const { todayInAppTimezone, currentWeekStart } = require('./dates');
 
 const today = () => todayInAppTimezone();
 
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+// The standing weekly template, keyed by weekday. The bundle names today's slot so the
+// coach never has to infer the day of week from a bare ISO date — it got that wrong and
+// deferred a Saturday gym day to "Monday" (2026-08-15).
+const RHYTHM = {
+  Monday: 'gym (next in the A->B->C cycle)',
+  Tuesday: 'easy run 30-45min',
+  Wednesday: 'swim — a fixture, plus sauna and dog walk',
+  Thursday: 'gym (next in the A->B->C cycle)',
+  Friday: 'recovery walk',
+  Saturday: 'gym (next in the A->B->C cycle)',
+  Sunday: 'longer easy run 45-60min or a ride',
+};
+
+// Every date the coach sees is labelled here rather than left as a bare ISO string.
+// Date arithmetic is the single biggest source of confidently wrong claims it has made
+// — calling a Thursday session "yesterday" on a Saturday, and pushing a session to a
+// day that had already arrived.
+function whenLabel(iso) {
+  const d = Date.UTC(...iso.slice(0, 10).split('-').map((n, i) => (i === 1 ? Number(n) - 1 : Number(n))));
+  const t = Date.UTC(...today().split('-').map((n, i) => (i === 1 ? Number(n) - 1 : Number(n))));
+  const daysAgo = Math.round((t - d) / 86400000);
+  const weekday = WEEKDAYS[new Date(d).getUTCDay()];
+  const rel = daysAgo === 0 ? 'today' : daysAgo === 1 ? 'yesterday'
+    : daysAgo > 0 ? `${daysAgo} days ago` : `in ${-daysAgo} days`;
+  return `${rel} (${weekday})`;
+}
+
+// Stamps `when` onto any row carrying a `date`, so the model copies a label instead of
+// computing one.
+const labelRows = (rows) => rows.map((r) => ({ ...r, when: whenLabel(String(r.date)) }));
+
+function todayBlock() {
+  const iso = today();
+  const weekday = WEEKDAYS[new Date(`${iso}T00:00:00Z`).getUTCDay()];
+  return { date: iso, weekday, rhythm_slot_today: RHYTHM[weekday] };
+}
+
 // ---------------------------------------------------------------- shared blocks
 
 // Last measured night plus the trailing window it has to be read against. A single
@@ -70,7 +109,7 @@ async function recentActivities(days = 14) {
        FROM activities WHERE date >= $1::date - $2::int ORDER BY start_date_local DESC`,
     [today(), days]
   );
-  return rows;
+  return labelRows(rows);
 }
 
 // Working sets only — warm-ups would inflate every volume number. Joined to
@@ -94,7 +133,7 @@ async function strengthSessions(days = 14) {
       ORDER BY w.date DESC`,
     [today(), days]
   );
-  return rows;
+  return labelRows(rows);
 }
 
 // Mirror of the app's sequence rule: routines[(completed + skipped) % cycle_length].
@@ -161,7 +200,7 @@ async function checkins(days = 14) {
       WHERE date >= $1::date - $2::int ORDER BY date DESC`,
     [today(), days]
   );
-  return rows;
+  return labelRows(rows);
 }
 
 async function pastAdvice(kind, limit) {
@@ -211,7 +250,7 @@ async function buildAdherence(days = 28) {
       ORDER BY ca.for_date DESC, ca.id DESC`,
     [days, today()]
   );
-  return rows;
+  return labelRows(rows);
 }
 
 // The protocol — Blueprint-derived, Sanath's numbers, agreed 2026-08-10. Targets
@@ -284,7 +323,8 @@ async function protocolStatus() {
 
   const nights = beds.rows.map((r) => {
     const delta = bedMinutes(r.bed) - anchor;
-    return { date: r.date, bed: r.bed, wake: r.wake, minutes_vs_anchor: delta, within_anchor: Math.abs(delta) <= tol };
+    return { date: r.date, when: whenLabel(String(r.date)), bed: r.bed, wake: r.wake,
+             minutes_vs_anchor: delta, within_anchor: Math.abs(delta) <= tol };
   });
   const last7 = nights.filter((n) => n.date >= addDaysIso(today(), -7));
 
@@ -331,6 +371,7 @@ async function buildDailyBundle() {
   const now = new Date();
   return {
     generated_for: today(),
+    today: todayBlock(),
     weekday: now.toLocaleDateString('en-AU', { weekday: 'long', timeZone: 'Australia/Melbourne' }),
     readiness: ready,
     training_load: load,
@@ -355,6 +396,7 @@ async function buildWeeklyBundle() {
     ]);
   return {
     generated_for: today(),
+    today: todayBlock(),
     week_ending: today(),
     readiness: ready,
     training_load: load,
