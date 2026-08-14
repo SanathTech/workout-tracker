@@ -373,7 +373,7 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove, sug
           already carries notes per exercise — so there is nothing to save by hand. */}
       {editingNote || block.notes ? (
         <textarea
-          className="input w-full text-xs mb-1.5 min-h-[2.75rem]"
+          className="input w-full mb-1.5 min-h-[2.75rem]"
           rows={2}
           autoFocus={editingNote && !block.notes}
           placeholder={`Your note on ${block.exercise_name || 'this exercise'} — how it felt, form, niggles`}

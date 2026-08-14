@@ -132,7 +132,7 @@ async function strengthSessions(days = 14) {
             -- observation, and are deliberately not copied into a workout. These carry
             -- the specifics the session note cannot ("left shoulder clicked on
             -- pull-ups"); the niggle rules in the persona apply to them as to the rest.
-            (SELECT json_agg(json_build_object('exercise', e2.name, 'note', we2.notes)
+            (SELECT json_agg(json_build_object('exercise', e2.name, 'note', TRIM(we2.notes))
                                ORDER BY we2.sort_order)
                FROM workout_exercises we2
                JOIN exercises e2 ON e2.id = we2.exercise_id
