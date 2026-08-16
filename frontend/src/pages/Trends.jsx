@@ -45,6 +45,18 @@ function Metric({ label, value, unit, baseline, goodDirection }) {
   );
 }
 
+// How many nights back the shown night is. Whether it IS last night comes from the
+// server's `is_last_night` — the app's calendar day is decided there, and recomputing
+// it from the browser clock is how the two ends of one number start disagreeing. This
+// only turns the gap into words.
+function nightsAgo(iso) {
+  const now = new Date();
+  const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  return Math.round(
+    (Date.parse(`${todayIso}T00:00:00Z`) - Date.parse(`${String(iso).slice(0, 10)}T00:00:00Z`)) / 86400000
+  );
+}
+
 function Today() {
   const { data, isLoading } = useQuery({
     queryKey: ['readiness'],
@@ -56,15 +68,35 @@ function Today() {
   const night = data?.last_night;
   if (!night) {
     return (
-      <p className="text-sm text-neutral-500 dark:text-neutral-400">
-        No wellness data yet — the Garmin sync hasn’t written a row.
-      </p>
+      <>
+        <h2 className="section-label mb-2">Last night</h2>
+        <p className="text-sm text-neutral-500 dark:text-neutral-400">
+          No wellness data yet — the Garmin sync hasn’t written a row.
+        </p>
+      </>
     );
   }
+
+  // `is_last_night` is absent on a cached response from before this shipped; treating
+  // undefined as "assume it is" keeps the old behaviour rather than flashing a false
+  // stale warning at everyone on first load after an update.
+  const stale = data.is_last_night === false;
+  const back = stale ? nightsAgo(night.date) : 0;
+  const heading = !stale ? 'Last night' : back === 1 ? 'Night before last' : `${back} nights ago`;
 
   const base = data.baseline_10d || {};
   return (
     <>
+      <div className="flex items-baseline justify-between mb-2">
+        <h2 className={`section-label ${stale ? 'text-amber-700 dark:text-amber-500' : ''}`}>
+          {heading}
+        </h2>
+        {stale && (
+          <span className="text-[11px] text-amber-700 dark:text-amber-500">
+            last night not synced
+          </span>
+        )}
+      </div>
       <div className="flex flex-wrap gap-x-4 gap-y-3">
         <Metric label="Battery" value={night.body_battery_at_wake} baseline={base.body_battery_at_wake} goodDirection="up" />
         <Metric label="Sleep" value={night.sleep_score} baseline={base.sleep_score} goodDirection="up" />
@@ -118,11 +150,18 @@ function Protocol({ protocol, bodyweight }) {
   const tracked = slots.filter((s) => s.night).length;
   const within = slots.filter((s) => s.night?.within_anchor).length;
 
-  const weights = (bodyweight || []).filter((b) => b.weight_kg != null);
+  // The bodyweight endpoint returns NEWEST first. Reading it as oldest-first showed the
+  // oldest reading as his current weight and inverted the sign of the trend — a 94.09
+  // that was really 94.78, and a +0.7kg gain rendered as "-0.7" in green. Sorted here
+  // rather than trusting the order, so a change at the other end cannot flip it back.
+  const weights = (bodyweight || [])
+    .filter((b) => b.weight_kg != null)
+    .slice()
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)));
   const latestWeight = weights[weights.length - 1];
-  const firstWeight = weights[0];
-  const drift = latestWeight && firstWeight && weights.length > 1
-    ? Number(latestWeight.weight_kg) - Number(firstWeight.weight_kg)
+  const oldestWeight = weights[0];
+  const drift = latestWeight && oldestWeight && weights.length > 1
+    ? Number(latestWeight.weight_kg) - Number(oldestWeight.weight_kg)
     : null;
 
   return (
@@ -431,8 +470,9 @@ export default function Trends() {
     <div className="max-w-2xl mx-auto space-y-4">
       <h1 className="text-2xl font-semibold tracking-tight">Trends</h1>
 
+      {/* The heading lives inside Today: it has to name which night this actually is,
+          and only the component knows whether the newest row is last night's. */}
       <section>
-        <h2 className="section-label mb-2">Last night</h2>
         <Today />
       </section>
 

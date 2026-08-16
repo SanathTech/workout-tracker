@@ -93,17 +93,29 @@ router.get('/readiness', async (req, res) => {
            FROM wellness_daily WHERE date >= $1::date - 10`,
         [anchor()]
       ),
+      // Not simply the newest row: intervals.icu publishes tomorrow's forecast, so
+      // `ORDER BY date DESC LIMIT 1` returned a projection and the card showed it as
+      // today's form (2026-08-16: -1.8 displayed, -3.4 actual).
       db.query(
         `SELECT date, ROUND(ctl, 1) AS ctl, ROUND(atl, 1) AS atl, ROUND(tsb, 1) AS tsb
-           FROM training_load ORDER BY date DESC LIMIT 1`
+           FROM training_load WHERE date <= $1::date ORDER BY date DESC LIMIT 1`,
+        [anchor()]
       ),
       db.query(
         `SELECT MIN(ROUND(EXTRACT(EPOCH FROM (NOW() - last_success)) / 3600))::int AS stale_hours
            FROM sync_state WHERE last_success IS NOT NULL`
       ),
     ]);
+    // Whether this row is actually LAST night is decided here, not in the browser.
+    // wellness_daily keys a night by the day he woke, so a row dated today is last
+    // night and anything older is not — and the Garmin sync only carries a night once
+    // the watch has uploaded it, so on a late wake-up the freshest row is the night
+    // before. The card used to head that "Last night" regardless (2026-08-16: it
+    // showed a 75 from Friday while Saturday's night was an 84).
+    const night = latest.rows[0] || null;
     res.json({
-      last_night: latest.rows[0] || null,
+      last_night: night,
+      is_last_night: night ? String(night.date).slice(0, 10) === anchor() : null,
       baseline_10d: baseline.rows[0] || null,
       training_load: load.rows[0] || null,
       stale_hours: freshness.rows[0]?.stale_hours ?? null,

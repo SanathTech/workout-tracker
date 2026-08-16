@@ -39,7 +39,13 @@ export default function FitnessChart({ days = 90 }) {
     atl: Number(r.atl),
     tsb: Number(r.tsb),
   }));
-  const latest = rows[rows.length - 1];
+  // The series deliberately carries tomorrow's forecast point (see loadHistory), so the
+  // last row is not today. Plot it, but read the legend's "current" figures off the most
+  // recent row that has actually happened.
+  const now = new Date();
+  const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const past = rows.filter((r) => String(r.date).slice(0, 10) <= todayIso);
+  const latest = past[past.length - 1] || rows[rows.length - 1];
 
   return (
     <>

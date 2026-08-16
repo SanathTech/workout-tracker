@@ -82,17 +82,33 @@ async function readiness(days = 10) {
       [today(), days]
     ),
   ]);
+  // The newest recorded night is not always LAST night. wellness_daily keys a night by
+  // the day he woke, and the Garmin sync can only carry a night once the watch has
+  // uploaded it — on a late wake-up the freshest row is the night before. Labelled here
+  // rather than left for the model to infer from a bare date, per the same rule as every
+  // other date in the bundle: it is a fact we can compute, so we compute it.
+  const night = latest.rows[0] || null;
   return {
-    last_night: latest.rows[0] || null,
+    last_night: night
+      ? { ...night, when: whenLabel(String(night.date)),
+          is_last_night: String(night.date).slice(0, 10) === today() }
+      : null,
     [`${days}d_average`]: baseline.rows[0] || null,
   };
 }
 
+// Ordered newest-first, and `date <= today` is load-bearing: intervals.icu publishes a
+// row for TOMORROW (its forecast of where form lands if he does nothing), so the newest
+// row is not today's. Every caller takes rows[0] as "now" — the MCP literally returns it
+// as `training_load_today` — and was reading the forecast. On 2026-08-16 that reported
+// form as -1.8 when today's was -3.4.
 async function loadBlock(days = 14) {
   const { rows } = await db.query(
     `SELECT date, ROUND(ctl, 1) AS ctl, ROUND(atl, 1) AS atl, ROUND(tsb, 1) AS tsb,
             ROUND(ramp_rate, 2) AS ramp_rate
-       FROM training_load WHERE date >= $1::date - $2::int ORDER BY date DESC`,
+       FROM training_load
+      WHERE date >= $1::date - $2::int AND date <= $1::date
+      ORDER BY date DESC`,
     [today(), days]
   );
   return rows;

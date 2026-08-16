@@ -95,6 +95,45 @@ ok(Array.isArray(load) && load.length > 0, 'load history returns rows');
 ok(load?.[0]?.tsb != null, 'tsb is served (generated column)');
 ok(load?.every((r, i, a) => i === 0 || r.date >= a[i - 1].date), 'load history is ascending by date');
 
+// The readiness card and the coach brief both describe "last night". wellness_daily
+// keys a night by the day he woke, and the Garmin sync only carries a night once the
+// watch has uploaded it — so on a late wake-up the freshest row is an older night, and
+// both surfaces used to call it last night's regardless. The seeded nights above stop
+// at yesterday, which is exactly that case.
+const { body: ready } = await api('/api/coach/readiness');
+ok(ready?.last_night?.date?.startsWith(shift(today, -1)),
+  'readiness serves the freshest recorded night', `got ${ready?.last_night?.date}`);
+ok(ready?.is_last_night === false,
+  'a night older than today is NOT flagged as last night', `got ${ready?.is_last_night}`);
+
+// And the opposite case: seed a night dated today, which is a night he woke from today.
+await db.query(
+  `INSERT INTO wellness_daily (date, sleep_score, resting_hr, body_battery_at_wake, raw)
+        VALUES ($1, 84, 54, 86, '{}'::jsonb)
+   ON CONFLICT (date) DO UPDATE SET sleep_score = 84, body_battery_at_wake = 86`,
+  [today]
+);
+const { body: fresh } = await api('/api/coach/readiness');
+ok(fresh?.is_last_night === true,
+  'a night dated today IS last night', `got ${fresh?.is_last_night}`);
+ok(fresh?.last_night?.sleep_score === 84,
+  'and it is the row that gets served once it arrives', `got ${fresh?.last_night?.sleep_score}`);
+
+// intervals.icu publishes a row for TOMORROW — its forecast of where form lands if he
+// trains nothing today. Every "current form" reader takes the newest row, so the
+// forecast was being served as today's (2026-08-16: -1.8 shown, -3.4 actual).
+await db.query(
+  `INSERT INTO training_load (date, ctl, atl, raw) VALUES ($1, 10.7, 14.1, '{}'::jsonb),
+                                                        ($2, 10.4, 12.2, '{}'::jsonb)
+   ON CONFLICT (date) DO UPDATE SET ctl = EXCLUDED.ctl, atl = EXCLUDED.atl`,
+  [today, shift(today, 1)]
+);
+const { body: r2 } = await api('/api/coach/readiness');
+ok(r2?.training_load?.date?.startsWith(today),
+  "current form is today's row, not tomorrow's forecast", `got ${r2?.training_load?.date}`);
+ok(Number(r2?.training_load?.tsb) === -3.4,
+  'and it carries the value for today', `got ${r2?.training_load?.tsb}`);
+
 // The window params are user-supplied, so they get the hostile cases: a negative would
 // invert generate_series into an empty series, and a fraction would reach a ::int cast.
 const { body: neg } = await api('/api/coach/trends?days=-5');
