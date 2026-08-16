@@ -150,11 +150,18 @@ function Protocol({ protocol, bodyweight }) {
   const tracked = slots.filter((s) => s.night).length;
   const within = slots.filter((s) => s.night?.within_anchor).length;
 
-  const weights = (bodyweight || []).filter((b) => b.weight_kg != null);
+  // The bodyweight endpoint returns NEWEST first. Reading it as oldest-first showed the
+  // oldest reading as his current weight and inverted the sign of the trend — a 94.09
+  // that was really 94.78, and a +0.7kg gain rendered as "-0.7" in green. Sorted here
+  // rather than trusting the order, so a change at the other end cannot flip it back.
+  const weights = (bodyweight || [])
+    .filter((b) => b.weight_kg != null)
+    .slice()
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)));
   const latestWeight = weights[weights.length - 1];
-  const firstWeight = weights[0];
-  const drift = latestWeight && firstWeight && weights.length > 1
-    ? Number(latestWeight.weight_kg) - Number(firstWeight.weight_kg)
+  const oldestWeight = weights[0];
+  const drift = latestWeight && oldestWeight && weights.length > 1
+    ? Number(latestWeight.weight_kg) - Number(oldestWeight.weight_kg)
     : null;
 
   return (

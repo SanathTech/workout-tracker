@@ -93,9 +93,13 @@ router.get('/readiness', async (req, res) => {
            FROM wellness_daily WHERE date >= $1::date - 10`,
         [anchor()]
       ),
+      // Not simply the newest row: intervals.icu publishes tomorrow's forecast, so
+      // `ORDER BY date DESC LIMIT 1` returned a projection and the card showed it as
+      // today's form (2026-08-16: -1.8 displayed, -3.4 actual).
       db.query(
         `SELECT date, ROUND(ctl, 1) AS ctl, ROUND(atl, 1) AS atl, ROUND(tsb, 1) AS tsb
-           FROM training_load ORDER BY date DESC LIMIT 1`
+           FROM training_load WHERE date <= $1::date ORDER BY date DESC LIMIT 1`,
+        [anchor()]
       ),
       db.query(
         `SELECT MIN(ROUND(EXTRACT(EPOCH FROM (NOW() - last_success)) / 3600))::int AS stale_hours

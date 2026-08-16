@@ -119,6 +119,21 @@ ok(fresh?.is_last_night === true,
 ok(fresh?.last_night?.sleep_score === 84,
   'and it is the row that gets served once it arrives', `got ${fresh?.last_night?.sleep_score}`);
 
+// intervals.icu publishes a row for TOMORROW — its forecast of where form lands if he
+// trains nothing today. Every "current form" reader takes the newest row, so the
+// forecast was being served as today's (2026-08-16: -1.8 shown, -3.4 actual).
+await db.query(
+  `INSERT INTO training_load (date, ctl, atl, raw) VALUES ($1, 10.7, 14.1, '{}'::jsonb),
+                                                        ($2, 10.4, 12.2, '{}'::jsonb)
+   ON CONFLICT (date) DO UPDATE SET ctl = EXCLUDED.ctl, atl = EXCLUDED.atl`,
+  [today, shift(today, 1)]
+);
+const { body: r2 } = await api('/api/coach/readiness');
+ok(r2?.training_load?.date?.startsWith(today),
+  "current form is today's row, not tomorrow's forecast", `got ${r2?.training_load?.date}`);
+ok(Number(r2?.training_load?.tsb) === -3.4,
+  'and it carries the value for today', `got ${r2?.training_load?.tsb}`);
+
 // The window params are user-supplied, so they get the hostile cases: a negative would
 // invert generate_series into an empty series, and a fraction would reach a ::int cast.
 const { body: neg } = await api('/api/coach/trends?days=-5');

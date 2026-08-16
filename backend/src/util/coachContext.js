@@ -97,11 +97,18 @@ async function readiness(days = 10) {
   };
 }
 
+// Ordered newest-first, and `date <= today` is load-bearing: intervals.icu publishes a
+// row for TOMORROW (its forecast of where form lands if he does nothing), so the newest
+// row is not today's. Every caller takes rows[0] as "now" — the MCP literally returns it
+// as `training_load_today` — and was reading the forecast. On 2026-08-16 that reported
+// form as -1.8 when today's was -3.4.
 async function loadBlock(days = 14) {
   const { rows } = await db.query(
     `SELECT date, ROUND(ctl, 1) AS ctl, ROUND(atl, 1) AS atl, ROUND(tsb, 1) AS tsb,
             ROUND(ramp_rate, 2) AS ramp_rate
-       FROM training_load WHERE date >= $1::date - $2::int ORDER BY date DESC`,
+       FROM training_load
+      WHERE date >= $1::date - $2::int AND date <= $1::date
+      ORDER BY date DESC`,
     [today(), days]
   );
   return rows;
