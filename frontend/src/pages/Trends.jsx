@@ -236,7 +236,14 @@ const TREND_ROWS = [
 // detail" half of the tab, kept in place rather than on its own route so the comparison
 // with the rows around it survives.
 function TrendRow({ row, window30, window90, open, onToggle }) {
-  const values = window30.map((d) => d[row.field]).filter((v) => v != null).map(Number);
+  // Same "not tracked" test as Sparkline and MetricDetail, and it has to be: Number('')
+  // is 0, so an empty reading would enter the mean as a zero-score night and drag the
+  // baseline the row is judged against — while the chart beside it, which drops the
+  // same value, showed a different average.
+  const values = window30
+    .map((d) => d[row.field])
+    .filter((v) => v != null && v !== '' && Number.isFinite(Number(v)))
+    .map(Number);
   if (values.length < 2) return null;
   const latest = values[values.length - 1];
   const mean = values.reduce((a, b) => a + b, 0) / values.length;
