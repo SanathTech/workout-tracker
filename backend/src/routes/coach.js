@@ -3,7 +3,10 @@ const router = express.Router();
 const db = require('../db');
 const { serverError } = require('../util/errors');
 const { resolveWorkoutDate, todayInAppTimezone } = require('../util/dates');
-const { buildAdherence } = require('../util/coachContext');
+const {
+  buildAdherence, protocolStatus, weekVsRhythm, wellnessHistory, loadHistory,
+  runDiscipline, bodyweight, HR_CEILING,
+} = require('../util/coachContext');
 
 // The hub tables (coach_advice, checkins, session_feel, wellness_daily, training_load)
 // come from schema_hub.sql, not schema.sql. They're written by the nas-laptop timers;
@@ -105,6 +108,41 @@ router.get('/readiness', async (req, res) => {
       training_load: load.rows[0] || null,
       stale_hours: freshness.rows[0]?.stale_hours ?? null,
     });
+  } catch (err) {
+    serverError(res, err);
+  }
+});
+
+// GET /api/coach/trends — one round trip for everything the Trends tab draws except
+// the fitness chart.
+//
+// Bundled rather than split into five endpoints because the tab renders it all at once
+// and it is often opened on gym wifi: five sequential round trips is five chances to
+// hang. The fitness chart is the deliberate exception below — its data ships with the
+// chart library, which is lazy-loaded.
+router.get('/trends', async (req, res) => {
+  const days = Math.min(Number(req.query.days) || 30, 180);
+  try {
+    const [protocol, week, wellness, weight, runs] = await Promise.all([
+      protocolStatus(),
+      weekVsRhythm(),
+      wellnessHistory(days),
+      bodyweight(Math.max(days, 90)),
+      runDiscipline(42),
+    ]);
+    res.json({ protocol, week, wellness, bodyweight: weight, runs, hr_ceiling: HR_CEILING });
+  } catch (err) {
+    serverError(res, err);
+  }
+});
+
+// GET /api/coach/load-history — the CTL/ATL/TSB series behind the fitness chart.
+// Separate from /trends so it is fetched alongside the lazy Recharts bundle rather
+// than blocking the numbers above it.
+router.get('/load-history', async (req, res) => {
+  const days = Math.min(Number(req.query.days) || 90, 365);
+  try {
+    res.json(await loadHistory(days));
   } catch (err) {
     serverError(res, err);
   }

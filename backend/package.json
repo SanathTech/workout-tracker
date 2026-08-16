@@ -18,7 +18,7 @@
     "auth:hash": "node src/util/hash-password.js",
     "db:apply-muscles": "node src/db/apply-muscles.js",
     "test": "node tests/run.mjs",
-    "test:setup": "node src/db/init.js && node src/db/seed.js && node src/db/apply-muscles.js --apply"
+    "test:setup": "node src/db/init.js && node src/db/init_hub.js && node src/db/seed.js && node src/db/apply-muscles.js --apply"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",

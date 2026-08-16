@@ -149,6 +149,114 @@ async function strengthSessions(days = 14) {
   return labelRows(rows);
 }
 
+// ------------------------------------------------------- series, for the Trends tab
+//
+// These are the only helpers here built for a screen rather than for the model. The
+// difference is shape, not source: the coach gets a compact snapshot it can reason
+// over in one pass, the dashboard gets one row per day so it can draw a line. Both
+// read the same tables through the same date anchor, so a number can never disagree
+// with itself between the tab and the morning brief.
+
+// The top of his Zone 2 (from intervals.icu: LTHR 172, max 190 — observed, not a
+// formula). Exported so the axis label and the coach's grading cite one constant.
+const HR_CEILING = 153;
+
+// generate_series drives the row set so untracked days arrive as nulls rather than
+// vanishing. A missing night has to stay visible: dropping the row would close the gap
+// and draw a smooth line through a night the watch never recorded, which reads as data.
+async function wellnessHistory(days = 30) {
+  const { rows } = await db.query(
+    `SELECT d::date AS date, w.body_battery_at_wake, w.sleep_score, w.sleep_secs,
+            w.resting_hr, w.stress_avg, w.steps
+       FROM generate_series($1::date - $2::int, $1::date, '1 day') d
+       LEFT JOIN wellness_daily w ON w.date = d::date
+      ORDER BY d`,
+    [today(), Math.max(days - 1, 0)]
+  );
+  return rows;
+}
+
+// CTL/ATL/TSB straight from the table intervals.icu populates. No generate_series here:
+// the load model is continuous by construction — every day has a row once syncing has
+// started — and a null would break the chart's area fill rather than tell the truth.
+async function loadHistory(days = 90) {
+  const { rows } = await db.query(
+    `SELECT date, ROUND(ctl, 1) AS ctl, ROUND(atl, 1) AS atl, ROUND(tsb, 1) AS tsb,
+            ROUND(ramp_rate, 2) AS ramp_rate
+       FROM training_load WHERE date >= $1::date - $2::int ORDER BY date`,
+    [today(), days]
+  );
+  return rows;
+}
+
+// Only runs, and only the over-ceiling minutes — the number the weekly review grades
+// him on. Whole-session average HR is the misleading one: a run/walk session's walk
+// reps drag it down and hide long stretches at threshold.
+async function runDiscipline(days = 42) {
+  const { rows } = await db.query(
+    `SELECT date, name, moving_time, ROUND(distance) AS distance_m, average_hr,
+            (SELECT ROUND(SUM(z) / 60.0, 1)
+               FROM unnest(hr_zone_times[3:]) AS z) AS minutes_over_hr_ceiling
+       FROM activities
+      WHERE type IN ('Run', 'VirtualRun') AND date >= $1::date - $2::int
+      ORDER BY date`,
+    [today(), days]
+  );
+  return labelRows(rows);
+}
+
+// The standing template scored against what actually happened, Monday to Sunday of the
+// current week. This is the honest form of "adherence": it states the slot and what the
+// day contained, and leaves days that have not arrived yet as `upcoming` rather than
+// counting them as misses — a Sunday run cannot be missed at 10am on Sunday.
+async function weekVsRhythm() {
+  const start = currentWeekStart();
+  const [acts, gym] = await Promise.all([
+    db.query(
+      `SELECT date, type, moving_time FROM activities
+        WHERE date >= $1::date ORDER BY start_date_local`,
+      [start]
+    ),
+    db.query(
+      `SELECT date, routine_name FROM workouts
+        WHERE status = 'completed' AND date >= $1::date ORDER BY date`,
+      [start]
+    ),
+  ]);
+
+  const iso = today();
+  const days = [];
+  for (let i = 0; i < 7; i += 1) {
+    const date = addDaysIso(start, i);
+    const weekday = WEEKDAYS[new Date(`${date}T00:00:00Z`).getUTCDay()];
+    const did = [
+      ...gym.rows.filter((r) => String(r.date).slice(0, 10) === date).map((r) => r.routine_name),
+      ...acts.rows
+        .filter((r) => String(r.date).slice(0, 10) === date && r.type !== 'WeightTraining')
+        .map((r) => r.type),
+    ];
+    days.push({
+      date,
+      weekday,
+      slot: RHYTHM[weekday],
+      did,
+      met: did.length > 0,
+      upcoming: date > iso,
+      is_today: date === iso,
+    });
+  }
+  // Today is excluded from the score as well as the future: at 10am on Sunday the
+  // Sunday run has not been missed, it has not happened yet. Counting it would open
+  // every day on a miss and close it on a win, which is noise, not information.
+  const scored = days.filter((d) => !d.upcoming && !d.is_today);
+  return {
+    week_start: start,
+    days,
+    slots_met: scored.filter((d) => d.met).length,
+    slots_scored: scored.length,
+  };
+}
+
 // Mirror of the app's sequence rule: routines[(completed + skipped) % cycle_length].
 // Duplicated from GET /api/programs/active rather than importing it, because that
 // route returns a hydrated payload; this needs four fields.
@@ -440,4 +548,10 @@ module.exports = {
   checkins,
   pastAdvice,
   dataFreshness,
+  // Series for the Trends tab.
+  HR_CEILING,
+  wellnessHistory,
+  loadHistory,
+  runDiscipline,
+  weekVsRhythm,
 };
