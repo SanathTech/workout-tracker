@@ -78,7 +78,11 @@ function SetRow({ set, previousSet, showPrev, targetRir, suggestion, onChange, o
   const prevNumbers = prevWeight == null && previousSet?.reps == null
     ? '—'
     : `${prevWeight ?? '—'} × ${previousSet?.reps ?? '—'}`;
-  const prevLabel = previousSet?.rir != null ? `${prevNumbers} · ${previousSet.rir}` : prevNumbers;
+  // RIR only rides along when there is a number for it to ride on — a set with neither
+  // weight nor reps would otherwise render as "— · 2", which reads as a broken cell.
+  const prevLabel = previousSet?.rir != null && prevNumbers !== '—'
+    ? `${prevNumbers} · ${previousSet.rir}`
+    : prevNumbers;
   const prevTitle = previousSet?.rir != null
     ? `Last time: ${prevNumbers} @ RIR ${previousSet.rir} — tap to fill`
     : `Last time: ${prevNumbers} — tap to fill`;
