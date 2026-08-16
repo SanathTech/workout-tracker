@@ -14,7 +14,7 @@ const ok = (c, label, detail = '') => {
   if (c) { console.log(`  PASS  ${label}`); pass++; }
   else { console.log(`  FAIL  ${label}${detail ? `  — ${detail}` : ''}`); fail++; }
 };
-async function api(method, path) {
+async function api(path) {
   const res = await fetch(BASE + path);
   const text = await res.text();
   let json = null;
@@ -60,7 +60,7 @@ await db.query(
 
 console.log('\nTrends read surface');
 
-const { status, body: t } = await api('GET', '/api/coach/trends?days=14');
+const { status, body: t } = await api('/api/coach/trends?days=14');
 ok(status === 200, 'GET /api/coach/trends returns 200', `got ${status}`);
 ok(Array.isArray(t?.wellness) && t.wellness.length === 14,
   'wellness series has one row per requested day', `got ${t?.wellness?.length}`);
@@ -89,11 +89,22 @@ ok(!t?.runs?.some((r) => r.type === 'Swim'), 'non-run activities stay out of run
 ok(t?.protocol?.bedtime != null && t?.protocol?.movement != null,
   'protocol block carries bedtime and movement');
 
-const { status: ls, body: load } = await api('GET', '/api/coach/load-history?days=30');
+const { status: ls, body: load } = await api('/api/coach/load-history?days=30');
 ok(ls === 200, 'GET /api/coach/load-history returns 200', `got ${ls}`);
 ok(Array.isArray(load) && load.length > 0, 'load history returns rows');
 ok(load?.[0]?.tsb != null, 'tsb is served (generated column)');
 ok(load?.every((r, i, a) => i === 0 || r.date >= a[i - 1].date), 'load history is ascending by date');
+
+// The window params are user-supplied, so they get the hostile cases: a negative would
+// invert generate_series into an empty series, and a fraction would reach a ::int cast.
+const { body: neg } = await api('/api/coach/trends?days=-5');
+ok(neg?.wellness?.length === 30, 'a negative days falls back to the default window',
+  `got ${neg?.wellness?.length}`);
+const { body: frac } = await api('/api/coach/trends?days=7.9');
+ok(frac?.wellness?.length === 7, 'a fractional days truncates rather than rounding',
+  `got ${frac?.wellness?.length}`);
+const { status: junk } = await api('/api/coach/load-history?days=abc');
+ok(junk === 200, 'a non-numeric days does not 500', `got ${junk}`);
 
 await db.end();
 console.log(`\n  ${pass} passed, ${fail} failed`);

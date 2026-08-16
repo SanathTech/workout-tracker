@@ -113,6 +113,14 @@ router.get('/readiness', async (req, res) => {
   }
 });
 
+// A window length from the query string, floored at 1 and forced to a whole number.
+// `Number(x) || fallback` alone lets a negative through, which inverts generate_series
+// into an empty result, and a fractional one reaches a ::int cast that silently rounds.
+const windowDays = (raw, fallback, max) => {
+  const n = Math.trunc(Number(raw));
+  return Number.isFinite(n) && n > 0 ? Math.min(n, max) : fallback;
+};
+
 // GET /api/coach/trends — one round trip for everything the Trends tab draws except
 // the fitness chart.
 //
@@ -121,7 +129,7 @@ router.get('/readiness', async (req, res) => {
 // hang. The fitness chart is the deliberate exception below — its data ships with the
 // chart library, which is lazy-loaded.
 router.get('/trends', async (req, res) => {
-  const days = Math.min(Number(req.query.days) || 30, 180);
+  const days = windowDays(req.query.days, 30, 180);
   try {
     const [protocol, week, wellness, weight, runs] = await Promise.all([
       protocolStatus(),
@@ -140,7 +148,7 @@ router.get('/trends', async (req, res) => {
 // Separate from /trends so it is fetched alongside the lazy Recharts bundle rather
 // than blocking the numbers above it.
 router.get('/load-history', async (req, res) => {
-  const days = Math.min(Number(req.query.days) || 90, 365);
+  const days = windowDays(req.query.days, 90, 365);
   try {
     res.json(await loadHistory(days));
   } catch (err) {

@@ -185,12 +185,17 @@ async function wellnessHistory(days = 30) {
 // CTL/ATL/TSB straight from the table intervals.icu populates. No generate_series here:
 // the load model is continuous by construction — every day has a row once syncing has
 // started — and a null would break the chart's area fill rather than tell the truth.
+//
+// `days` is a lookback of that many days ending today, so it matches wellnessHistory's
+// window rather than running a day longer. The row count can still exceed `days` by
+// one: intervals.icu publishes tomorrow's forecast row, and that point is worth
+// drawing — it is where form is heading, which is the question the chart is asked.
 async function loadHistory(days = 90) {
   const { rows } = await db.query(
     `SELECT date, ROUND(ctl, 1) AS ctl, ROUND(atl, 1) AS atl, ROUND(tsb, 1) AS tsb,
             ROUND(ramp_rate, 2) AS ramp_rate
        FROM training_load WHERE date >= $1::date - $2::int ORDER BY date`,
-    [today(), days]
+    [today(), Math.max(days - 1, 0)]
   );
   return rows;
 }
@@ -198,6 +203,10 @@ async function loadHistory(days = 90) {
 // Only runs, and only the over-ceiling minutes — the number the weekly review grades
 // him on. Whole-session average HR is the misleading one: a run/walk session's walk
 // reps drag it down and hide long stretches at threshold.
+//
+// `days` stays a plain lookback window here rather than a row count: runs are sparse,
+// so the number of rows is whatever he ran, and an off-by-one on the boundary date is
+// the only thing at stake.
 async function runDiscipline(days = 42) {
   const { rows } = await db.query(
     `SELECT date, name, moving_time, ROUND(distance) AS distance_m, average_hr,
