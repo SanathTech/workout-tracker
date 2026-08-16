@@ -15,6 +15,7 @@ import { formatDay, formatKg } from '../utils/format';
 // Recharts loads only for the fitness chart, below the fold. Everything above it is
 // plain SVG and paints on the first render.
 const FitnessChart = lazy(() => import('../components/FitnessChart'));
+const MetricDetail = lazy(() => import('../components/MetricDetail'));
 
 function hours(secs) {
   if (!secs) return null;
@@ -224,15 +225,18 @@ function Week({ week }) {
 const TREND_ROWS = [
   { field: 'sleep_score', label: 'Sleep', stroke: '#60a5fa', goodDirection: 'up' },
   { field: 'body_battery_at_wake', label: 'Battery', stroke: '#34d399', goodDirection: 'up' },
-  { field: 'resting_hr', label: 'RHR', stroke: '#f472b6', goodDirection: 'down' },
+  { field: 'resting_hr', label: 'RHR', stroke: '#f472b6', goodDirection: 'down', unit: 'bpm' },
   { field: 'stress_avg', label: 'Stress', stroke: '#fbbf24', goodDirection: 'down' },
   { field: 'steps', label: 'Steps', stroke: '#a78bfa', goodDirection: 'up' },
 ];
 
-// Each row is its own baseline: the latest reading against the mean of the window, so a
-// number is legible without remembering what normal looks like.
-function TrendRow({ row, data }) {
-  const values = data.map((d) => d[row.field]).filter((v) => v != null).map(Number);
+// Each row is its own baseline: the latest reading against the mean of its window, so a
+// number is legible without having to remember what normal looks like. Tapping opens the
+// same series over the full 90 days with axes and a range — the "look through it in
+// detail" half of the tab, kept in place rather than on its own route so the comparison
+// with the rows around it survives.
+function TrendRow({ row, window30, window90, open, onToggle }) {
+  const values = window30.map((d) => d[row.field]).filter((v) => v != null).map(Number);
   if (values.length < 2) return null;
   const latest = values[values.length - 1];
   const mean = values.reduce((a, b) => a + b, 0) / values.length;
@@ -240,24 +244,46 @@ function TrendRow({ row, data }) {
   const good = diff === 0 ? null : row.goodDirection === 'up' ? diff > 0 : diff < 0;
 
   return (
-    <div className="flex items-center gap-3 py-1">
-      <span className="w-14 shrink-0 text-xs text-neutral-500 dark:text-neutral-400">{row.label}</span>
-      <Sparkline
-        data={data}
-        field={row.field}
-        stroke={row.stroke}
-        className="flex-1 min-w-0 h-6"
-      />
-      <span className="w-14 shrink-0 text-right text-sm font-medium tabular-nums">
-        {row.field === 'steps' ? latest.toLocaleString() : latest}
-      </span>
-      <span className={`w-11 shrink-0 text-right text-[11px] tabular-nums ${
-        diff === 0 ? 'text-neutral-400 dark:text-neutral-600'
-          : good ? 'text-emerald-600 dark:text-emerald-500'
-          : 'text-amber-600 dark:text-amber-500'
-      }`}>
-        {diff > 0 ? '+' : ''}{diff}
-      </span>
+    <div>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="w-full flex items-center gap-3 py-1 min-h-11 md:min-h-0 text-left rounded-md
+                   hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors"
+      >
+        <span className="w-14 shrink-0 text-xs text-neutral-500 dark:text-neutral-400">{row.label}</span>
+        <Sparkline
+          data={window30}
+          field={row.field}
+          stroke={row.stroke}
+          className="flex-1 min-w-0 h-6"
+        />
+        <span className="w-14 shrink-0 text-right text-sm font-medium tabular-nums">
+          {row.field === 'steps' ? latest.toLocaleString() : latest}
+        </span>
+        <span className={`w-11 shrink-0 text-right text-[11px] tabular-nums ${
+          diff === 0 ? 'text-neutral-400 dark:text-neutral-600'
+            : good ? 'text-emerald-600 dark:text-emerald-500'
+            : 'text-amber-600 dark:text-amber-500'
+        }`}>
+          {diff > 0 ? '+' : ''}{diff}
+        </span>
+        <span className="w-3 shrink-0 text-[10px] text-neutral-400 dark:text-neutral-600">
+          {open ? '▲' : '▼'}
+        </span>
+      </button>
+      {open && (
+        <Suspense fallback={<Skeleton className="h-44 w-full" />}>
+          <MetricDetail
+            label={row.label}
+            data={window90}
+            field={row.field}
+            stroke={row.stroke}
+            unit={row.unit}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }
@@ -266,7 +292,18 @@ function TrendRow({ row, data }) {
 // grades him on and the one whole-session average HR hides: on a run/walk session the
 // walk reps drag the average down while the run reps sit at threshold.
 function RunDiscipline({ runs, ceiling }) {
-  if (!runs?.length) return null;
+  // An empty section, not a vanished one: no runs in six weeks is itself the finding,
+  // and a section that silently disappears reads as a bug rather than as a fact.
+  if (!runs?.length) {
+    return (
+      <section className="border-t border-neutral-200 dark:border-neutral-800 pt-4">
+        <h2 className="section-label mb-2">Run discipline</h2>
+        <p className="text-sm text-neutral-500 dark:text-neutral-400">
+          No runs logged in the last six weeks.
+        </p>
+      </section>
+    );
+  }
   const recent = runs.slice(-6);
   const worst = Math.max(...recent.map((r) => Number(r.minutes_over_hr_ceiling) || 0), 1);
 
@@ -364,9 +401,13 @@ function WeeklyReview({ entry }) {
 }
 
 export default function Trends() {
+  // 90 days in one request, rendered two ways: the sparklines take the last 30 (a
+  // quarter's worth of daily points in a 200px line is noise), the expanded detail
+  // takes all of it. One fetch, both views — a second request per row opened would be
+  // the same bytes, later, on worse wifi.
   const { data: trends, isLoading } = useQuery({
-    queryKey: ['trends'],
-    queryFn: () => getTrends({ days: 30 }),
+    queryKey: ['trends', 90],
+    queryFn: () => getTrends({ days: 90 }),
     staleTime: 5 * 60_000,
   });
   const { data: coach } = useQuery({
@@ -374,8 +415,10 @@ export default function Trends() {
     queryFn: getCoachLatest,
     staleTime: 5 * 60_000,
   });
+  const [openMetric, setOpenMetric] = useState(null);
 
   const wellness = trends?.wellness || [];
+  const wellness30 = wellness.slice(-30);
 
   return (
     <div className="max-w-2xl mx-auto space-y-4">
@@ -401,12 +444,24 @@ export default function Trends() {
           </section>
 
           <section className="border-t border-neutral-200 dark:border-neutral-800 pt-4">
-            <h2 className="section-label mb-2">Last 30 days</h2>
-            {wellness.length > 1 ? (
-              TREND_ROWS.map((row) => <TrendRow key={row.field} row={row} data={wellness} />)
+            <div className="flex items-baseline justify-between mb-2">
+              <h2 className="section-label">Last 30 days</h2>
+              <span className="text-[11px] text-neutral-400 dark:text-neutral-600">tap for 90</span>
+            </div>
+            {wellness30.length > 1 ? (
+              TREND_ROWS.map((row) => (
+                <TrendRow
+                  key={row.field}
+                  row={row}
+                  window30={wellness30}
+                  window90={wellness}
+                  open={openMetric === row.field}
+                  onToggle={() => setOpenMetric((f) => (f === row.field ? null : row.field))}
+                />
+              ))
             ) : (
               <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                Not enough wellness history yet.
+                No wellness readings yet — they arrive with the Garmin sync.
               </p>
             )}
           </section>
