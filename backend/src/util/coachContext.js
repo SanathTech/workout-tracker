@@ -82,8 +82,17 @@ async function readiness(days = 10) {
       [today(), days]
     ),
   ]);
+  // The newest recorded night is not always LAST night. wellness_daily keys a night by
+  // the day he woke, and the Garmin sync can only carry a night once the watch has
+  // uploaded it — on a late wake-up the freshest row is the night before. Labelled here
+  // rather than left for the model to infer from a bare date, per the same rule as every
+  // other date in the bundle: it is a fact we can compute, so we compute it.
+  const night = latest.rows[0] || null;
   return {
-    last_night: latest.rows[0] || null,
+    last_night: night
+      ? { ...night, when: whenLabel(String(night.date)),
+          is_last_night: String(night.date).slice(0, 10) === today() }
+      : null,
     [`${days}d_average`]: baseline.rows[0] || null,
   };
 }

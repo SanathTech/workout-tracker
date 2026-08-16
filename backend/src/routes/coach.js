@@ -102,8 +102,16 @@ router.get('/readiness', async (req, res) => {
            FROM sync_state WHERE last_success IS NOT NULL`
       ),
     ]);
+    // Whether this row is actually LAST night is decided here, not in the browser.
+    // wellness_daily keys a night by the day he woke, so a row dated today is last
+    // night and anything older is not — and the Garmin sync only carries a night once
+    // the watch has uploaded it, so on a late wake-up the freshest row is the night
+    // before. The card used to head that "Last night" regardless (2026-08-16: it
+    // showed a 75 from Friday while Saturday's night was an 84).
+    const night = latest.rows[0] || null;
     res.json({
-      last_night: latest.rows[0] || null,
+      last_night: night,
+      is_last_night: night ? String(night.date).slice(0, 10) === anchor() : null,
       baseline_10d: baseline.rows[0] || null,
       training_load: load.rows[0] || null,
       stale_hours: freshness.rows[0]?.stale_hours ?? null,
