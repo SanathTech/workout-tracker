@@ -43,7 +43,13 @@ export default function Sparkline({
   });
   if (current.length > 1) segments.push(current);
 
-  const lastIdx = values.findLastIndex((v) => v != null && Number.isFinite(v));
+  // A reverse loop rather than findLastIndex: that method is ES2023, Vite's build
+  // target does not down-level runtime methods, and this component renders on every
+  // Trends row — an older browser would take the whole tab down, not just the dot.
+  let lastIdx = -1;
+  for (let i = values.length - 1; i >= 0; i -= 1) {
+    if (values[i] != null && Number.isFinite(values[i])) { lastIdx = i; break; }
+  }
 
   return (
     <svg

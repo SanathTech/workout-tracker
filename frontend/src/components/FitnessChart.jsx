@@ -8,9 +8,11 @@ import { formatDay } from '../utils/format';
 
 // The intervals.icu view, which is the one chart in endurance training worth the space:
 // fitness (CTL, a 42-day weighted average of training stress) against fatigue (ATL, the
-// same over 7 days). Their difference is form (TSB) — carried in the tooltip rather than
-// given a third line, because on a phone a third series is noise and the number he
-// actually acts on already sits in the today strip.
+// same over 7 days). Their difference is form (TSB), which gets no series at all: on a
+// phone a third line is noise, and rendering one invisibly just to reach the tooltip
+// dragged the shared Y axis down to -10 to fit negative form, squashing both real
+// series into the top two-thirds of the plot. Form is a single number he acts on, and
+// it is already stated twice — the today strip and the legend line below.
 //
 // This component is imported lazily by the Trends page: it pulls in Recharts, and its
 // data query lives here so the download and the fetch happen together, behind the
@@ -73,11 +75,6 @@ export default function FitnessChart({ days = 90 }) {
               type="monotone" dataKey="atl" name="Fatigue"
               stroke="#a78bfa" strokeWidth={1.5} dot={false} isAnimationActive={false}
             />
-            {/* No series for TSB. Rendering it invisibly to get it into the tooltip
-                pulled the shared Y axis down to -10 to accommodate negative form, so
-                fitness and fatigue were squashed into the top two-thirds of a chart
-                whose empty lower third meant nothing. Form is a single number he acts
-                on, and it is already stated twice: the today strip and the line below. */}
           </ComposedChart>
         </ResponsiveContainer>
       </div>
