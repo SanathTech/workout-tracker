@@ -30,8 +30,12 @@ if (!LOCAL.includes(dbHost)) {
   process.exit(1);
 }
 
+// The hub tables are reset alongside the app's own: they are written by the nas-laptop
+// timers in production, but a suite that seeds a wellness night or a run needs the same
+// clean slate everything else gets.
 const RESET = `TRUNCATE workouts, workout_exercises, workout_sets, routines,
-  routine_exercises, routine_exercise_subs, programs, bodyweight_logs
+  routine_exercises, routine_exercise_subs, programs, bodyweight_logs,
+  activities, training_load, wellness_daily, checkins, session_feel, coach_advice
   RESTART IDENTITY CASCADE`;
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
