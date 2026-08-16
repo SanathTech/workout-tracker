@@ -35,19 +35,22 @@ function DumbbellIcon(props) {
   );
 }
 
-function CoachIcon(props) {
+// A pulse line rather than the old heart: the tab reports measurements now, and a
+// heart read as "wellbeing" next to a Progress tab that is about lifts.
+function TrendsIcon(props) {
   return (
     <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true" {...props}>
-      <path d="M12 20.5s-7-4.35-7-9.5a4 4 0 0 1 7-2.65A4 4 0 0 1 19 11c0 5.15-7 9.5-7 9.5z" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M3 15.5l4.5-5 3.5 3.5L15 8l2.5 3H21" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M3 20h18" strokeLinecap="round" opacity="0.35" />
     </svg>
   );
 }
 
-// Coach sits second: after a night's sleep the readiness call is the first thing worth
-// seeing, and on mobile the two leftmost tabs are the ones reachable one-handed.
+// Trends sits second: after a night's sleep last night's numbers are the first thing
+// worth seeing, and on mobile the two leftmost tabs are the ones reachable one-handed.
 const links = [
   { to: '/dashboard', label: 'Home', Icon: HomeIcon },
-  { to: '/coach', label: 'Coach', Icon: CoachIcon },
+  { to: '/trends', label: 'Trends', Icon: TrendsIcon },
   { to: '/program', label: 'Program', Icon: ProgramIcon },
   { to: '/progress', label: 'Progress', Icon: ProgressIcon },
   { to: '/exercises', label: 'Exercises', Icon: DumbbellIcon },
