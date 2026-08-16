@@ -164,14 +164,20 @@ const HR_CEILING = 153;
 // generate_series drives the row set so untracked days arrive as nulls rather than
 // vanishing. A missing night has to stay visible: dropping the row would close the gap
 // and draw a smooth line through a night the watch never recorded, which reads as data.
+//
+// The series ends YESTERDAY, deliberately. Garmin fills today's row as the day happens,
+// so at 10am it holds a part-day of steps and a stress average over three waking hours.
+// Ending on it put "245 steps" and "stress 14" at the head of a 30-day trend while the
+// readiness card, reading the last complete night, showed 12,926 and 35 — the same two
+// metrics disagreeing with themselves on one screen.
 async function wellnessHistory(days = 30) {
   const { rows } = await db.query(
     `SELECT d::date AS date, w.body_battery_at_wake, w.sleep_score, w.sleep_secs,
             w.resting_hr, w.stress_avg, w.steps
-       FROM generate_series($1::date - $2::int, $1::date, '1 day') d
+       FROM generate_series($1::date - $2::int, $1::date - 1, '1 day') d
        LEFT JOIN wellness_daily w ON w.date = d::date
       ORDER BY d`,
-    [today(), Math.max(days - 1, 0)]
+    [today(), Math.max(days, 1)]
   );
   return rows;
 }

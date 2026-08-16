@@ -66,8 +66,11 @@ ok(Array.isArray(t?.wellness) && t.wellness.length === 14,
   'wellness series has one row per requested day', `got ${t?.wellness?.length}`);
 ok(t?.wellness?.some((r) => r.sleep_score == null),
   'untracked days are present as nulls, not dropped');
-ok(t?.wellness?.at(-1)?.date?.startsWith(today),
-  'series ends on the app calendar day, not the UTC one', `got ${t?.wellness?.at(-1)?.date}`);
+ok(t?.wellness?.at(-1)?.date?.startsWith(shift(today, -1)),
+  'series ends yesterday — today is a part-day and would misreport steps and stress',
+  `got ${t?.wellness?.at(-1)?.date}`);
+ok(!t?.wellness?.some((r) => String(r.date).startsWith(today)),
+  'today never appears in the trend series');
 
 ok(t?.week?.days?.length === 7, 'week scorecard covers Monday to Sunday');
 ok(t?.week?.days?.filter((d) => d.is_today).length === 1, 'exactly one day is flagged today');
