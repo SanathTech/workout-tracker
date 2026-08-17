@@ -50,6 +50,7 @@ export default function WorkoutDetail() {
   if (!workout) return <p className="text-center text-neutral-500 dark:text-neutral-400 py-20">Workout not found.</p>;
 
   const isSkipped = workout.status === 'skipped';
+  const isCompleted = workout.status === 'completed';
   const hasExercises = workout.exercises?.length > 0;
   const totalVolume = workout.exercises?.reduce(
     (sum, ex) => sum + ex.sets.reduce((s2, set) => s2 + (set.weight_kg || 0) * (set.reps || 0), 0),
@@ -112,8 +113,16 @@ export default function WorkoutDetail() {
               <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-0.5">Logged and saved. See you next session.</p>
             );
           })()}
-          <SessionFeel workoutId={id} workoutNotes={workout.notes} />
         </section>
+      )}
+
+      {/* The rating is asked for on Finish now, in a sheet that cannot be scrolled past.
+          This is the fallback for a session that was skipped or rated on another device:
+          it shows for any completed workout, and flags itself when there is no rating
+          yet — the old band rendered only on the just-finished view, so a missed rating
+          could never be filled in afterwards. */}
+      {isCompleted && !isSkipped && (
+        <SessionFeel workoutId={id} workoutNotes={workout.notes} />
       )}
 
       {hasExercises && !isSkipped && (

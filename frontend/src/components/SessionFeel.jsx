@@ -40,8 +40,21 @@ export default function SessionFeel({ workoutId, workoutNotes }) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['workout', String(workoutId)] }),
   });
 
+  // Flagged when there is no rating: this component is now the fallback for a session
+  // whose Finish sheet was skipped, so "nothing here yet" has to look different from
+  // "rated 8" rather than both being a quiet row.
+  // `undefined` is "still loading"; `null` is "no row yet", which is the common case
+  // for an unrated session — the endpoint returns null rather than an empty object, so
+  // testing `feel != null` hid the flag in exactly the situation it exists for.
+  const unrated = feel !== undefined && feel?.rpe == null;
+
   return (
-    <div className="mt-3 pt-3 border-t border-neutral-200 dark:border-neutral-800">
+    <section className="border-t border-neutral-200 dark:border-neutral-800 pt-3">
+      {unrated && (
+        <p className="text-xs text-amber-700 dark:text-amber-500 mb-1">
+          Not rated yet — how hard was this one?
+        </p>
+      )}
       <RatingRow
         label="How hard?" hint="RPE 1–10"
         max={10}
@@ -79,6 +92,6 @@ export default function SessionFeel({ workoutId, workoutNotes }) {
       {(saveRpe.isError || saveNote.isError) && (
         <p className="text-xs text-red-600 dark:text-red-400 mt-1">Couldn’t save that — try again.</p>
       )}
-    </div>
+    </section>
   );
 }

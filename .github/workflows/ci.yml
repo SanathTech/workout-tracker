@@ -67,8 +67,13 @@ jobs:
         working-directory: frontend
         run: npm ci
 
-      # There are no frontend unit tests yet; a build failure is still the thing most
-      # likely to break a deploy, and it catches bad imports and syntax across the app.
+      # The autosave loop is the most failure-prone code in the app — three incidents,
+      # each one costing a gym session — so it now has real unit tests. They run first:
+      # a build failure is loud, a silently wedged save loop is not.
+      - name: Test
+        working-directory: frontend
+        run: npm test
+
       - name: Build
         working-directory: frontend
         run: npm run build
