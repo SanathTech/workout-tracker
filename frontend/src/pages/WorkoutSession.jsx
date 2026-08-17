@@ -8,6 +8,8 @@ import MainBadge from '../components/MainBadge';
 import { ChevronIcon } from '../components/icons';
 import { selectOnFocus, handleEditorEnter } from './program/helpers';
 import { formatRestRange, formatWarmup, formatDay } from '../utils/format';
+import { createSaveLoop } from '../util/saveLoop';
+import FinishRatingSheet from '../components/FinishRatingSheet';
 import { saveDraft, saveSnapshot, readDraft, clearDraft, pruneDrafts } from '../utils/draft';
 import MoreMenu from '../components/MoreMenu';
 
@@ -30,17 +32,28 @@ const SAVE_LABEL = {
   error: 'Could not save — retrying',
 };
 
-// The full sentence lives in the page body; the pinned strip only has room to say
-// whether the server has your sets.
+// The pinned strip is the only status a phone can see once you have scrolled into the
+// sets — the full sentence in the page body has long since scrolled away. A bare dot
+// left the two states that matter indistinguishable without knowing the colour code,
+// and they mean opposite things: amber is "still working on it", red is "your last
+// set is not on the server". So the two states worth acting on carry a word; the
+// steady-state ones stay a quiet dot.
+const SAVE_SHORT = { saving: null, saved: null, unsaved: 'Unsaved', error: 'Not saved' };
+
 function SaveStatusDot({ status }) {
   if (status === 'idle') return null;
+  const word = SAVE_SHORT[status];
   return (
-    <span
-      className={`shrink-0 w-2.5 h-2.5 rounded-full ${SAVE_TONE[status]}`}
-      role="status"
-      aria-label={SAVE_LABEL[status]}
-      title={SAVE_LABEL[status]}
-    />
+    <span className="shrink-0 flex items-center gap-1.5" role="status" aria-label={SAVE_LABEL[status]} title={SAVE_LABEL[status]}>
+      <span className={`shrink-0 w-2.5 h-2.5 rounded-full ${SAVE_TONE[status]}`} />
+      {word && (
+        <span className={`text-[11px] font-medium whitespace-nowrap ${
+          status === 'error' ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-500'
+        }`}>
+          {word}
+        </span>
+      )}
+    </span>
   );
 }
 
@@ -512,13 +525,23 @@ export default function WorkoutSession() {
   const [autosave, setAutosave] = useState('idle'); // idle | unsaved | saving | saved | error
   const [doneError, setDoneError] = useState('');
   const [hydrated, setHydrated] = useState(false);
-  const lastSavedRef = useRef(null);   // JSON of the last payload the server confirmed
-  const pendingRef = useRef(null);     // JSON of the latest payload wanting to be saved
-  const flushingRef = useRef(null);    // in-flight flush promise, or null
-  const retryRef = useRef(null); // pending auto-retry timeout, or null
-  const retryDelayRef = useRef(1500); // doubled before each scheduled retry; reset on success
+  const [ratingOpen, setRatingOpen] = useState(false);
   const flushRef = useRef(null);       // latest flush(), for the retry timer to call
   const mountedRef = useRef(true);
+  // The save loop lives in util/saveLoop.js so its invariants can be tested without a
+  // browser — single flight, always settles, never reports clean on a failure. Three
+  // gym sessions were lost or blocked to bugs in this loop while it was inline and
+  // untestable (2026-08-13, and twice on 08-17).
+  const loopRef = useRef(null);
+  if (loopRef.current == null) {
+    loopRef.current = createSaveLoop({
+      send: (payload, opts) => updateWorkout(id, JSON.parse(payload), opts),
+      onStatus: (status) => { if (mountedRef.current) setAutosave(status); },
+      onSaved: (updated) => { qc.setQueryData(['workout', id], updated); },
+      canRetry: () => mountedRef.current,
+    });
+  }
+  const loop = loopRef.current;
   useEffect(() => {
     // Set on mount too, not just the ref initializer — otherwise a remount (React
     // StrictMode, or any re-mount) leaves it false and silently freezes the save
@@ -526,7 +549,7 @@ export default function WorkoutSession() {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
-      if (retryRef.current) { clearTimeout(retryRef.current); retryRef.current = null; }
+      loopRef.current?.cancelRetry();
     };
   }, []);
   const setAutosaveIfMounted = useCallback((v) => { if (mountedRef.current) setAutosave(v); }, []);
@@ -626,12 +649,12 @@ export default function WorkoutSession() {
     setNotes(notesValue);
     // Baseline is the *server's* state, so recovered edits register as unsaved and get
     // flushed as soon as there's a connection again.
-    lastSavedRef.current = JSON.stringify(serializePayload(
+    loop.setBaseline(JSON.stringify(serializePayload(
       workout.exercises.map((e) => ({ ...e, sets: hydrateSets(e) })),
       workout.notes || ''
-    ));
-    pendingRef.current = JSON.stringify(serializePayload(rows, notesValue));
-    setRecovered(usedDraft && pendingRef.current !== lastSavedRef.current);
+    )));
+    loop.setPending(JSON.stringify(serializePayload(rows, notesValue)));
+    setRecovered(usedDraft && loop.isDirty());
     setHydrated(true);
     // Keep the shape the page was built from, so a cold reload with no network can render
     // it. Skipped when this render *is* the snapshot — rewriting it would be a no-op.
@@ -639,73 +662,24 @@ export default function WorkoutSession() {
     pruneDrafts();
   }, [workout, isFetchedAfterMount, isError, hydrated, id, usingSnapshot]);
 
-  // Serialized flush: at most one PUT in flight, and the loop always re-reads the
-  // latest pending payload — so a slow response can never revert a newer edit, and
-  // callers can await the single in-flight run.
+  // Thin delegate: the loop owns the ordering and retry rules; this just clears the
+  // local draft once the server genuinely has everything.
   const flush = useCallback(() => {
-    if (flushingRef.current) return flushingRef.current;
-    if (retryRef.current) { clearTimeout(retryRef.current); retryRef.current = null; }
-    const run = (async () => {
-      try {
-        while (pendingRef.current && pendingRef.current !== lastSavedRef.current) {
-          const snapshot = pendingRef.current;
-          setAutosaveIfMounted('saving');
-          try {
-            // Belt over the axios timeout: a request the OS kills while the app is
-            // frozen can neither resolve nor reject, and this loop is single-flight —
-            // a promise that never settles would jam every save until a full relaunch
-            // (it did, 2026-08-13). The watchdog aborts the attempt so it settles AND
-            // dies at the network layer — an un-aborted zombie could land after a
-            // newer retry and, on a last-write-wins server, resurrect stale sets.
-            const ctrl = new AbortController();
-            const watchdog = setTimeout(() => ctrl.abort(), 20_000);
-            let updated;
-            try {
-              updated = await updateWorkout(id, JSON.parse(snapshot), { signal: ctrl.signal });
-            } finally {
-              clearTimeout(watchdog);
-            }
-            qc.setQueryData(['workout', id], updated); // keep the in-memory cache in sync
-            lastSavedRef.current = snapshot;
-          } catch {
-            setAutosaveIfMounted('error');
-            // Auto-retry so a transient failure heals itself instead of silently
-            // leaving data unsaved until the next manual edit.
-            if (mountedRef.current && !retryRef.current) {
-              // Exponential backoff, 3s -> 30s cap: a dead network shouldn't be hammered
-              // every 3s for an hour, and the foreground/online kicks bypass the wait
-              // the moment conditions actually change.
-              retryDelayRef.current = Math.min(retryDelayRef.current * 2, 30_000);
-              retryRef.current = setTimeout(() => { retryRef.current = null; flushRef.current?.(); }, retryDelayRef.current);
-            }
-            return; // stop this run; the retry (or a new edit/Finish) will resume
-          }
-        }
-        // Only report "saved" once the server truly has the latest payload — and that's
-        // the one moment the local draft is redundant.
-        if (pendingRef.current === lastSavedRef.current) {
-          setAutosaveIfMounted('saved');
-          clearDraft(id);
-          retryDelayRef.current = 1500;
-        }
-      } finally {
-        flushingRef.current = null;
-      }
-    })();
-    flushingRef.current = run;
+    const run = loop.flush();
+    run.then(() => { if (!loop.isDirty()) clearDraft(id); });
     return run;
-  }, [id, qc, setAutosaveIfMounted]);
+  }, [loop, id]);
   flushRef.current = flush;
 
   // Debounced autosave: record the latest payload, mark it unsaved right away so the
   // status is honest during the debounce window, then flush after a pause.
   useEffect(() => {
     if (!hydrated) return;
-    pendingRef.current = JSON.stringify(serializePayload(exercises, notes));
-    if (pendingRef.current === lastSavedRef.current) return;
+    loop.setPending(JSON.stringify(serializePayload(exercises, notes)));
+    if (!loop.isDirty()) return;
     // Written before the network is even attempted: the point is to survive the app
     // being killed while offline, which is exactly when the PUT won't land.
-    saveDraft(id, pendingRef.current);
+    saveDraft(id, loop.pending);
     if (autosave !== 'saving') setAutosaveIfMounted('unsaved');
     const t = setTimeout(flush, 1200);
     return () => clearTimeout(t);
@@ -715,7 +689,7 @@ export default function WorkoutSession() {
   // Guard against losing unsaved edits to a refresh or accidental navigation.
   useEffect(() => {
     const handler = (e) => {
-      if (pendingRef.current && pendingRef.current !== lastSavedRef.current) {
+      if (loop.isDirty()) {
         e.preventDefault();
         e.returnValue = '';
       }
@@ -733,7 +707,7 @@ export default function WorkoutSession() {
   // moment the user is looking at the indicator again.
   useEffect(() => {
     const kick = () => {
-      if (pendingRef.current && pendingRef.current !== lastSavedRef.current) {
+      if (loop.isDirty()) {
         flushRef.current?.();
       }
     };
@@ -751,33 +725,41 @@ export default function WorkoutSession() {
   // PUT, stranding the edit in the local draft. Fire one last flush on unmount — the
   // request outlives the component, and the draft stays until the server confirms.
   useEffect(() => () => {
-    if (pendingRef.current && pendingRef.current !== lastSavedRef.current) {
+    if (loopRef.current?.isDirty()) {
       flushRef.current?.();
     }
   }, []);
 
   const saveNow = useCallback(() => {
-    pendingRef.current = JSON.stringify(serializePayload(exercises, notes));
+    loop.setPending(JSON.stringify(serializePayload(exercises, notes)));
     return flush();
   }, [exercises, notes, flush]);
 
   const finish = useMutation({
     mutationFn: async () => {
       await saveNow(); // ensure the latest edits are persisted before completing
-      if (pendingRef.current !== lastSavedRef.current) {
+      if (loop.isDirty()) {
         throw new Error('Could not save your latest changes — check your connection and try again.');
       }
       return completeWorkout(id);
     },
     onSuccess: () => {
       clearDraft(id);
+      // The workout's own entry too: the autosave keeps it warm via setQueryData, so
+      // without this the detail page reads a cached copy that still says in_progress
+      // and renders "Workout complete" next to an IN PROGRESS badge.
+      qc.invalidateQueries({ queryKey: ['workout', id] });
       qc.invalidateQueries({ queryKey: ['active-program'] });
       qc.invalidateQueries({ queryKey: ['recent-workouts'] });
       qc.invalidateQueries({ queryKey: ['stats'] });
       qc.invalidateQueries({ queryKey: ['suggestions'] });
       qc.invalidateQueries({ queryKey: ['muscle-volume'] });
       qc.invalidateQueries({ queryKey: ['in-progress-workout'] });
-      navigate(`/workouts/${id}`, { state: { justFinished: true } });
+      // Ask for the rating before leaving, not after arriving. On the destination page
+      // it sits above the exercise list and is scrolled past; here it is the only thing
+      // on screen at the one moment the answer is still accurate. The workout is already
+      // completed by this point, so the sheet can be skipped without consequence.
+      setRatingOpen(true);
     },
   });
 
@@ -825,7 +807,7 @@ export default function WorkoutSession() {
     await saveNow();
     // flush() swallows errors, so confirm the server actually has the latest
     // payload before leaving — otherwise the user would exit with unsaved edits.
-    if (pendingRef.current !== lastSavedRef.current) {
+    if (loop.isDirty()) {
       setDoneError('Could not save your latest changes — check your connection and try again.');
       return;
     }
@@ -867,6 +849,16 @@ export default function WorkoutSession() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-4">
+      {ratingOpen && (
+        <FinishRatingSheet
+          workoutId={id}
+          summary={`${loggedSets} set${loggedSets === 1 ? '' : 's'}${workout.duration_minutes ? ` · ${workout.duration_minutes} min` : ''}`}
+          onDone={() => {
+            setRatingOpen(false);
+            navigate(`/workouts/${id}`, { state: { justFinished: true } });
+          }}
+        />
+      )}
       {/* Replaces the global header on mobile (hidden by Navbar during a session): the
           pinned strip carries the routine, how far through you are and the save state,
           rather than the app's own name. */}
