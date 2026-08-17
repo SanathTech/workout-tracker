@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { saveSessionFeel } from '../api/client';
 
 // Asked on Finish, before the page changes.
@@ -22,11 +22,13 @@ const ANCHORS = [
 ];
 
 export default function FinishRatingSheet({ workoutId, summary, onDone }) {
+  const qc = useQueryClient();
   const [picked, setPicked] = useState(null);
   const closedRef = useRef(false);
 
   const save = useMutation({
     mutationFn: (rpe) => saveSessionFeel({ workout_id: Number(workoutId), rpe }),
+    onSettled: () => qc.invalidateQueries({ queryKey: ['session-feel', String(workoutId)] }),
   });
 
   // Closing is idempotent: a double-tap on Skip, or Escape landing while the save is
@@ -46,6 +48,13 @@ export default function FinishRatingSheet({ workoutId, summary, onDone }) {
 
   const pick = (n) => {
     setPicked(n);
+    // Seed the answer into the cache the detail page reads, synchronously and before
+    // the mutation settles. That page keeps ['session-feel', id] for 60s and paints an
+    // amber "Not rated yet" when it's null — so without this it can greet you with the
+    // flag one tap after you answered. It has to happen here, not in an onSuccess:
+    // this sheet unmounts ~220ms from now and React Query drops an unmounted observer's
+    // callbacks, so a slow save would never get to write it.
+    qc.setQueryData(['session-feel', String(workoutId)], (old) => ({ ...(old || {}), rpe: n }));
     // Fire and continue. The rating is worth having, not worth blocking on — if it
     // fails, the workout is still finished and the inline prompt will ask again.
     save.mutate(n);
