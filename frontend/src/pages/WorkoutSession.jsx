@@ -71,12 +71,21 @@ function SetRow({ set, previousSet, showPrev, targetRir, suggestion, onChange, o
   const prevWeight = previousSet?.weight_kg != null ? Number(previousSet.weight_kg) : null;
   // Either half can be null on its own — a weight-only or reps-only previous set still
   // shows the half it has rather than collapsing to a dash.
-  const prevLabel = prevWeight == null && previousSet?.reps == null
+  // RIR rides along with the numbers rather than living in the title attribute. A phone
+  // has no hover, so on the device this app is actually used on, last session's RIR was
+  // unreachable — and it is the half of the record that decides whether to add load:
+  // 8 reps at RIR3 and 8 at RIR1 are the same row here and opposite calls.
+  const prevNumbers = prevWeight == null && previousSet?.reps == null
     ? '—'
     : `${prevWeight ?? '—'} × ${previousSet?.reps ?? '—'}`;
+  // RIR only rides along when there is a number for it to ride on — a set with neither
+  // weight nor reps would otherwise render as "— · 2", which reads as a broken cell.
+  const prevLabel = previousSet?.rir != null && prevNumbers !== '—'
+    ? `${prevNumbers} · ${previousSet.rir}`
+    : prevNumbers;
   const prevTitle = previousSet?.rir != null
-    ? `Last time: ${prevLabel} @ RIR ${previousSet.rir} — tap to fill`
-    : `Last time: ${prevLabel} — tap to fill`;
+    ? `Last time: ${prevNumbers} @ RIR ${previousSet.rir} — tap to fill`
+    : `Last time: ${prevNumbers} — tap to fill`;
 
   // Done means reps are in. Weight typed before the set is staging, not history —
   // the owner loads the bar's number in first, and a green row at that point claims a
@@ -387,7 +396,9 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove, sug
       {block.sets.length > 0 && (
         <div className={`${LEDGER_COLS} h-6 text-[11px] font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400`} aria-hidden="true">
           <span className="pl-2">Set</span>
-          <span>Prev</span>
+          {/* "Prev · RIR" rather than "Prev": the column now carries kg × reps AND the
+              RIR that came with them, and an unlabelled trailing number reads as noise. */}
+          <span>Prev · RIR</span>
           <span className="text-center">kg</span>
           <span className="text-center">Reps</span>
           <span className="text-center">RIR</span>
