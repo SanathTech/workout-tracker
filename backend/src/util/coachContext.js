@@ -62,7 +62,7 @@ function todayBlock() {
 // is skipped when it's a stub: Garmin fills today's row as the day happens, so before
 // the watch syncs it has stress and steps but no night.
 async function readiness(days = 10) {
-  const [latest, baseline] = await Promise.all([
+  const [latest, baseline, lastFullDay] = await Promise.all([
     db.query(
       `SELECT date, body_battery_at_wake, body_battery_high, body_battery_low,
               sleep_score, sleep_secs, sleep_deep_secs, sleep_rem_secs, sleep_awake_secs,
@@ -71,6 +71,9 @@ async function readiness(days = 10) {
         WHERE sleep_score IS NOT NULL OR body_battery_at_wake IS NOT NULL
         ORDER BY date DESC LIMIT 1`
     ),
+    // The baseline ends YESTERDAY. Today's row is a part-day, and averaging it into the
+    // window it is about to be compared against both drags the average toward the
+    // part-day and makes the comparison partly self-referential.
     db.query(
       `SELECT ROUND(AVG(body_battery_at_wake)) AS body_battery_at_wake,
               ROUND(AVG(sleep_score))          AS sleep_score,
@@ -78,8 +81,15 @@ async function readiness(days = 10) {
               ROUND(AVG(resting_hr))           AS resting_hr,
               ROUND(AVG(stress_avg))           AS stress_avg,
               COUNT(*)::int                    AS days
-         FROM wellness_daily WHERE date >= $1::date - $2::int`,
+         FROM wellness_daily
+        WHERE date >= $1::date - $2::int AND date < $1::date`,
       [today(), days]
+    ),
+    db.query(
+      `SELECT date, stress_avg FROM wellness_daily
+        WHERE date < $1::date AND stress_avg IS NOT NULL
+        ORDER BY date DESC LIMIT 1`,
+      [today()]
     ),
   ]);
   // The newest recorded night is not always LAST night. wellness_daily keys a night by
@@ -88,10 +98,26 @@ async function readiness(days = 10) {
   // rather than left for the model to infer from a bare date, per the same rule as every
   // other date in the bundle: it is a fact we can compute, so we compute it.
   const night = latest.rows[0] || null;
+  const nightIsToday = night != null && String(night.date).slice(0, 10) === today();
+  // Body Battery at wake, sleep score/stages and resting HR are all settled by the time
+  // he wakes. stress_avg and steps are NOT: Garmin fills today's row as the day happens,
+  // so at 06:00 stress_avg averages a night of sleeping. Quoting it against a baseline
+  // built from COMPLETE days reported "stress 19" on a day that finished at 44, and
+  // "stress 9" on one that finished at 38 — wrong every morning, and always in the
+  // reassuring direction. Same part-day hazard as the trend series below.
+  const fullDay = lastFullDay.rows[0] || null;
   return {
     last_night: night
-      ? { ...night, when: whenLabel(String(night.date)),
-          is_last_night: String(night.date).slice(0, 10) === today() }
+      ? { ...night,
+          stress_avg: nightIsToday ? null : night.stress_avg,
+          steps: nightIsToday ? null : night.steps,
+          when: whenLabel(String(night.date)),
+          is_last_night: nightIsToday }
+      : null,
+    // The most recent stress figure that covers a whole day, so it is comparable to the
+    // baseline. Carries its own date label — it is usually yesterday, never "last night".
+    stress_last_full_day: fullDay
+      ? { date: fullDay.date, stress_avg: fullDay.stress_avg, when: whenLabel(String(fullDay.date)) }
       : null,
     [`${days}d_average`]: baseline.rows[0] || null,
   };
@@ -355,6 +381,54 @@ async function checkins(days = 14) {
   return labelRows(rows);
 }
 
+// Every note he has written, newest first, carrying the one fact the niggle rule turns
+// on: how many notes came AFTER this one. The rule — "a newer note that does not mention
+// an earlier niggle means it resolved" — is a date comparison, and the model kept getting
+// it wrong: it carried a 13 Aug knee through two later sessions that never mention it,
+// and on 17 Aug still listed shoulder clicks that the 13 Aug note had explicitly cleared
+// ("No clicking in shoulders during pull ups"). It was not applying the rule at all, just
+// keeping the newest three or four items and letting the rest fall off by attrition.
+// Derivable, so we derive it, exactly as with every other date in the bundle.
+async function noteLedger(days = 21) {
+  const [sessions, exercises, checks] = await Promise.all([
+    db.query(
+      `SELECT date, routine_name, TRIM(notes) AS note FROM workouts
+        WHERE status = 'completed' AND NULLIF(TRIM(notes), '') IS NOT NULL
+          AND date >= $1::date - $2::int`,
+      [today(), days]
+    ),
+    db.query(
+      `SELECT w.date, e.name AS exercise, TRIM(we.notes) AS note
+         FROM workout_exercises we
+         JOIN workouts w  ON w.id = we.workout_id
+         JOIN exercises e ON e.id = we.exercise_id
+        WHERE w.status = 'completed' AND NULLIF(TRIM(we.notes), '') IS NOT NULL
+          AND w.date >= $1::date - $2::int`,
+      [today(), days]
+    ),
+    db.query(
+      `SELECT date, TRIM(note) AS note FROM checkins
+        WHERE NULLIF(TRIM(note), '') IS NOT NULL AND date >= $1::date - $2::int`,
+      [today(), days]
+    ),
+  ]);
+
+  const entries = [
+    ...sessions.rows.map((r) => ({ date: r.date, source: `gym note (${r.routine_name})`, note: r.note })),
+    ...exercises.rows.map((r) => ({ date: r.date, source: `exercise note (${r.exercise})`, note: r.note })),
+    ...checks.rows.map((r) => ({ date: r.date, source: 'check-in', note: r.note })),
+  ].sort((a, b) => String(b.date).localeCompare(String(a.date)));
+
+  const days10 = entries.map((e) => String(e.date).slice(0, 10));
+  return entries.map((e, i) => ({
+    ...e,
+    when: whenLabel(String(e.date)),
+    // Strictly-later notes only. Two notes from the same session are not newer than each
+    // other, so an index would wrongly settle one against the other.
+    notes_since: days10.filter((d) => d > days10[i]).length,
+  }));
+}
+
 async function pastAdvice(kind, limit) {
   const { rows } = await db.query(
     `SELECT for_date, advice, model FROM coach_advice
@@ -514,11 +588,11 @@ async function protocolStatus() {
 // ---------------------------------------------------------------- bundles
 
 async function buildDailyBundle() {
-  const [ready, load, acts, strength, next, weight, checks, advice, adhere, fresh, protocol] =
+  const [ready, load, acts, strength, next, weight, checks, advice, adhere, fresh, protocol, notes] =
     await Promise.all([
       readiness(10), loadBlock(14), recentActivities(14), strengthSessions(14),
       nextSession(), bodyweight(30), checkins(14), pastAdvice('daily', 3),
-      buildAdherence(14), dataFreshness(), protocolStatus(),
+      buildAdherence(14), dataFreshness(), protocolStatus(), noteLedger(21),
     ]);
   return {
     generated_for: today(),
@@ -530,6 +604,7 @@ async function buildDailyBundle() {
     next_session: next,
     bodyweight_30d: weight,
     checkins_14d: checks,
+    note_ledger: notes,
     recent_advice: advice,
     adherence_14d: adhere,
     protocol,
@@ -538,11 +613,12 @@ async function buildDailyBundle() {
 }
 
 async function buildWeeklyBundle() {
-  const [ready, load, acts, strength, next, weight, checks, daily, weekly, adhere, fresh, protocol] =
+  const [ready, load, acts, strength, next, weight, checks, daily, weekly, adhere, fresh, protocol, notes] =
     await Promise.all([
       readiness(28), loadBlock(42), recentActivities(42), strengthSessions(42),
       nextSession(), bodyweight(90), checkins(28), pastAdvice('daily', 7),
       pastAdvice('weekly', 2), buildAdherence(28), dataFreshness(), protocolStatus(),
+      noteLedger(42),
     ]);
   return {
     generated_for: today(),
@@ -555,6 +631,7 @@ async function buildWeeklyBundle() {
     next_session: next,
     bodyweight_90d: weight,
     checkins_28d: checks,
+    note_ledger: notes,
     recent_daily_advice: daily,
     recent_weekly_advice: weekly,
     adherence_28d: adhere,
