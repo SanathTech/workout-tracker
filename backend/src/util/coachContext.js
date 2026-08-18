@@ -250,11 +250,16 @@ async function wellnessHistory(days = 30) {
 // window rather than running a day longer. The row count can still exceed `days` by
 // one: intervals.icu publishes tomorrow's forecast row, and that point is worth
 // drawing — it is where form is heading, which is the question the chart is asked.
+// Bounded at today on purpose. intervals.icu publishes a row for TOMORROW — where form
+// lands if he trains nothing — and plotting it alongside real days showed fitness and
+// fatigue figures for a day that has not happened. Same bound loadBlock() already applies.
 async function loadHistory(days = 90) {
   const { rows } = await db.query(
     `SELECT date, ROUND(ctl, 1) AS ctl, ROUND(atl, 1) AS atl, ROUND(tsb, 1) AS tsb,
             ROUND(ramp_rate, 2) AS ramp_rate
-       FROM training_load WHERE date >= $1::date - $2::int ORDER BY date`,
+       FROM training_load
+      WHERE date >= $1::date - $2::int AND date <= $1::date
+      ORDER BY date`,
     [today(), Math.max(days - 1, 0)]
   );
   return rows;

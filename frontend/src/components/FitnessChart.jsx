@@ -39,13 +39,13 @@ export default function FitnessChart({ days = 90 }) {
     atl: Number(r.atl),
     tsb: Number(r.tsb),
   }));
-  // The series deliberately carries tomorrow's forecast point (see loadHistory), so the
-  // last row is not today. Plot it, but read the legend's "current" figures off the most
-  // recent row that has actually happened.
-  const now = new Date();
-  const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  const past = rows.filter((r) => String(r.date).slice(0, 10) <= todayIso);
-  const latest = past[past.length - 1] || rows[rows.length - 1];
+  // The series now ends today — loadHistory bounds it server-side. It used to carry
+  // intervals.icu's tomorrow row (where form lands if he trains nothing) and plot it
+  // undifferentiated, which read as real numbers for a day that has not happened:
+  // "why does Wed 19 Aug have fitness and fatigue figures?" It also meant the chart and
+  // the legend below disagreed about where the line ended. Dropped rather than styled as
+  // a projection — the question this chart answers is what has happened.
+  const latest = rows[rows.length - 1];
 
   return (
     <>

@@ -70,7 +70,7 @@ router.get('/history', async (req, res) => {
 // rendering week-old numbers as if they were this morning's.
 router.get('/readiness', async (req, res) => {
   try {
-    const [latest, baseline, load, freshness] = await Promise.all([
+    const [latest, baseline, lastFullDay, load, freshness] = await Promise.all([
       // Garmin fills today's row as the day happens, so the newest row is a half-empty
       // stub until the watch syncs the night — no sleep, no wake battery. Rendering that
       // shows an empty "Last night" card on a morning where the data simply hasn't
@@ -84,13 +84,26 @@ router.get('/readiness', async (req, res) => {
           WHERE sleep_score IS NOT NULL OR body_battery_at_wake IS NOT NULL
           ORDER BY date DESC LIMIT 1`
       ),
+      // Baseline ends YESTERDAY. Today's row is a part-day, and averaging it into the
+      // window it is about to be compared against drags the average toward the part-day.
       db.query(
         `SELECT ROUND(AVG(body_battery_at_wake)) AS body_battery_at_wake,
                 ROUND(AVG(sleep_score))          AS sleep_score,
                 ROUND(AVG(resting_hr))           AS resting_hr,
                 ROUND(AVG(stress_avg))           AS stress_avg,
                 COUNT(*)::int                    AS days
-           FROM wellness_daily WHERE date >= $1::date - 10`,
+           FROM wellness_daily WHERE date >= $1::date - 10 AND date < $1::date`,
+        [anchor()]
+      ),
+      // The most recent stress average covering a WHOLE day. Body Battery at wake, sleep
+      // and resting HR are settled by the time he wakes; stress and steps are not —
+      // Garmin fills today's row as the day happens, so at 06:00 stress_avg averages a
+      // night of sleeping. Reading it against a baseline of complete days is how the
+      // coach came to report "stress 19" on a day that finished at 44.
+      db.query(
+        `SELECT date, stress_avg FROM wellness_daily
+          WHERE date < $1::date AND stress_avg IS NOT NULL
+          ORDER BY date DESC LIMIT 1`,
         [anchor()]
       ),
       // Not simply the newest row: intervals.icu publishes tomorrow's forecast, so
@@ -113,9 +126,21 @@ router.get('/readiness', async (req, res) => {
     // before. The card used to head that "Last night" regardless (2026-08-16: it
     // showed a 75 from Friday while Saturday's night was an 84).
     const night = latest.rows[0] || null;
+    const nightIsToday = night != null && String(night.date).slice(0, 10) === anchor();
+    const fullDay = lastFullDay.rows[0] || null;
     res.json({
-      last_night: night,
-      is_last_night: night ? String(night.date).slice(0, 10) === anchor() : null,
+      last_night: night
+        ? { ...night,
+            stress_avg: nightIsToday ? null : night.stress_avg,
+            steps: nightIsToday ? null : night.steps }
+        : null,
+      is_last_night: nightIsToday,
+      stress_last_full_day: fullDay,
+      // Steps so far TODAY, as its own field rather than on the night object. It is a
+      // part-day figure like stress, but unlike stress it is useful mid-day — it is how
+      // he sees whether the 8,000-step movement target is met yet — so it is kept and
+      // labelled rather than dropped.
+      steps_today: nightIsToday ? night.steps : null,
       baseline_10d: baseline.rows[0] || null,
       training_load: load.rows[0] || null,
       stale_hours: freshness.rows[0]?.stale_hours ?? null,
