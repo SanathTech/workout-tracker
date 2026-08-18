@@ -20,7 +20,7 @@ const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frida
 // deferred a Saturday gym day to "Monday" (2026-08-15).
 const RHYTHM = {
   Monday: 'gym (next in the A->B->C cycle)',
-  Tuesday: 'easy run 30-45min',
+  Tuesday: 'easy run 30-45min, finishing with 4-6 strides',
   Wednesday: 'swim — a fixture, plus sauna and dog walk',
   Thursday: 'gym (next in the A->B->C cycle)',
   Friday: 'recovery walk',
