@@ -12,7 +12,7 @@ import { formatDay } from '../utils/format';
 // Nulls are passed through as nulls rather than filtered out. Recharts breaks the line
 // at a null with connectNulls off, which is the same rule the sparklines follow: an
 // untracked night is a gap, not a straight line between the readings either side.
-export default function MetricDetail({ label, data, field, stroke, unit }) {
+export default function MetricDetail({ label, data, field, stroke, unit, precision = 0 }) {
   const rows = data.map((d) => ({
     date: d.date,
     value: d[field] == null || d[field] === '' ? null : Number(d[field]),
@@ -29,7 +29,12 @@ export default function MetricDetail({ label, data, field, stroke, unit }) {
   const min = Math.min(...present);
   const max = Math.max(...present);
   const mean = present.reduce((a, b) => a + b, 0) / present.length;
-  const fmt = (n) => (field === 'steps' ? Math.round(n).toLocaleString() : Math.round(n));
+  // Weight moves in tenths, so rounding it to whole kilos renders a flat line and an
+  // avg/low/high that all read the same number.
+  const fmt = (n) =>
+    field === 'steps' ? Math.round(n).toLocaleString()
+      : precision > 0 ? n.toFixed(precision)
+      : Math.round(n);
   const tracked = present.length;
 
   return (
@@ -46,12 +51,14 @@ export default function MetricDetail({ label, data, field, stroke, unit }) {
               tickFormatter={(d) => formatDay(d, { month: 'short', day: 'numeric' })}
               minTickGap={40}
             />
+            {/* Axis padding matches the scale of the series: +/-2 around a 1.5kg
+                spread flattens weight into a straight line. */}
             <YAxis
               tick={{ fontSize: 10 }}
               stroke="currentColor"
               className="text-neutral-400 dark:text-neutral-600"
               width={field === 'steps' ? 40 : 28}
-              domain={['dataMin - 2', 'dataMax + 2']}
+              domain={precision > 0 ? ['dataMin - 0.5', 'dataMax + 0.5'] : ['dataMin - 2', 'dataMax + 2']}
               tickFormatter={fmt}
             />
             <Tooltip
@@ -65,9 +72,16 @@ export default function MetricDetail({ label, data, field, stroke, unit }) {
               className="text-neutral-400 dark:text-neutral-600"
               strokeDasharray="4 4"
             />
+            {/* The fill is dropped on a sparse series. An Area fills down to the axis
+                floor at the edge of every segment, so weight — 40 readings across 91
+                days — rendered as a row of vertical bars rather than a trend line.
+                Dense series (sleep, steps) have few enough gaps that the fill still
+                reads as one shape, and it helps them. */}
             <Area
               type="monotone" dataKey="value" name={label}
-              stroke={stroke} fill={stroke} fillOpacity={0.12} strokeWidth={2}
+              stroke={stroke}
+              fill={stroke} fillOpacity={tracked / rows.length < 0.75 ? 0 : 0.12}
+              strokeWidth={2}
               dot={false} connectNulls={false} isAnimationActive={false}
             />
           </AreaChart>
