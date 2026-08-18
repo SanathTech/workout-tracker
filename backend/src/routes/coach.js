@@ -5,7 +5,7 @@ const { serverError } = require('../util/errors');
 const { resolveWorkoutDate, todayInAppTimezone } = require('../util/dates');
 const {
   buildAdherence, protocolStatus, weekVsRhythm, wellnessHistory, loadHistory,
-  runDiscipline, bodyweight, HR_CEILING,
+  runDiscipline, bodyweight, weekPlan, noteLedger, HR_CEILING,
 } = require('../util/coachContext');
 
 // The hub tables (coach_advice, checkins, session_feel, wellness_daily, training_load)
@@ -151,6 +151,24 @@ router.get('/trends', async (req, res) => {
       runDiscipline(42),
     ]);
     res.json({ protocol, week, wellness, bodyweight: weight, runs, hr_ceiling: HR_CEILING });
+  } catch (err) {
+    serverError(res, err);
+  }
+});
+
+// GET /api/coach/week — the standing template resolved into an actual week: what is on
+// each day, which routine the A->B->C cycle puts on each gym slot, and what has already
+// been logged against it. Nothing here is model-written. He was asking every morning what
+// today was, and an answer he plans around has to be right rather than fluent.
+//
+// `latest_notes` carries only what he wrote most recently about his body — the entries
+// nothing newer has superseded. Deliberately not a curated niggle list: deciding whether
+// a later note settles an earlier one is the judgement that kept going wrong in the daily
+// brief, so the app shows the newest thing he said and leaves the reading to him.
+router.get('/week', async (req, res) => {
+  try {
+    const [plan, notes] = await Promise.all([weekPlan(), noteLedger(21)]);
+    res.json({ ...plan, latest_notes: notes.filter((n) => n.notes_since === 0) });
   } catch (err) {
     serverError(res, err);
   }
