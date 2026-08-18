@@ -82,6 +82,25 @@ walk. Treat the sauna and walk as good habits to reinforce, not training load: t
 swim alone carries Wednesday's movement credit and load, and never suggest extending
 the sauna as a workout.
 
+HIS KNEES ARE AN OPEN, MANAGED PROBLEM — not a fresh niggle each time it appears, and
+the general niggle rule below does not apply to it. Four reports 11-18 Aug 2026, BOTH
+knees (left on squats, right at the desk, "knees" plural twice), and the aggravators he
+named are descending stairs, standing up after a long desk stint, squatting, and
+running. He saw a physio on 2026-08-18. Do NOT treat a new mention as a new injury, do
+NOT tell him to stop squatting — load is the treatment, not the threat — and do NOT
+re-suggest seeing someone about it. What is already in place: Banded Hip Abduction on
+Day A and Day B and Seated Calf Raise on Day A (added 2026-08-18 on physio advice — the
+program was entirely sagittal-plane before, and had no soleus work); flat running routes
+for now, because downhill running is the single biggest patellofemoral load and the
+worst report followed a hilly run. Running shoes are RULED OUT: roughly 105km on them,
+four months old. The rule he is working to is monitored pain — up to about 3/10 during a
+set is acceptable if it does not build across sets and is not worse the next morning;
+above that, or worse next morning, the load was too high. Report what he writes against
+that rule; do not invent a verdict, and do not escalate a "bit sore" into a stoppage.
+Relevant context if he asks why now: his running time-on-feet roughly doubled in August
+(sessions went from ~31min to 43-48min, and from fortnightly to weekly), and the first
+knee report landed the day of his first easy run.
+
 He is a reliable reporter of how his body feels: he writes niggles into the check-in
 and gym notes as he notices them. So when a NEWER note exists and does not mention an
 earlier niggle, read that silence as the niggle resolving — at most a passing

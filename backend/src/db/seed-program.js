@@ -42,6 +42,9 @@ const EXERCISES = {
   'Leg Press': ['Legs', 'Press a weighted platform away from you using your legs on a machine.'],
   'Standing Calf Raise': ['Legs', 'Raise onto the toes while standing against resistance.'],
   'Seated Calf Raise': ['Legs', 'Calf raise performed seated with the knees bent.'],
+  'Banded Hip Abduction': ['Legs', 'Drive the knees apart against a band — side-lying, seated, or as lateral walks.'],
+  'Cable Hip Abduction': ['Legs', 'Standing hip abduction against a cable, one leg at a time.'],
+  'Clamshell': ['Legs', 'Side-lying, heels together, open the top knee against a band.'],
   'Leg Press Calf Press': ['Legs', 'Calf raise by pushing through the toes on the leg-press platform.'],
   'Lying Leg Curl': ['Legs', 'Prone hamstring curl on a machine.'],
   'Seated Leg Curl': ['Legs', 'Hamstring curl performed seated on a machine.'],
@@ -132,9 +135,19 @@ const SESSIONS = [
       { name: 'Standing Calf Raise', sets: 2, repLow: 8, repHigh: 12, rir: [1, 1], rest: 90, warmup: [1, 1],
         subs: ['Leg Press Calf Press', 'Seated Calf Raise'],
         notes: '1–2 s pause at the bottom, full stretch. Target 0–1 RIR.' },
+      { name: 'Seated Calf Raise', sets: 2, repLow: 10, repHigh: 15, rir: [1, 1], rest: 60,
+        subs: ['Leg Press Calf Press', 'Calf Raise'],
+        notes: 'Knees BENT — this is the soleus, which the standing version barely touches. '
+             + 'It is the main shock absorber below the knee when running.' },
+      { name: 'Banded Hip Abduction', sets: 2, repLow: 12, repHigh: 15, rir: [1, 1], rest: 60,
+        subs: ['Cable Hip Abduction', 'Clamshell'],
+        notes: '12–15 per side. Added 2026-08-18 on physio advice for recurring knee pain. '
+             + 'The whole program was sagittal-plane before this; hip abductors are what stop '
+             + 'the knee falling inward on every running stride.' },
       { name: 'Hanging Leg Raise', sets: 2, repLow: 10, repHigh: 15, rir: [1, 1], rest: 60,
         subs: ['Cable Crunch', 'Lying Leg Raise'],
-        notes: 'Optional core. Control down, no swinging.' },
+        notes: 'Optional core — the first thing to drop if the session is running long. '
+             + 'Control down, no swinging.' },
     ],
   },
   {
@@ -155,6 +168,10 @@ const SESSIONS = [
       { name: 'Lateral Raise', sets: 3, repLow: 12, repHigh: 15, rir: [0, 0, 0], rest: 60,
         subs: ['Cable Lateral Raise', 'Machine Lateral Raise'],
         notes: 'Lead with the elbow; smooth, controlled reps.' },
+      { name: 'Banded Hip Abduction', sets: 2, repLow: 12, repHigh: 15, rir: [1, 1], rest: 60,
+        subs: ['Cable Hip Abduction', 'Clamshell'],
+        notes: '12–15 per side. Second dose of the week — twice is what the physio protocol '
+             + 'asks for, and it pairs with the split squat already here.' },
       { name: 'Face Pull', sets: 2, repLow: 15, repHigh: 20, rir: [1, 1], rest: 60,
         subs: ['Reverse Pec Deck', 'Band Pull-Apart'],
         notes: 'Optional. Shoulder health — worth keeping given swim volume.' },
