@@ -85,10 +85,14 @@ function Today() {
   const heading = !stale ? 'Last night' : back === 1 ? 'Night before last' : `${back} nights ago`;
 
   const base = data.baseline_10d || {};
+  // One source for both halves of the tile, so the label cannot end up as a dangling
+  // "Stress · " if the value is ever absent. Today it cannot be — Metric renders nothing
+  // for a null value — but that safety lives in a different component, and this label is
+  // built here.
   const stress = data.stress_last_full_day;
-  const stressDay = stress
-    ? formatDay(stress.date, { weekday: 'short' })
-    : '';
+  const stressLabel = stress?.stress_avg != null
+    ? `Stress · ${formatDay(stress.date, { weekday: 'short' })}`
+    : 'Stress';
   return (
     <>
       <div className="flex items-baseline justify-between mb-2">
@@ -111,7 +115,7 @@ function Today() {
             baseline of complete days. Show the last complete day and name it, rather than
             a number that is wrong every morning in the reassuring direction. */}
         <Metric
-          label={`Stress · ${stressDay}`}
+          label={stressLabel}
           value={stress?.stress_avg != null ? Number(stress.stress_avg) : null}
           baseline={base.stress_avg}
           goodDirection="down"
