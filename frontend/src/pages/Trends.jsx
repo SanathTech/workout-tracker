@@ -85,6 +85,14 @@ function Today() {
   const heading = !stale ? 'Last night' : back === 1 ? 'Night before last' : `${back} nights ago`;
 
   const base = data.baseline_10d || {};
+  // One source for both halves of the tile, so the label cannot end up as a dangling
+  // "Stress · " if the value is ever absent. Today it cannot be — Metric renders nothing
+  // for a null value — but that safety lives in a different component, and this label is
+  // built here.
+  const stress = data.stress_last_full_day;
+  const stressLabel = stress?.stress_avg != null
+    ? `Stress · ${formatDay(stress.date, { weekday: 'short' })}`
+    : 'Stress';
   return (
     <>
       <div className="flex items-baseline justify-between mb-2">
@@ -101,7 +109,17 @@ function Today() {
         <Metric label="Battery" value={night.body_battery_at_wake} baseline={base.body_battery_at_wake} goodDirection="up" />
         <Metric label="Sleep" value={night.sleep_score} baseline={base.sleep_score} goodDirection="up" />
         <Metric label="RHR" value={night.resting_hr} unit="bpm" baseline={base.resting_hr} goodDirection="down" />
-        <Metric label="Stress" value={night.stress_avg} baseline={base.stress_avg} goodDirection="down" />
+        {/* Stress is a whole-DAY average, unlike everything else on this card, which is
+            settled by the time he wakes. Today's row only ever holds a part-day — at
+            06:00 it is an average of sleeping hours — so it reads far too calm against a
+            baseline of complete days. Show the last complete day and name it, rather than
+            a number that is wrong every morning in the reassuring direction. */}
+        <Metric
+          label={stressLabel}
+          value={stress?.stress_avg != null ? Number(stress.stress_avg) : null}
+          baseline={base.stress_avg}
+          goodDirection="down"
+        />
         {data.training_load?.tsb != null && (
           <Metric label="Form" value={Number(data.training_load.tsb)} goodDirection="up" />
         )}
@@ -111,6 +129,9 @@ function Today() {
         {night.sleep_deep_secs && <span className="tag">{Math.round(night.sleep_deep_secs / 60)}m deep</span>}
         {night.sleep_rem_secs && <span className="tag">{Math.round(night.sleep_rem_secs / 60)}m REM</span>}
         {night.steps != null && <span className="tag">{night.steps.toLocaleString()} steps</span>}
+        {data.steps_today != null && (
+          <span className="tag">{data.steps_today.toLocaleString()} steps today</span>
+        )}
       </div>
       <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1.5">
         {formatDay(night.date, { weekday: 'long', month: 'short', day: 'numeric' })}
@@ -217,6 +238,12 @@ function Protocol({ protocol, bodyweight }) {
                 {' '}{drift > 0 ? '+' : ''}{drift.toFixed(1)}
               </span>
             )}
+            {/* Named because it is not obvious: the scale syncs to Garmin Connect, which
+                reaches here via intervals.icu, so nothing is typed in by hand. The manual
+                logger exists for weeks away from the scale and has never been used. */}
+            <span className="text-neutral-500 dark:text-neutral-400 font-normal">
+              {' '}({latestWeight.source === 'manual' ? 'manual' : 'Garmin'})
+            </span>
           </>
         )}
       </p>

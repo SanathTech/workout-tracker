@@ -64,14 +64,14 @@ export default function Sparkline({
           points={points.join(' ')}
           fill="none"
           stroke={stroke}
-          strokeWidth="1.5"
+          strokeWidth="2.5"
           strokeLinecap="round"
           strokeLinejoin="round"
           vectorEffect="non-scaling-stroke"
         />
       ))}
       {lastIdx >= 0 && (
-        <circle cx={x(lastIdx)} cy={y(values[lastIdx])} r="2.5" fill={stroke} />
+        <circle cx={x(lastIdx)} cy={y(values[lastIdx])} r="3" fill={stroke} />
       )}
     </svg>
   );

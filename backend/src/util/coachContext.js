@@ -246,15 +246,19 @@ async function wellnessHistory(days = 30) {
 // the load model is continuous by construction — every day has a row once syncing has
 // started — and a null would break the chart's area fill rather than tell the truth.
 //
-// `days` is a lookback of that many days ending today, so it matches wellnessHistory's
-// window rather than running a day longer. The row count can still exceed `days` by
-// one: intervals.icu publishes tomorrow's forecast row, and that point is worth
-// drawing — it is where form is heading, which is the question the chart is asked.
+// `days` is a lookback of that many days ending today, and the series ENDS today.
+// intervals.icu publishes a row for tomorrow — where form lands if he trains nothing —
+// and this used to return it on the grounds that where form is heading is worth drawing.
+// It is, but not on this chart and not undifferentiated: it put fitness and fatigue
+// figures against a day that had not happened, and disagreed with the legend below it
+// about where the line ended. Same `date <= today` bound loadBlock() already applies.
 async function loadHistory(days = 90) {
   const { rows } = await db.query(
     `SELECT date, ROUND(ctl, 1) AS ctl, ROUND(atl, 1) AS atl, ROUND(tsb, 1) AS tsb,
             ROUND(ramp_rate, 2) AS ramp_rate
-       FROM training_load WHERE date >= $1::date - $2::int ORDER BY date`,
+       FROM training_load
+      WHERE date >= $1::date - $2::int AND date <= $1::date
+      ORDER BY date`,
     [today(), Math.max(days - 1, 0)]
   );
   return rows;
