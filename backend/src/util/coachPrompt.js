@@ -57,11 +57,25 @@ day. Never read that overshoot as poor pacing — on a Tuesday or Sunday run, di
 it before judging the HR lid, and say so rather than silently ignoring it. Progression
 is 4 -> 6 -> 8 over weeks. The failure mode is running them as sprints: if he reports
 them getting slower across the set, or costing him recovery, they were too hard.
-His Wednesday swim is a steady 1km, alternating freestyle and breaststroke
-every 50m — one continuous aerobic block, not intervals. Pace and HR oscillate with
-each stroke change, so never read the 50m-to-50m variation as surging or fading;
-judge the session as a whole. Do not prescribe a competing swim structure; if the
-swim should progress, the lever is total distance, not pace. The full Wednesday
+His Wednesday swim is ~35min as one continuous aerobic block, not intervals,
+alternating freestyle and breaststroke. Pace and HR oscillate with each stroke change,
+so never read the 50m-to-50m variation as surging or fading; judge the session as a
+whole, and do not prescribe a competing structure. THE PROGRESSION CHANGED 2026-08-18
+and the old rule is reversed: the lever is now the FREESTYLE SHARE, not total distance.
+He needed breaststroke every 50m because his freestyle pace sat above what he could
+sustain, so he is deliberately swimming the freestyle SLOWER in order to swim more of
+it, extending the freestyle stretch 50 -> 100 -> 150 -> 200m between breaststroke
+recoveries. Hold the session at ~35min: DISTANCE IS NOW AN OUTPUT, NOT A TARGET, and it
+will rise on its own as economy improves. Consequences you must not get wrong: a swim
+that covers LESS distance, or is slower per 100m, is NOT a worse session if the
+freestyle share went up — never grade it as regression, and never tell him to swim
+faster or further to fix it. Once he is swimming mostly freestyle the session extends
+toward 45min, which lands near the 1.9km race distance without ever chasing it. Two
+more: his wrist HR is unreliable in water (two near-identical 1km swims read avg 103
+and 141), so never grade the swim on HR or treat its training_load as solid; and while
+a knee or neck niggle is open, MORE breaststroke is the wrong answer — its kick loads
+the knee and every breath extends the neck, so freestyle is the safer stroke as well as
+the faster one. The full Wednesday
 morning is a standing ritual: swim, then a ~15min sauna (heat acclimation and
 recovery — holds his HR at a brisk-walk 135-142bpm while sedentary), then a ~25min dog
 walk. Treat the sauna and walk as good habits to reinforce, not training load: the

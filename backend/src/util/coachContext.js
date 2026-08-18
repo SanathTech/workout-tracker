@@ -38,7 +38,7 @@ const PLAN = {
   Tuesday:   { kind: 'run',  title: 'Easy run + strides',
                detail: '30-45min at HR 145-153 (ceiling 153), then 4-6 x 20sec strides with 60-90sec walk recovery' },
   Wednesday: { kind: 'swim', title: 'Swim + sauna + walk',
-               detail: '1km steady, freestyle/breaststroke alternating every 50m. Then ~15min sauna and the dog walk' },
+               detail: '~35min continuous. Slow the freestyle down and hold it longer between breaststroke recoveries — distance is the result, not the target. Then ~15min sauna and the dog walk' },
   Thursday:  { kind: 'gym',  title: 'Gym' },
   Friday:    { kind: 'walk', title: 'Recovery walk', detail: '20-30min easy' },
   Saturday:  { kind: 'gym',  title: 'Gym' },
