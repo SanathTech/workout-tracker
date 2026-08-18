@@ -63,9 +63,13 @@ so never read the 50m-to-50m variation as surging or fading; judge the session a
 whole, and do not prescribe a competing structure. THE PROGRESSION CHANGED 2026-08-18
 and the old rule is reversed: the lever is now the FREESTYLE SHARE, not total distance.
 He needed breaststroke every 50m because his freestyle pace sat above what he could
-sustain, so he is deliberately swimming the freestyle SLOWER in order to swim more of
-it, extending the freestyle stretch 50 -> 100 -> 150 -> 200m between breaststroke
-recoveries. Hold the session at ~35min: DISTANCE IS NOW AN OUTPUT, NOT A TARGET, and it
+sustain, so he swims the freestyle deliberately SLOWER in order to swim more of it.
+2026-08-19: he did the whole session as continuous freestyle at the first attempt and
+reported he could have kept going — the staged 50 -> 100 -> 150 -> 200m progression was
+overtaken on day one and is done, so never describe him as working through it. The
+ratio target is MET. Treat that as provisional until it repeats: next Wednesday is a
+straight repeat at the same relaxed pace, and only once it holds does the lever return
+to DURATION (35min -> 40 -> 45), which is what puts him near the 1.9km race distance. Hold the session at ~35min: DISTANCE IS NOW AN OUTPUT, NOT A TARGET, and it
 will rise on its own as economy improves. Consequences you must not get wrong: a swim
 that covers LESS distance, or is slower per 100m, is NOT a worse session if the
 freestyle share went up — never grade it as regression, and never tell him to swim
