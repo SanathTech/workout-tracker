@@ -46,10 +46,22 @@ function TrendsIcon(props) {
   );
 }
 
+// A week grid: seven cells with today filled, which is what the tab is for.
+function WeekIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true" {...props}>
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path d="M3 10h18M8 3v4M16 3v4" strokeLinecap="round" />
+      <rect x="11" y="13" width="4" height="4" rx="0.8" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 // Trends sits second: after a night's sleep last night's numbers are the first thing
 // worth seeing, and on mobile the two leftmost tabs are the ones reachable one-handed.
 const links = [
   { to: '/dashboard', label: 'Home', Icon: HomeIcon },
+  { to: '/week', label: 'Week', Icon: WeekIcon },
   { to: '/trends', label: 'Trends', Icon: TrendsIcon },
   { to: '/program', label: 'Program', Icon: ProgramIcon },
   { to: '/progress', label: 'Progress', Icon: ProgressIcon },
@@ -192,21 +204,23 @@ export default function Navbar() {
       {/* Bottom tab bar — mobile only, hidden during a workout session or when an editor explicitly hides it */}
       {showBottomNav && (
         <nav className="md:hidden fixed bottom-0 inset-x-0 z-20 bg-white border-t border-neutral-200 dark:bg-neutral-950 dark:border-neutral-900 pb-[env(safe-area-inset-bottom)]">
-          <div className="grid grid-cols-5">
+          <div className="grid grid-cols-6">
             {links.map((l) => (
               <NavLink
                 key={l.to}
                 to={l.to}
                 className={({ isActive }) =>
-                  `flex flex-col items-center justify-center gap-0.5 h-14 text-[11px] font-medium transition-colors ${
+                  `flex flex-col items-center justify-center gap-0.5 h-14 text-[10px] font-medium transition-colors ${
                     isActive
                       ? 'text-emerald-700 dark:text-emerald-400'
                       : 'text-neutral-500 dark:text-neutral-400'
                   }`
                 }
               >
-                <l.Icon />
-                {l.label}
+                {/* 20px, not 22: six cells on a 390px screen leaves ~65px each, and
+                    "Exercises" at 11px overflowed it. */}
+                <l.Icon width={20} height={20} />
+                <span className="w-full px-0.5 text-center truncate">{l.label}</span>
               </NavLink>
             ))}
           </div>

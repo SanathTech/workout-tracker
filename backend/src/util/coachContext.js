@@ -28,6 +28,24 @@ const RHYTHM = {
   Sunday: 'longer easy run 45-60min or a ride',
 };
 
+// The same template as RHYTHM, but structured — the app renders from this, the coach
+// reads the prose. `kind` drives the icon and the colour; `detail` is what he needs in
+// order to prepare the day (kit, timing, the HR lid) rather than a restatement of the
+// title. Gym days deliberately carry no detail here: which routine lands on Thursday
+// depends on where the A->B->C cycle stands, so it is resolved per-week in weekPlan().
+const PLAN = {
+  Monday:    { kind: 'gym',  title: 'Gym' },
+  Tuesday:   { kind: 'run',  title: 'Easy run + strides',
+               detail: '30-45min at HR 145-153 (ceiling 153), then 4-6 x 20sec strides with 60-90sec walk recovery' },
+  Wednesday: { kind: 'swim', title: 'Swim + sauna + walk',
+               detail: '1km steady, freestyle/breaststroke alternating every 50m. Then ~15min sauna and the dog walk' },
+  Thursday:  { kind: 'gym',  title: 'Gym' },
+  Friday:    { kind: 'walk', title: 'Recovery walk', detail: '20-30min easy' },
+  Saturday:  { kind: 'gym',  title: 'Gym' },
+  Sunday:    { kind: 'run',  title: 'Long easy run or ride',
+               detail: '45-60min at HR 145-153 (ceiling 153)' },
+};
+
 // Every date the coach sees is labelled here rather than left as a bare ISO string.
 // Date arithmetic is the single biggest source of confidently wrong claims it has made
 // — calling a Thursday session "yesterday" on a Saturday, and pushing a session to a
@@ -585,6 +603,144 @@ async function protocolStatus() {
   };
 }
 
+// The week as a plan rather than a scorecard — what is on each day, resolved far enough
+// ahead that he can pack a bag on Wednesday night for Thursday. weekVsRhythm() answers
+// "did I hit the template"; this answers "what am I doing", which is the question he was
+// asking every morning.
+//
+// Everything here is computed. No model writes this: a plan he uses to prepare has to be
+// right, and the gym cycle is a modulo, not a judgement call.
+async function weekPlan() {
+  const start = currentWeekStart();
+  const iso = today();
+
+  const [acts, gym, program] = await Promise.all([
+    db.query(
+      `SELECT date, type, moving_time, ROUND(distance) AS distance_m, average_hr
+         FROM activities WHERE date >= $1::date AND date < $1::date + 7
+        ORDER BY start_date_local`,
+      [start]
+    ),
+    db.query(
+      `SELECT w.id, w.date, w.routine_name, w.status,
+              COUNT(*) FILTER (WHERE s.set_type <> 'warmup')::int AS working_sets,
+              (SELECT sf.rpe FROM session_feel sf WHERE sf.workout_id = w.id) AS rpe
+         FROM workouts w
+         LEFT JOIN workout_exercises we ON we.workout_id = w.id
+         LEFT JOIN workout_sets s ON s.workout_exercise_id = we.id
+        WHERE w.status IN ('completed', 'skipped')
+          AND w.date >= $1::date AND w.date < $1::date + 7
+        GROUP BY w.id ORDER BY w.date`,
+      [start]
+    ),
+    db.query(`SELECT id FROM programs WHERE status = 'active' LIMIT 1`),
+  ]);
+
+  // Where the A->B->C cycle stands right now, and the ordered ring to walk forward.
+  let ring = [];
+  let cursor = 0;
+  if (program.rows.length) {
+    const [routines, done] = await Promise.all([
+      db.query(
+        `SELECT id, name FROM routines WHERE program_id = $1 AND deleted_at IS NULL
+          ORDER BY sort_order, id`,
+        [program.rows[0].id]
+      ),
+      db.query(
+        `SELECT COUNT(*)::int AS n FROM workouts
+          WHERE program_id = $1 AND status IN ('completed', 'skipped')`,
+        [program.rows[0].id]
+      ),
+    ]);
+    ring = routines.rows;
+    cursor = ring.length ? done.rows[0].n % ring.length : 0;
+
+    // The main lifts, so a gym day says what he is actually walking in to do. This is
+    // the whole point of looking at Thursday on Wednesday night.
+    if (ring.length) {
+      const mains = await db.query(
+        `SELECT re.routine_id, e.name FROM routine_exercises re
+           JOIN exercises e ON e.id = re.exercise_id
+          WHERE re.routine_id = ANY($1::int[]) AND re.is_main
+          ORDER BY re.routine_id, re.sort_order, re.id`,
+        [ring.map((r) => r.id)]
+      );
+      for (const r of ring) {
+        r.mains = mains.rows.filter((m) => m.routine_id === r.id).map((m) => m.name).join(' · ');
+      }
+    }
+  }
+
+  const days = [];
+  for (let i = 0; i < 7; i += 1) {
+    const date = addDaysIso(start, i);
+    const weekday = WEEKDAYS[new Date(`${date}T00:00:00Z`).getUTCDay()];
+    const template = PLAN[weekday];
+    const state = date < iso ? 'past' : date === iso ? 'today' : 'upcoming';
+
+    const sessions = gym.rows.filter((r) => String(r.date).slice(0, 10) === date);
+    const moves = acts.rows.filter(
+      (r) => String(r.date).slice(0, 10) === date && r.type !== 'WeightTraining'
+    );
+
+    const actual = [
+      ...sessions.map((r) => ({
+        kind: 'gym',
+        label: r.status === 'skipped' ? `${r.routine_name} — skipped` : r.routine_name,
+        meta: r.status === 'skipped'
+          ? null
+          : [`${r.working_sets} sets`, r.rpe != null ? `RPE ${r.rpe}` : null].filter(Boolean).join(' · '),
+        skipped: r.status === 'skipped',
+      })),
+      ...moves.map((r) => ({
+        kind: r.type === 'Swim' ? 'swim' : r.type === 'Walk' ? 'walk' : 'run',
+        label: r.type,
+        meta: [
+          r.distance_m ? `${(Number(r.distance_m) / 1000).toFixed(2)}km` : null,
+          r.moving_time ? `${Math.round(r.moving_time / 60)}min` : null,
+          r.average_hr ? `HR ${r.average_hr}` : null,
+        ].filter(Boolean).join(' · '),
+      })),
+    ];
+
+    // A gym slot that has already been logged shows what he did; one still ahead of him
+    // takes the next routine off the ring. Today counts as ahead until it is logged —
+    // at 7am on Thursday the session has not happened, so it is still the plan.
+    let planned = { ...template };
+    if (template.kind === 'gym') {
+      // Routine names already read "Day A — Squat / Push", so they are the title on
+      // their own; `kind` is what tells the UI it is a gym day.
+      const named = sessions.length
+        ? ring.find((r) => r.name === sessions[0].routine_name)
+        : null;
+      if (sessions.length) {
+        planned.title = sessions[0].routine_name;
+        planned.detail = named?.mains || null;
+      } else if (state === 'past') {
+        planned.title = 'Gym — not logged';
+      } else if (ring.length) {
+        const routine = ring[cursor % ring.length];
+        cursor += 1;
+        planned.title = routine.name;
+        planned.detail = routine.mains || null;
+        planned.routine_id = routine.id;
+      }
+    }
+
+    days.push({
+      date,
+      weekday,
+      when: whenLabel(date),
+      state,
+      planned,
+      actual,
+      done: actual.some((a) => !a.skipped),
+    });
+  }
+
+  return { week_start: start, today: iso, days };
+}
+
 // ---------------------------------------------------------------- bundles
 
 async function buildDailyBundle() {
@@ -641,6 +797,8 @@ async function buildWeeklyBundle() {
 }
 
 module.exports = {
+  weekPlan,
+  noteLedger,
   protocolStatus,
   buildDailyBundle,
   buildWeeklyBundle,

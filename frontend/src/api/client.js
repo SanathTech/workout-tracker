@@ -116,6 +116,8 @@ export const saveSessionFeel = (data) =>
   api.post('/coach/session-feel', data).then((r) => r.data);
 export const getAdherence = (params) =>
   api.get('/coach/adherence', { params }).then((r) => r.data);
+export const getWeek = () => api.get('/coach/week').then((r) => r.data);
+
 export const getTrends = (params) =>
   api.get('/coach/trends', { params }).then((r) => r.data);
 export const getLoadHistory = (params) =>

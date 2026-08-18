@@ -7,6 +7,7 @@ import WorkoutSession from './pages/WorkoutSession';
 import WorkoutDetail from './pages/WorkoutDetail';
 import History from './pages/History';
 import Trends from './pages/Trends';
+import Week from './pages/Week';
 import ExerciseLibrary from './pages/ExerciseLibrary';
 import { Skeleton } from './components/Skeleton';
 
@@ -33,6 +34,7 @@ export default function App() {
         <Route path="program" element={<Program />} />
         <Route path="workouts/:id" element={<WorkoutDetail />} />
         <Route path="history" element={<History />} />
+        <Route path="week" element={<Week />} />
         <Route path="trends" element={<Trends />} />
         {/* A phone that hasn't taken the update yet still has /coach in its history and
             in the installed shell's start state. Redirect rather than 404. */}
