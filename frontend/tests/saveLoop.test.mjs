@@ -188,6 +188,69 @@ test('lastSaved only advances on a confirmed success', async () => {
   assert.equal(loop.isDirty(), true, 'a failed save must never report clean');
 });
 
+// The 2026-08-20 wedge: 21 minutes, zero requests issued, while sets were being logged.
+// The deadline is meant to make this impossible and did not, so the loop no longer trusts
+// it — a run older than the stall window is abandoned and replaced. This test does not
+// care WHY the run hung, which is the point of it.
+test('a run that hangs past the stall window is abandoned, and saving resumes', async () => {
+  const clock = fakeClock();
+  let t = 0;
+  const sent = [];
+  let hang = true;
+  let aborted = 0;
+  const loop = createSaveLoop({
+    send: (payload, { signal }) => {
+      sent.push(payload);
+      signal.addEventListener('abort', () => { aborted += 1; });
+      // Neither resolves nor rejects, and — unlike the deadline test — the scheduled
+      // deadline never fires either. This is the failure the deadline did not catch.
+      if (hang) return new Promise(() => {});
+      return Promise.resolve({ ok: true });
+    },
+    // Timers frozen: nothing scheduled ever runs, so only the stall check can free it.
+    schedule: () => 1,
+    clear: () => {},
+    now: () => t,
+    stallMs: 45_000,
+  });
+
+  loop.setPending('v1');
+  loop.flush();
+  await flushMicrotasks();
+  assert.deepEqual(sent, ['v1'], 'the first attempt goes out');
+
+  // Still inside the window: the caller is handed the existing run, no second request.
+  t = 30_000;
+  loop.flush();
+  await flushMicrotasks();
+  assert.deepEqual(sent, ['v1'], 'a healthy in-flight run is not duplicated');
+  assert.equal(loop.stalls, 0);
+
+  // Past it: cut the dead run loose and start again.
+  hang = false;
+  t = 46_000;
+  await loop.flush();
+  await flushMicrotasks();
+  assert.equal(loop.stalls, 1, 'the stall is counted');
+  assert.equal(aborted, 1, 'the abandoned request is aborted at the network layer');
+  assert.deepEqual(sent, ['v1', 'v1'], 'the payload is re-sent rather than assumed saved');
+  assert.equal(loop.isDirty(), false, 'the loop is clean again without a remount');
+});
+
+test('the event log records what the loop did', async () => {
+  const clock = fakeClock();
+  const loop = createSaveLoop({
+    send: () => Promise.resolve({ ok: true }),
+    schedule: clock.schedule,
+    clear: clock.clear,
+  });
+  loop.setPending('v1');
+  await loop.flush();
+  const types = loop.getEvents().map((e) => e.type);
+  assert.deepEqual(types, ['flush', 'send', 'saved']);
+  assert.ok(loop.getEvents().every((e) => typeof e.t === 'number'), 'every event is timestamped');
+});
+
 test('SaveDeadlineError is distinguishable from a network error', async () => {
   const clock = fakeClock();
   let seen = null;

@@ -22,6 +22,14 @@ export class SaveDeadlineError extends Error {
   }
 }
 
+// A stalled run is one that has been in flight far longer than any real request should
+// take. The deadline below is supposed to make that impossible — and yet the loop wedged
+// again on 2026-08-20, with zero requests issued for 21 minutes while sets were being
+// logged. Rather than guess at a fourth root cause, this makes the wedge survivable: any
+// run older than STALL_MS is abandoned and replaced, which is exactly what leaving the
+// page and coming back does by hand, and what fixed it every time.
+const STALL_MS = 45_000;
+
 export function createSaveLoop({
   // send(payload, { signal }) -> Promise<serverResponse>
   send,
@@ -37,12 +45,26 @@ export function createSaveLoop({
   // Injectable so tests can drive time without waiting for it.
   schedule = setTimeout,
   clear = clearTimeout,
+  // Injectable so tests can drive elapsed time without waiting for it.
+  now = () => Date.now(),
+  stallMs = STALL_MS,
 } = {}) {
   let pending = null;
   let lastSaved = null;
   let running = null;
   let retryTimer = null;
   let retryDelay = retryBase;
+  let runStartedAt = null;
+  let abandonCurrent = null;   // aborts the in-flight attempt of the current run
+  let stalls = 0;
+  // A short history of what the loop actually did, so the next time this goes wrong
+  // there is evidence instead of inference. Four incidents in, every diagnosis so far
+  // has been reconstructed from HTTP logs after the fact.
+  const events = [];
+  const record = (type, detail) => {
+    events.push({ t: now(), type, ...(detail === undefined ? {} : { detail }) });
+    if (events.length > 60) events.shift();
+  };
 
   const isDirty = () => pending != null && pending !== lastSaved;
 
@@ -60,6 +82,7 @@ export function createSaveLoop({
   // PR #70 replaced the race with abort alone and reintroduced the hang.
   async function attempt(snapshot) {
     const ctrl = new AbortController();
+    abandonCurrent = () => ctrl.abort();
     let timer = null;
     let timedOut = false;
     const deadline = new Promise((_, reject) => {
@@ -73,6 +96,7 @@ export function createSaveLoop({
       return await Promise.race([send(snapshot, { signal: ctrl.signal }), deadline]);
     } finally {
       if (timer != null) clear(timer);
+      abandonCurrent = null;
       // After a deadline we do not know whether the write landed — the abort may have
       // raced a request already on the wire. Forget the baseline so the next pass
       // re-sends rather than assuming we are in sync with the server.
@@ -81,18 +105,39 @@ export function createSaveLoop({
   }
 
   function flush() {
-    if (running) return running;
+    if (running) {
+      // The single-flight guard is what makes a hung run fatal: every later trigger gets
+      // handed the same dead promise. Age it out rather than trusting it forever.
+      if (runStartedAt != null && now() - runStartedAt > stallMs) {
+        stalls += 1;
+        record('stalled', now() - runStartedAt);
+        try { abandonCurrent?.(); } catch { /* aborting a dead request can throw */ }
+        abandonCurrent = null;
+        running = null;
+        runStartedAt = null;
+        // The abandoned attempt may still be on the wire, so what the server holds is
+        // unknowable. Forget the baseline and re-send.
+        lastSaved = null;
+      } else {
+        return running;
+      }
+    }
     cancelRetry();
+    runStartedAt = now();
+    record('flush');
     const run = (async () => {
       try {
         while (pending != null && pending !== lastSaved) {
           const snapshot = pending;
           onStatus('saving');
           try {
+            record('send');
             const response = await attempt(snapshot);
             lastSaved = snapshot;
+            record('saved');
             onSaved(response);
           } catch (err) {
+            record(err?.name === 'SaveDeadlineError' ? 'deadline' : 'error', err?.message);
             onStatus('error');
             if (canRetry() && retryTimer == null) {
               retryDelay = Math.min(retryDelay * 2, retryCap);
@@ -108,6 +153,7 @@ export function createSaveLoop({
         }
       } finally {
         running = null;
+        runStartedAt = null;
       }
     })();
     running = run;
@@ -119,6 +165,10 @@ export function createSaveLoop({
     isDirty,
     cancelRetry,
     setPending(payload) { pending = payload; },
+    // Diagnostics. `stalls` is surfaced in the UI: if it is ever non-zero, the watchdog
+    // did something the user would otherwise have had to do by hand.
+    get stalls() { return stalls; },
+    getEvents() { return events.slice(); },
     // Baseline after hydration: what the server already has.
     setBaseline(payload) { lastSaved = payload; },
     get pending() { return pending; },
