@@ -5,7 +5,8 @@ const { serverError } = require('../util/errors');
 const { resolveWorkoutDate, todayInAppTimezone } = require('../util/dates');
 const {
   buildAdherence, protocolStatus, weekVsRhythm, wellnessHistory, loadHistory,
-  runDiscipline, bodyweight, weekPlan, noteLedger, HR_CEILING,
+  runDiscipline, bodyweight, weekPlan, noteLedger, enduranceSessions,
+  HR_CEILING, LOW_CADENCE_SPM,
 } = require('../util/coachContext');
 
 // The hub tables (coach_advice, checkins, session_feel, wellness_daily, training_load)
@@ -168,14 +169,19 @@ const windowDays = (raw, fallback, max) => {
 router.get('/trends', async (req, res) => {
   const days = windowDays(req.query.days, 30, 180);
   try {
-    const [protocol, week, wellness, weight, runs] = await Promise.all([
+    const [protocol, week, wellness, weight, endurance] = await Promise.all([
       protocolStatus(),
       weekVsRhythm(),
       wellnessHistory(days),
       bodyweight(Math.max(days, 90)),
-      runDiscipline(42),
+      // Replaces the runs-only over-ceiling series: same number, now one line inside a
+      // session row that also carries cadence, elevation and the swim alongside it.
+      enduranceSessions(42),
     ]);
-    res.json({ protocol, week, wellness, bodyweight: weight, runs, hr_ceiling: HR_CEILING });
+    res.json({
+      protocol, week, wellness, bodyweight: weight, endurance,
+      hr_ceiling: HR_CEILING, low_cadence_spm: LOW_CADENCE_SPM,
+    });
   } catch (err) {
     serverError(res, err);
   }

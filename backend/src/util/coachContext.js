@@ -607,6 +607,37 @@ async function protocolStatus() {
   };
 }
 
+// Runs and swims as sessions, with the fields that decide whether one went well —
+// most of which were already synced and simply never read: the ingest stores the whole
+// intervals.icu payload in `raw`, so cadence and elevation come out of it here rather
+// than needing a schema change, an ingest change, or a re-sync.
+//
+// `average_cadence` is per-LEG on a run (69.3 next to a 0.91m step length and 2.07 m/s
+// is 138 steps per minute, not 69) and per-minute strokes on a swim, so only runs are
+// doubled. `average_stride` is likewise two different measurements wearing one name:
+// step length on a run, distance per stroke on a swim — which is the swim economy
+// number, and the one he was counting by hand before we found Garmin already had it.
+const LOW_CADENCE_SPM = 145;
+
+async function enduranceSessions(days = 42) {
+  const { rows } = await db.query(
+    `SELECT date, type, name, moving_time, ROUND(distance) AS distance_m, average_hr,
+            ROUND(training_load) AS training_load,
+            CASE WHEN type IN ('Run', 'VirtualRun')
+                 THEN ROUND((raw->>'average_cadence')::numeric * 2)
+                 ELSE ROUND((raw->>'average_cadence')::numeric) END AS cadence,
+            ROUND((raw->>'total_elevation_gain')::numeric) AS elevation_m,
+            ROUND((raw->>'average_stride')::numeric, 2) AS stride_m,
+            (SELECT ROUND(SUM(z) / 60.0, 1)
+               FROM unnest(hr_zone_times[3:]) AS z) AS minutes_over_hr_ceiling
+       FROM activities
+      WHERE type IN ('Run', 'VirtualRun', 'Swim') AND date >= $1::date - $2::int
+      ORDER BY date DESC`,
+    [today(), days]
+  );
+  return labelRows(rows);
+}
+
 // The week as a plan rather than a scorecard — what is on each day, resolved far enough
 // ahead that he can pack a bag on Wednesday night for Thursday. weekVsRhythm() answers
 // "did I hit the template"; this answers "what am I doing", which is the question he was
@@ -802,6 +833,8 @@ async function buildWeeklyBundle() {
 
 module.exports = {
   weekPlan,
+  enduranceSessions,
+  LOW_CADENCE_SPM,
   noteLedger,
   protocolStatus,
   buildDailyBundle,

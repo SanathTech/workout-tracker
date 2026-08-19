@@ -364,46 +364,125 @@ function TrendRow({ row, window30, window90, open, onToggle }) {
 // Minutes above the top of his Zone 2, per run. This is the number the weekly review
 // grades him on and the one whole-session average HR hides: on a run/walk session the
 // walk reps drag the average down while the run reps sit at threshold.
-function RunDiscipline({ runs, ceiling }) {
-  // An empty section, not a vanished one: no runs in six weeks is itself the finding,
-  // and a section that silently disappears reads as a bug rather than as a fact.
-  if (!runs?.length) {
+// Runs and swims as sessions rather than a single bar chart. The over-ceiling minutes
+// the weekly review grades him on are still here, now as one line inside a row that
+// also carries cadence, elevation and the swim beside it — because the interesting
+// question is never "how many minutes over" on its own, it is that number next to the
+// terrain and the pace that produced it.
+//
+// Cadence and elevation were already synced and simply never read: the ingest keeps the
+// whole intervals.icu payload, so this needed no new plumbing and no waiting for data.
+function pacePerKm(seconds, metres) {
+  if (!seconds || !metres) return null;
+  const s = seconds / (metres / 1000);
+  return `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
+}
+
+function pacePer100m(seconds, metres) {
+  if (!seconds || !metres) return null;
+  const s = seconds / (metres / 100);
+  return `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
+}
+
+function SessionRow({ children, date }) {
+  return (
+    <div className="flex gap-3 py-2">
+      <span className="w-12 shrink-0 text-xs text-neutral-500 dark:text-neutral-400 pt-0.5">
+        {formatDay(date, { day: 'numeric', month: 'short' })}
+      </span>
+      <div className="min-w-0 flex-1">{children}</div>
+    </div>
+  );
+}
+
+function Endurance({ sessions, ceiling, lowCadence }) {
+  // An empty section, not a vanished one: no endurance work in six weeks is itself the
+  // finding, and a section that silently disappears reads as a bug rather than a fact.
+  if (!sessions?.length) {
     return (
       <section className="border-t border-neutral-200 dark:border-neutral-800 pt-4">
-        <h2 className="section-label mb-2">Run discipline</h2>
+        <h2 className="section-label mb-1">Endurance</h2>
         <p className="text-sm text-neutral-500 dark:text-neutral-400">
-          No runs logged in the last six weeks.
+          No runs or swims in the last six weeks.
         </p>
       </section>
     );
   }
-  const recent = runs.slice(-6);
-  const worst = Math.max(...recent.map((r) => Number(r.minutes_over_hr_ceiling) || 0), 1);
+
+  const runs = sessions.filter((s) => s.type === 'Run' || s.type === 'VirtualRun');
+  const swims = sessions.filter((s) => s.type === 'Swim');
 
   return (
     <section className="border-t border-neutral-200 dark:border-neutral-800 pt-4">
-      <h2 className="section-label mb-2">Run discipline · minutes over {ceiling} bpm</h2>
-      <div className="flex items-end gap-2 h-24">
-        {recent.map((r) => {
-          const mins = Number(r.minutes_over_hr_ceiling) || 0;
-          const tone = mins <= 3 ? 'bg-emerald-500' : mins <= 12 ? 'bg-amber-500' : 'bg-red-500';
-          return (
-            <div key={r.date} className="flex-1 flex flex-col justify-end items-center gap-1 h-full">
-              <span className="text-[10px] text-neutral-500 dark:text-neutral-400 tabular-nums">{mins}</span>
-              <div
-                className={`w-full rounded-t ${tone}`}
-                style={{ height: `${Math.max((mins / worst) * 100, 3)}%` }}
-              />
-              <span className="text-[10px] text-neutral-500 dark:text-neutral-400 whitespace-nowrap">
-                {formatDay(r.date, { day: 'numeric', month: 'short' })}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1.5">
-        An easy run should sit near zero. Ten-plus is a threshold run wearing an easy run’s name.
-      </p>
+      <h2 className="section-label mb-1">Endurance · last 6 weeks</h2>
+
+      {runs.length > 0 && (
+        <>
+          <p className="text-[11px] uppercase tracking-wide text-neutral-400 dark:text-neutral-600 mt-2">Runs</p>
+          <div className="divide-y divide-neutral-200 dark:divide-neutral-800">
+            {runs.map((r) => {
+              const mins = Number(r.minutes_over_hr_ceiling) || 0;
+              const overTone = mins <= 3 ? 'text-emerald-600 dark:text-emerald-500'
+                : mins <= 12 ? 'text-amber-600 dark:text-amber-500'
+                : 'text-red-600 dark:text-red-400';
+              const cadence = r.cadence != null ? Number(r.cadence) : null;
+              const slow = cadence != null && cadence < lowCadence;
+              return (
+                <SessionRow key={r.date + r.name} date={r.date}>
+                  <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm tabular-nums">
+                    <span className="font-medium">{(Number(r.distance_m) / 1000).toFixed(1)}km</span>
+                    <span>{pacePerKm(r.moving_time, Number(r.distance_m))}/km</span>
+                    {r.average_hr && <span className="text-neutral-500 dark:text-neutral-400">HR {r.average_hr}</span>}
+                    {cadence != null && (
+                      <span className={slow ? 'text-amber-600 dark:text-amber-500' : 'text-neutral-500 dark:text-neutral-400'}>
+                        {cadence} spm
+                      </span>
+                    )}
+                    {r.elevation_m != null && (
+                      <span className="text-neutral-500 dark:text-neutral-400">↑{r.elevation_m}m</span>
+                    )}
+                  </div>
+                  <p className={`text-[11px] tabular-nums ${overTone}`}>
+                    {mins} min over {ceiling} bpm
+                  </p>
+                </SessionRow>
+              );
+            })}
+          </div>
+          <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1.5">
+            An easy run should sit near zero minutes over. Cadence under {lowCadence} spm means long,
+            slow steps — take smaller ones rather than slower ones.
+          </p>
+        </>
+      )}
+
+      {swims.length > 0 && (
+        <>
+          <p className="text-[11px] uppercase tracking-wide text-neutral-400 dark:text-neutral-600 mt-4">Swims</p>
+          <div className="divide-y divide-neutral-200 dark:divide-neutral-800">
+            {swims.map((w) => (
+              <SessionRow key={w.date + w.name} date={w.date}>
+                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm tabular-nums">
+                  {/* Duration first, deliberately. It is the aerobic dose, and the pace
+                      beside it will read slower on exactly the sessions that went best. */}
+                  <span className="font-medium">{Math.round(w.moving_time / 60)} min</span>
+                  <span>{Number(w.distance_m)}m</span>
+                  <span className="text-neutral-500 dark:text-neutral-400">
+                    {pacePer100m(w.moving_time, Number(w.distance_m))}/100m
+                  </span>
+                  {w.stride_m != null && (
+                    <span className="text-neutral-500 dark:text-neutral-400">{w.stride_m} m/stroke</span>
+                  )}
+                </div>
+              </SessionRow>
+            ))}
+          </div>
+          <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1.5">
+            Minutes are the dose; distance per stroke is the economy. A slower pace with more
+            minutes is a better session, not a worse one.
+          </p>
+        </>
+      )}
     </section>
   );
 }
@@ -540,7 +619,11 @@ export default function Trends() {
             )}
           </section>
 
-          <RunDiscipline runs={trends?.runs} ceiling={trends?.hr_ceiling ?? 153} />
+          <Endurance
+            sessions={trends?.endurance}
+            ceiling={trends?.hr_ceiling ?? 153}
+            lowCadence={trends?.low_cadence_spm ?? 145}
+          />
         </>
       )}
 
