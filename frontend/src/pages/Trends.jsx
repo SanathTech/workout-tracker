@@ -294,6 +294,9 @@ const TREND_ROWS = [
   { field: 'resting_hr', label: 'RHR', stroke: '#f472b6', goodDirection: 'down', unit: 'bpm' },
   { field: 'stress_avg', label: 'Stress', stroke: '#fbbf24', goodDirection: 'down' },
   { field: 'steps', label: 'Steps', stroke: '#a78bfa', goodDirection: 'up' },
+  // Down is "good" because the protocol target is flat-or-down. Tenths matter here and
+  // nowhere else on this list: a 0.4kg move rounds to zero and reads as no change.
+  { field: 'weight_kg', label: 'Weight', stroke: '#fb923c', goodDirection: 'down', unit: 'kg', precision: 1 },
 ];
 
 // Each row is its own baseline: the latest reading against the mean of its window, so a
@@ -313,7 +316,8 @@ function TrendRow({ row, window30, window90, open, onToggle }) {
   if (values.length < 2) return null;
   const latest = values[values.length - 1];
   const mean = values.reduce((a, b) => a + b, 0) / values.length;
-  const diff = Math.round(latest - mean);
+  const precision = row.precision || 0;
+  const diff = Number((latest - mean).toFixed(precision));
   const good = diff === 0 ? null : row.goodDirection === 'up' ? diff > 0 : diff < 0;
 
   return (
@@ -333,14 +337,16 @@ function TrendRow({ row, window30, window90, open, onToggle }) {
           className="flex-1 min-w-0 h-6"
         />
         <span className="w-14 shrink-0 text-right text-sm font-medium tabular-nums">
-          {row.field === 'steps' ? latest.toLocaleString() : latest}
+          {row.field === 'steps' ? latest.toLocaleString()
+            : precision > 0 ? latest.toFixed(precision)
+            : latest}
         </span>
         <span className={`w-11 shrink-0 text-right text-[11px] tabular-nums ${
           diff === 0 ? 'text-neutral-400 dark:text-neutral-600'
             : good ? 'text-emerald-600 dark:text-emerald-500'
             : 'text-amber-600 dark:text-amber-500'
         }`}>
-          {diff > 0 ? '+' : ''}{diff}
+          {diff > 0 ? '+' : ''}{precision > 0 ? diff.toFixed(precision) : diff}
         </span>
         <span className="w-3 shrink-0 text-[10px] text-neutral-400 dark:text-neutral-600">
           {open ? '▲' : '▼'}
@@ -354,6 +360,7 @@ function TrendRow({ row, window30, window90, open, onToggle }) {
             field={row.field}
             stroke={row.stroke}
             unit={row.unit}
+            precision={precision}
           />
         </Suspense>
       )}
@@ -574,7 +581,31 @@ export default function Trends() {
   });
   const [openMetric, setOpenMetric] = useState(null);
 
-  const wellness = trends?.wellness || [];
+  // Weight is its own series — one row per day he actually stepped on the scale, not
+  // one per day — so it is joined onto the daily wellness rows by date. Days with no
+  // reading stay null and render as gaps, exactly like an untracked night.
+  const weightByDate = new Map(
+    (trends?.bodyweight || [])
+      .filter((b) => b.weight_kg != null)
+      .map((b) => [String(b.date).slice(0, 10), Number(b.weight_kg)])
+  );
+  const joined = (trends?.wellness || []).map((w) => ({
+    ...w,
+    weight_kg: weightByDate.get(String(w.date).slice(0, 10)) ?? null,
+  }));
+  // The wellness series deliberately ends YESTERDAY, because stress and steps are
+  // part-days on today's row. Weight is not: a morning weigh-in is a complete reading the
+  // moment it lands. Without this the weight row showed 94.8 from yesterday while the
+  // protocol line six inches above showed today's 94.2 — one number, two answers, which
+  // is the failure this whole tab exists to remove. Today is appended with weight only;
+  // every other field stays null and renders as the gap it is.
+  const lastDay = joined.length ? String(joined[joined.length - 1].date).slice(0, 10) : null;
+  const todayWeight = [...weightByDate.entries()]
+    .filter(([d]) => !lastDay || d > lastDay)
+    .sort((a, b) => a[0].localeCompare(b[0]));
+  const wellness = todayWeight.length
+    ? [...joined, ...todayWeight.map(([date, weight_kg]) => ({ date, weight_kg }))]
+    : joined;
   const wellness30 = wellness.slice(-30);
 
   return (
