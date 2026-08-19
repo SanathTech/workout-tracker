@@ -251,6 +251,15 @@ router.get('/one-rm/:exerciseId', async (req, res) => {
 // smaller for isolation work — 2.5kg on a lateral raise is a different ask than on a squat.
 router.get('/suggestions', async (req, res) => {
   try {
+    // The routine being trained, when the caller knows it. Without it this endpoint has
+    // to guess, and its guesses were wrong in a way that actively mis-trained him:
+    // Weighted Pull-Up is prescribed 6-8 on Day A and 6-10 on Day C, and a single
+    // DISTINCT ON per exercise silently picked whichever routine row had the lower id.
+    // So Day A was progressed against Day C's ceiling, off Day C's last session, and on
+    // 2026-08-20 the app told him to do 9 reps in a routine topping out at 8. He did
+    // exactly what it said. Range AND history are now scoped to the routine.
+    const parsed = Number(req.query.routine_id);
+    const routineId = Number.isInteger(parsed) && parsed > 0 ? parsed : null;
     const { rows } = await db.query(
       `WITH active AS (
          SELECT id FROM programs WHERE status = 'active' LIMIT 1
@@ -269,17 +278,31 @@ router.get('/suggestions', async (req, res) => {
               WHERE exercise_id = re.exercise_id AND contribution >= 1
               ORDER BY muscle LIMIT 1
            ) pm ON TRUE
-          ORDER BY re.exercise_id, re.id
+          -- The requested routine's prescription wins. re.id is only the tiebreak for
+          -- exercises that routine does not prescribe: a mid-session swap, or a call
+          -- made without a routine at all.
+          ORDER BY re.exercise_id,
+                   ($1::int IS NOT NULL AND r.id = $1::int) DESC, re.id
        ),
        last_session AS (
          SELECT DISTINCT ON (we.exercise_id)
-                we.exercise_id, w.id AS workout_id, w.date
+                we.exercise_id, w.id AS workout_id, w.date, w.routine_name,
+                ($1::int IS NOT NULL AND w.routine_id = $1::int) AS same_routine
            FROM workout_exercises we
            JOIN workouts w ON w.id = we.workout_id
           WHERE w.status = 'completed'
-          ORDER BY we.exercise_id, w.date DESC, w.id DESC
+          -- Same-routine history first, then the most recent anywhere. The fallback
+          -- matters: an exercise newly added to a routine still has a known working
+          -- weight elsewhere, and "no history" would throw that away. But the caller is
+          -- told which it got — progressing Day A off a Day C session is a different
+          -- claim, and it should not be made silently.
+          ORDER BY we.exercise_id,
+                   ($1::int IS NOT NULL AND w.routine_id = $1::int) DESC,
+                   w.date DESC, w.id DESC
        )
        SELECT p.*, ls.date AS last_date,
+              ls.routine_name AS last_routine_name,
+              COALESCE(ls.same_routine, false) AS last_same_routine,
               COALESCE(
                 json_agg(json_build_object('reps', ws.reps, 'weight_kg', ws.weight_kg::float, 'rir', ws.rir)
                          ORDER BY ws.set_number)
@@ -294,8 +317,10 @@ router.get('/suggestions', async (req, res) => {
                 ON ws.workout_exercise_id = we2.id AND ws.reps IS NOT NULL AND ws.reps > 0
                AND ws.set_type <> 'warmup'
         GROUP BY p.exercise_id, p.rep_range_low, p.rep_range_high, p.target_sets,
-                 p.exercise_name, p.is_bodyweight, p.primary_muscle, ls.date
-        ORDER BY p.exercise_name`
+                 p.exercise_name, p.is_bodyweight, p.primary_muscle, ls.date,
+                 ls.routine_name, ls.same_routine
+        ORDER BY p.exercise_name`,
+      [routineId]
     );
 
     // Compound lifts move in bigger jumps than isolation — the smallest plate pair is
@@ -313,7 +338,16 @@ router.get('/suggestions', async (req, res) => {
         rep_range_high: top,
         last_date: r.last_date || null,
         last_sets: sets,
+        last_routine_name: r.last_routine_name || null,
+        // False when the numbers came from a different routine, which prescribes a
+        // different range. The UI says so rather than presenting it as like-for-like.
+        last_same_routine: r.last_same_routine === true,
       };
+      // Appended to whatever reason follows, so the source of the comparison travels
+      // with the advice instead of being inferred from the numbers.
+      const scope = (base.last_routine_name && !base.last_same_routine)
+        ? ` (from ${base.last_routine_name}, which prescribes a different range)`
+        : '';
 
       if (!sets.length) {
         return { ...base, action: 'no_history', reason: 'No logged sets yet — set your starting weight.' };
@@ -334,11 +368,11 @@ router.get('/suggestions', async (req, res) => {
           suggested_weight_kg: Math.round((workingWeight + step) * 100) / 100,
           suggested_reps_low: low,
           suggested_reps_high: top,
-          reason: `Hit ${top} on every set at ${workingWeight}kg — add ${step}kg and work back up the range.`,
+          reason: `Hit ${top} on every set at ${workingWeight}kg — add ${step}kg and work back up the range.${scope}`,
         };
       }
       if (atTop) {
-        return { ...base, action: 'increase', reason: `Hit ${top} on every set — add load next session.` };
+        return { ...base, action: 'increase', reason: `Hit ${top} on every set — add load next session.${scope}` };
       }
       const shortfall = sets.filter((s) => s.reps < top).length;
       return {
@@ -348,8 +382,8 @@ router.get('/suggestions', async (req, res) => {
         suggested_reps_low: low,
         suggested_reps_high: top,
         reason: workingWeight != null
-          ? `${shortfall} of ${sets.length} sets below ${top} reps — stay at ${workingWeight}kg and add reps.`
-          : `Not all sets at ${top} reps yet — add reps before load.`,
+          ? `${shortfall} of ${sets.length} sets below ${top} reps — stay at ${workingWeight}kg and add reps.${scope}`
+          : `Not all sets at ${top} reps yet — add reps before load.${scope}`,
       };
     });
 

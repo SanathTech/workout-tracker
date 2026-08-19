@@ -89,7 +89,12 @@ export const getPersonalBests = () => api.get('/progress/personal-bests').then((
 // ── Training intelligence (Phase 3) ─────────────────────────
 export const getMuscleVolume = (params) =>
   api.get('/progress/muscle-volume', { params }).then((r) => r.data);
-export const getSuggestions = () => api.get('/progress/suggestions').then((r) => r.data);
+// routineId scopes both the rep range and the history to the routine being trained.
+// Without it the server has to pick one prescription per exercise for the whole program,
+// which is how Day A came to be progressed against Day C's rep range.
+export const getSuggestions = (routineId) =>
+  api.get('/progress/suggestions', { params: routineId ? { routine_id: routineId } : undefined })
+    .then((r) => r.data);
 export const getOneRm = (exerciseId, params) =>
   api.get(`/progress/one-rm/${exerciseId}`, { params }).then((r) => r.data);
 export const getBodyweight = (params) =>
