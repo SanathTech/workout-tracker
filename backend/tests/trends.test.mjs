@@ -111,7 +111,9 @@ ok(run != null, 'endurance includes the seeded run');
 ok(Number(run?.minutes_over_hr_ceiling) === 4,
   'over-ceiling minutes sum zones 3+', `got ${run?.minutes_over_hr_ceiling}`);
 ok(run?.when != null, 'session rows carry a when label');
-ok(t?.low_cadence_spm === 145, 'the cadence threshold is served with the data');
+// No cadence threshold is served: the session average includes walk breaks, so a
+// number below any target says as much about the walking as the running.
+ok(t?.low_cadence_spm === undefined, 'no cadence threshold is served');
 
 // Cadence is per-LEG on a run and per-minute strokes on a swim, so only runs double.
 ok(Number(run?.cadence) === 153, 'run cadence is doubled to steps per minute', `got ${run?.cadence}`);

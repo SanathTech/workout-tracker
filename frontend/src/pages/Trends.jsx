@@ -407,7 +407,7 @@ function SessionRow({ children, date }) {
   );
 }
 
-function Endurance({ sessions, ceiling, lowCadence }) {
+function Endurance({ sessions, ceiling }) {
   // An empty section, not a vanished one: no endurance work in six weeks is itself the
   // finding, and a section that silently disappears reads as a bug rather than a fact.
   if (!sessions?.length) {
@@ -438,17 +438,22 @@ function Endurance({ sessions, ceiling, lowCadence }) {
                 : mins <= 12 ? 'text-amber-600 dark:text-amber-500'
                 : 'text-red-600 dark:text-red-400';
               const cadence = r.cadence != null ? Number(r.cadence) : null;
-              const slow = cadence != null && cadence < lowCadence;
               return (
                 <SessionRow key={r.date + r.name} date={r.date}>
                   <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm tabular-nums">
                     <span className="font-medium">{(Number(r.distance_m) / 1000).toFixed(1)}km</span>
                     <span>{pacePerKm(r.moving_time, Number(r.distance_m))}/km</span>
                     {r.average_hr && <span className="text-neutral-500 dark:text-neutral-400">HR {r.average_hr}</span>}
+                    {/* Deliberately NOT flagged against a threshold. This is a whole-
+                        session average, and his runs follow a run/walk program — every
+                        walked minute at ~110spm drags it down, so a low number here is
+                        as likely to mean "more walk breaks" as "short turnover". Amber
+                        on it produced a false alarm on exactly the hilly session where
+                        he walked the climbs. The running-only figure needs the per-second
+                        cadence stream, which is not ingested. Same trap the persona
+                        already names for HR: judge the run reps, not the session mean. */}
                     {cadence != null && (
-                      <span className={slow ? 'text-amber-600 dark:text-amber-500' : 'text-neutral-500 dark:text-neutral-400'}>
-                        {cadence} spm
-                      </span>
+                      <span className="text-neutral-500 dark:text-neutral-400">{cadence} spm</span>
                     )}
                     {r.elevation_m != null && (
                       <span className="text-neutral-500 dark:text-neutral-400">↑{r.elevation_m}m</span>
@@ -462,8 +467,9 @@ function Endurance({ sessions, ceiling, lowCadence }) {
             })}
           </div>
           <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1.5">
-            An easy run should sit near zero minutes over. Cadence under {lowCadence} spm means long,
-            slow steps — take smaller ones rather than slower ones.
+            An easy run should sit near zero minutes over. Cadence is a whole-session average
+            and includes the walk breaks, so read it as a trend between similar sessions rather
+            than against a target.
           </p>
         </>
       )}
@@ -658,7 +664,6 @@ export default function Trends() {
           <Endurance
             sessions={trends?.endurance}
             ceiling={trends?.hr_ceiling ?? 153}
-            lowCadence={trends?.low_cadence_spm ?? 145}
           />
         </>
       )}

@@ -617,7 +617,13 @@ async function protocolStatus() {
 // doubled. `average_stride` is likewise two different measurements wearing one name:
 // step length on a run, distance per stroke on a swim — which is the swim economy
 // number, and the one he was counting by hand before we found Garmin already had it.
-const LOW_CADENCE_SPM = 145;
+//
+// Cadence is served WITHOUT a threshold on purpose. It is a whole-session average and his
+// runs follow a run/walk program, so every walked minute at ~110spm pulls it down — a low
+// number means "more walk breaks" at least as often as "short turnover", and the hilliest
+// session, where he walked the climbs, was the one a 145 threshold falsely flagged. The
+// running-only figure needs the per-second cadence stream, which is not ingested. The
+// persona already states this rule for HR; it applies here for exactly the same reason.
 
 // A numeric cast that yields NULL instead of throwing. Inlined per query rather than
 // created as a database function: this file owns no migrations, and a read path should
@@ -844,7 +850,6 @@ async function buildWeeklyBundle() {
 module.exports = {
   weekPlan,
   enduranceSessions,
-  LOW_CADENCE_SPM,
   noteLedger,
   protocolStatus,
   buildDailyBundle,

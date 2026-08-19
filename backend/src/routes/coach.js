@@ -6,7 +6,7 @@ const { resolveWorkoutDate, todayInAppTimezone } = require('../util/dates');
 const {
   buildAdherence, protocolStatus, weekVsRhythm, wellnessHistory, loadHistory,
   runDiscipline, bodyweight, weekPlan, noteLedger, enduranceSessions,
-  HR_CEILING, LOW_CADENCE_SPM,
+  HR_CEILING,
 } = require('../util/coachContext');
 
 // The hub tables (coach_advice, checkins, session_feel, wellness_daily, training_load)
@@ -180,7 +180,7 @@ router.get('/trends', async (req, res) => {
     ]);
     res.json({
       protocol, week, wellness, bodyweight: weight, endurance,
-      hr_ceiling: HR_CEILING, low_cadence_spm: LOW_CADENCE_SPM,
+      hr_ceiling: HR_CEILING,
     });
   } catch (err) {
     serverError(res, err);
