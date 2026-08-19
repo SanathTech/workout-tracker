@@ -372,16 +372,21 @@ function TrendRow({ row, window30, window90, open, onToggle }) {
 //
 // Cadence and elevation were already synced and simply never read: the ingest keeps the
 // whole intervals.icu payload, so this needed no new plumbing and no waiting for data.
+// Round the TOTAL seconds before splitting. Rounding the remainder instead lets 5:59.6
+// render as "5:60", because the carry never reaches the minutes.
+function mmss(secondsPerUnit) {
+  const total = Math.round(secondsPerUnit);
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
+}
+
 function pacePerKm(seconds, metres) {
   if (!seconds || !metres) return null;
-  const s = seconds / (metres / 1000);
-  return `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
+  return mmss(seconds / (metres / 1000));
 }
 
 function pacePer100m(seconds, metres) {
   if (!seconds || !metres) return null;
-  const s = seconds / (metres / 100);
-  return `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
+  return mmss(seconds / (metres / 100));
 }
 
 function SessionRow({ children, date }) {

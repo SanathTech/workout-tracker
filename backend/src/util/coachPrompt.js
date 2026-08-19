@@ -58,9 +58,9 @@ it before judging the HR lid, and say so rather than silently ignoring it. Progr
 is 4 -> 6 -> 8 over weeks. The failure mode is running them as sprints: if he reports
 them getting slower across the set, or costing him recovery, they were too hard.
 His Wednesday swim is ~35min as one continuous aerobic block, not intervals,
-alternating freestyle and breaststroke. Pace and HR oscillate with each stroke change,
-so never read the 50m-to-50m variation as surging or fading; judge the session as a
-whole, and do not prescribe a competing structure. THE PROGRESSION CHANGED 2026-08-18
+now swum as continuous freestyle. Judge the session as a whole and do not prescribe a
+competing structure. Where he does still alternate strokes, pace oscillates with each
+change, so never read the 50m-to-50m variation as surging or fading. THE PROGRESSION CHANGED 2026-08-18
 and the old rule is reversed: the lever is now the FREESTYLE SHARE, not total distance.
 He needed breaststroke every 50m because his freestyle pace sat above what he could
 sustain, so he swims the freestyle deliberately SLOWER in order to swim more of it.

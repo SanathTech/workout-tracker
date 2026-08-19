@@ -619,15 +619,25 @@ async function protocolStatus() {
 // number, and the one he was counting by hand before we found Garmin already had it.
 const LOW_CADENCE_SPM = 145;
 
+// A numeric cast that yields NULL instead of throwing. Inlined per query rather than
+// created as a database function: this file owns no migrations, and a read path should
+// not depend on server-side objects it cannot create.
+// Parenthesised: ->> binds looser than ::, so raw->>'k'::numeric would cast the KEY.
+const NUM = `CASE WHEN ($t$) ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN ($t$)::numeric END`;
+const num = (expr) => NUM.replaceAll('$t$', expr);
+
 async function enduranceSessions(days = 42) {
   const { rows } = await db.query(
     `SELECT date, type, name, moving_time, ROUND(distance) AS distance_m, average_hr,
             ROUND(training_load) AS training_load,
+            -- The raw column is a third-party payload, so every cast is guarded: one bad
+            -- value would throw and take the WHOLE Trends tab down with it — sleep,
+            -- protocol and the week all share this endpoint. A bad field reads as absent.
             CASE WHEN type IN ('Run', 'VirtualRun')
-                 THEN ROUND((raw->>'average_cadence')::numeric * 2)
-                 ELSE ROUND((raw->>'average_cadence')::numeric) END AS cadence,
-            ROUND((raw->>'total_elevation_gain')::numeric) AS elevation_m,
-            ROUND((raw->>'average_stride')::numeric, 2) AS stride_m,
+                 THEN ROUND(${num("raw->>'average_cadence'")} * 2)
+                 ELSE ROUND(${num("raw->>'average_cadence'")}) END AS cadence,
+            ROUND(${num("raw->>'total_elevation_gain'")}) AS elevation_m,
+            ROUND(${num("raw->>'average_stride'")}, 2) AS stride_m,
             (SELECT ROUND(SUM(z) / 60.0, 1)
                FROM unnest(hr_zone_times[3:]) AS z) AS minutes_over_hr_ceiling
        FROM activities
