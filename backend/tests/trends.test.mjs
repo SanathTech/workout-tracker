@@ -53,9 +53,36 @@ await db.query(
   `INSERT INTO activities (id, start_date_local, date, type, name, moving_time,
                            distance, average_hr, hr_zone_times, raw)
         VALUES ('test-run-1', $1::date + TIME '07:00', $1, 'Run', 'Test Run',
-                2400, 6000, 148, ARRAY[600, 1560, 180, 60], '{}'::jsonb)
+                2400, 6000, 148, ARRAY[600, 1560, 180, 60],
+                '{"average_cadence": 76.5, "total_elevation_gain": 41.2, "average_stride": 0.94}'::jsonb)
    ON CONFLICT (id) DO NOTHING`,
   [shift(today, -2)]
+);
+
+// A swim alongside it. The endurance list carries both sports, and the two fields that
+// mean different things per sport (cadence per-leg vs per-stroke, stride as step length
+// vs distance per stroke) are only testable with one of each present.
+await db.query(
+  `INSERT INTO activities (id, start_date_local, date, type, name, moving_time,
+                           distance, average_hr, hr_zone_times, raw)
+        VALUES ('test-swim-1', $1::date + TIME '08:00', $1, 'Swim', 'Test Swim',
+                2100, 1000, 132, ARRAY[1800, 300, 0, 0],
+                '{"average_cadence": 22.0, "average_stride": 0.68}'::jsonb)
+   ON CONFLICT (id) DO NOTHING`,
+  [shift(today, -3)]
+);
+
+// A run whose cadence is a non-numeric string. intervals.icu is third-party and the
+// query casts these fields with ::numeric — an empty string would throw and 500 the
+// whole Trends tab, taking sleep, protocol and the week down with it.
+await db.query(
+  `INSERT INTO activities (id, start_date_local, date, type, name, moving_time,
+                           distance, average_hr, hr_zone_times, raw)
+        VALUES ('test-run-junk', $1::date + TIME '07:00', $1, 'Run', 'Junk Cadence Run',
+                1800, 5000, 140, ARRAY[900, 900, 0, 0],
+                '{"average_cadence": "", "total_elevation_gain": "n/a"}'::jsonb)
+   ON CONFLICT (id) DO NOTHING`,
+  [shift(today, -4)]
 );
 
 console.log('\nTrends read surface');
@@ -79,12 +106,28 @@ ok(t?.week?.slots_scored === t?.week?.days?.filter((d) => !d.upcoming && !d.is_t
   'today and future days are excluded from the score');
 
 ok(t?.hr_ceiling === 153, 'hr ceiling is served for the axis label', `got ${t?.hr_ceiling}`);
-const run = t?.runs?.find((r) => r.name === 'Test Run');
-ok(run != null, 'runs include the seeded run');
+const run = t?.endurance?.find((r) => r.name === 'Test Run');
+ok(run != null, 'endurance includes the seeded run');
 ok(Number(run?.minutes_over_hr_ceiling) === 4,
   'over-ceiling minutes sum zones 3+', `got ${run?.minutes_over_hr_ceiling}`);
-ok(run?.when != null, 'run rows carry a when label');
-ok(!t?.runs?.some((r) => r.type === 'Swim'), 'non-run activities stay out of run discipline');
+ok(run?.when != null, 'session rows carry a when label');
+ok(t?.low_cadence_spm === 145, 'the cadence threshold is served with the data');
+
+// Cadence is per-LEG on a run and per-minute strokes on a swim, so only runs double.
+ok(Number(run?.cadence) === 153, 'run cadence is doubled to steps per minute', `got ${run?.cadence}`);
+ok(Number(run?.elevation_m) === 41, 'elevation gain is read out of raw', `got ${run?.elevation_m}`);
+
+const swim = t?.endurance?.find((r) => r.name === 'Test Swim');
+ok(swim != null, 'endurance includes swims, not just runs');
+ok(Number(swim?.cadence) === 22, 'swim cadence is NOT doubled', `got ${swim?.cadence}`);
+ok(Number(swim?.stride_m) === 0.68, 'distance per stroke is served for swims', `got ${swim?.stride_m}`);
+
+// The whole tab shares one endpoint, so a single unparseable field must not take
+// sleep, protocol and the week down with it.
+const junkRow = t?.endurance?.find((r) => r.name === 'Junk Cadence Run');
+ok(junkRow != null, 'a session with unparseable raw fields still returns');
+ok(junkRow?.cadence == null, 'an unparseable cadence comes back null rather than throwing');
+ok(junkRow?.elevation_m == null, 'an unparseable elevation comes back null rather than throwing');
 
 ok(t?.protocol?.bedtime != null && t?.protocol?.movement != null,
   'protocol block carries bedtime and movement');

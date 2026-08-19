@@ -607,6 +607,47 @@ async function protocolStatus() {
   };
 }
 
+// Runs and swims as sessions, with the fields that decide whether one went well —
+// most of which were already synced and simply never read: the ingest stores the whole
+// intervals.icu payload in `raw`, so cadence and elevation come out of it here rather
+// than needing a schema change, an ingest change, or a re-sync.
+//
+// `average_cadence` is per-LEG on a run (69.3 next to a 0.91m step length and 2.07 m/s
+// is 138 steps per minute, not 69) and per-minute strokes on a swim, so only runs are
+// doubled. `average_stride` is likewise two different measurements wearing one name:
+// step length on a run, distance per stroke on a swim — which is the swim economy
+// number, and the one he was counting by hand before we found Garmin already had it.
+const LOW_CADENCE_SPM = 145;
+
+// A numeric cast that yields NULL instead of throwing. Inlined per query rather than
+// created as a database function: this file owns no migrations, and a read path should
+// not depend on server-side objects it cannot create.
+// Parenthesised: ->> binds looser than ::, so raw->>'k'::numeric would cast the KEY.
+const NUM = `CASE WHEN ($t$) ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN ($t$)::numeric END`;
+const num = (expr) => NUM.replaceAll('$t$', expr);
+
+async function enduranceSessions(days = 42) {
+  const { rows } = await db.query(
+    `SELECT date, type, name, moving_time, ROUND(distance) AS distance_m, average_hr,
+            ROUND(training_load) AS training_load,
+            -- The raw column is a third-party payload, so every cast is guarded: one bad
+            -- value would throw and take the WHOLE Trends tab down with it — sleep,
+            -- protocol and the week all share this endpoint. A bad field reads as absent.
+            CASE WHEN type IN ('Run', 'VirtualRun')
+                 THEN ROUND(${num("raw->>'average_cadence'")} * 2)
+                 ELSE ROUND(${num("raw->>'average_cadence'")}) END AS cadence,
+            ROUND(${num("raw->>'total_elevation_gain'")}) AS elevation_m,
+            ROUND(${num("raw->>'average_stride'")}, 2) AS stride_m,
+            (SELECT ROUND(SUM(z) / 60.0, 1)
+               FROM unnest(hr_zone_times[3:]) AS z) AS minutes_over_hr_ceiling
+       FROM activities
+      WHERE type IN ('Run', 'VirtualRun', 'Swim') AND date >= $1::date - $2::int
+      ORDER BY date DESC`,
+    [today(), days]
+  );
+  return labelRows(rows);
+}
+
 // The week as a plan rather than a scorecard — what is on each day, resolved far enough
 // ahead that he can pack a bag on Wednesday night for Thursday. weekVsRhythm() answers
 // "did I hit the template"; this answers "what am I doing", which is the question he was
@@ -802,6 +843,8 @@ async function buildWeeklyBundle() {
 
 module.exports = {
   weekPlan,
+  enduranceSessions,
+  LOW_CADENCE_SPM,
   noteLedger,
   protocolStatus,
   buildDailyBundle,
