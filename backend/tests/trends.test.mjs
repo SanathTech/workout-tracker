@@ -124,10 +124,10 @@ ok(Number(swim?.stride_m) === 0.68, 'distance per stroke is served for swims', `
 
 // The whole tab shares one endpoint, so a single unparseable field must not take
 // sleep, protocol and the week down with it.
-const junk = t?.endurance?.find((r) => r.name === 'Junk Cadence Run');
-ok(junk != null, 'a session with unparseable raw fields still returns');
-ok(junk?.cadence == null, 'an unparseable cadence comes back null rather than throwing');
-ok(junk?.elevation_m == null, 'an unparseable elevation comes back null rather than throwing');
+const junkRow = t?.endurance?.find((r) => r.name === 'Junk Cadence Run');
+ok(junkRow != null, 'a session with unparseable raw fields still returns');
+ok(junkRow?.cadence == null, 'an unparseable cadence comes back null rather than throwing');
+ok(junkRow?.elevation_m == null, 'an unparseable elevation comes back null rather than throwing');
 
 ok(t?.protocol?.bedtime != null && t?.protocol?.movement != null,
   'protocol block carries bedtime and movement');
