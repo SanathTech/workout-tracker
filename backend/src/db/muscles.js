@@ -112,6 +112,9 @@ const EXERCISES = {
   'leg extension':        [['quads'], []],
   'calf raise':           [['calves'], []],
   'lunges':               [['quads'], ['glutes', 'adductors']],
+  'banded hip abduction': [['glutes'], []],
+  'cable hip abduction':  [['glutes'], []],
+  'clamshell':            [['glutes'], []],
   'bicep curl':           [['biceps'], ['forearms']],
   'hammer curl':          [['biceps'], ['forearms']],
   'preacher curl':        [['biceps'], []],
@@ -137,6 +140,10 @@ const KEYWORDS = [
   [/deadlift/,                  [['hamstrings', 'lower_back'], ['glutes', 'traps']]],
   [/squat|lunge|split squat|step.?up|leg press/, [['quads'], ['glutes', 'adductors']]],
   [/hip thrust|glute bridge/,   [['glutes'], ['hamstrings']]],
+  // Before the squat/lunge rule, and before the Legs fallback: an abduction
+  // exercise reaching either would be credited to quads, which is the opposite of
+  // why it is in the program.
+  [/abduction|abductor|clamshell|lateral walk|monster walk/, [['glutes'], []]],
   [/pull-?up|chin-?up|pulldown/,[['lats'], ['biceps', 'upper_back']]],
   [/row/,                       [['upper_back'], ['lats', 'biceps']]],
   [/shrug/,                     [['traps'], []]],

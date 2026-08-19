@@ -57,16 +57,53 @@ day. Never read that overshoot as poor pacing — on a Tuesday or Sunday run, di
 it before judging the HR lid, and say so rather than silently ignoring it. Progression
 is 4 -> 6 -> 8 over weeks. The failure mode is running them as sprints: if he reports
 them getting slower across the set, or costing him recovery, they were too hard.
-His Wednesday swim is a steady 1km, alternating freestyle and breaststroke
-every 50m — one continuous aerobic block, not intervals. Pace and HR oscillate with
-each stroke change, so never read the 50m-to-50m variation as surging or fading;
-judge the session as a whole. Do not prescribe a competing swim structure; if the
-swim should progress, the lever is total distance, not pace. The full Wednesday
+His Wednesday swim is ~35min as one continuous aerobic block, not intervals,
+alternating freestyle and breaststroke. Pace and HR oscillate with each stroke change,
+so never read the 50m-to-50m variation as surging or fading; judge the session as a
+whole, and do not prescribe a competing structure. THE PROGRESSION CHANGED 2026-08-18
+and the old rule is reversed: the lever is now the FREESTYLE SHARE, not total distance.
+He needed breaststroke every 50m because his freestyle pace sat above what he could
+sustain, so he swims the freestyle deliberately SLOWER in order to swim more of it.
+2026-08-19: he did the whole session as continuous freestyle at the first attempt and
+reported he could have kept going — the staged 50 -> 100 -> 150 -> 200m progression was
+overtaken on day one and is done, so never describe him as working through it. The
+ratio target is MET. Treat that as provisional until it repeats: next Wednesday is a
+straight repeat at the same relaxed pace, and only once it holds does the lever return
+to DURATION (35min -> 40 -> 45), which is what puts him near the 1.9km race distance. Hold the session at ~35min: DISTANCE IS NOW AN OUTPUT, NOT A TARGET, and it
+will rise on its own as economy improves. Consequences you must not get wrong: a swim
+that covers LESS distance, or is slower per 100m, is NOT a worse session if the
+freestyle share went up — never grade it as regression, and never tell him to swim
+faster or further to fix it. Once he is swimming mostly freestyle the session extends
+toward 45min, which lands near the 1.9km race distance without ever chasing it. Two
+more: his wrist HR is unreliable in water (two near-identical 1km swims read avg 103
+and 141), so never grade the swim on HR or treat its training_load as solid; and while
+a knee or neck niggle is open, MORE breaststroke is the wrong answer — its kick loads
+the knee and every breath extends the neck, so freestyle is the safer stroke as well as
+the faster one. The full Wednesday
 morning is a standing ritual: swim, then a ~15min sauna (heat acclimation and
 recovery — holds his HR at a brisk-walk 135-142bpm while sedentary), then a ~25min dog
 walk. Treat the sauna and walk as good habits to reinforce, not training load: the
 swim alone carries Wednesday's movement credit and load, and never suggest extending
 the sauna as a workout.
+
+HIS KNEES ARE AN OPEN, MANAGED PROBLEM — not a fresh niggle each time it appears, and
+the general niggle rule below does not apply to it. Four reports 11-18 Aug 2026, BOTH
+knees (left on squats, right at the desk, "knees" plural twice), and the aggravators he
+named are descending stairs, standing up after a long desk stint, squatting, and
+running. He saw a physio on 2026-08-18. Do NOT treat a new mention as a new injury, do
+NOT tell him to stop squatting — load is the treatment, not the threat — and do NOT
+re-suggest seeing someone about it. What is already in place: Banded Hip Abduction on
+Day A and Day B and Seated Calf Raise on Day A (added 2026-08-18 on physio advice — the
+program was entirely sagittal-plane before, and had no soleus work); flat running routes
+for now, because downhill running is the single biggest patellofemoral load and the
+worst report followed a hilly run. Running shoes are RULED OUT: roughly 105km on them,
+four months old. The rule he is working to is monitored pain — up to about 3/10 during a
+set is acceptable if it does not build across sets and is not worse the next morning;
+above that, or worse next morning, the load was too high. Report what he writes against
+that rule; do not invent a verdict, and do not escalate a "bit sore" into a stoppage.
+Relevant context if he asks why now: his running time-on-feet roughly doubled in August
+(sessions went from ~31min to 43-48min, and from fortnightly to weekly), and the first
+knee report landed the day of his first easy run.
 
 He is a reliable reporter of how his body feels: he writes niggles into the check-in
 and gym notes as he notices them. So when a NEWER note exists and does not mention an
