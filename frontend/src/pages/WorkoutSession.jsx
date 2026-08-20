@@ -537,8 +537,12 @@ export default function WorkoutSession() {
     loopRef.current = createSaveLoop({
       send: (payload, opts) => updateWorkout(id, JSON.parse(payload), opts),
       onStatus: (status) => {
-        if (status === 'saved') { dirtySinceRef.current = null; setDirtyFor(null); }
-        if (mountedRef.current) setAutosave(status);
+        // The ref is safe after unmount; the setState is not. A save settling after the
+        // page has gone would warn and do nothing useful.
+        if (status === 'saved') dirtySinceRef.current = null;
+        if (!mountedRef.current) return;
+        if (status === 'saved') setDirtyFor(null);
+        setAutosave(status);
       },
       onSaved: (updated) => { qc.setQueryData(['workout', id], updated); },
       canRetry: () => mountedRef.current,

@@ -237,6 +237,71 @@ test('a run that hangs past the stall window is abandoned, and saving resumes', 
   assert.equal(loop.isDirty(), false, 'the loop is clean again without a remount');
 });
 
+// Both raised in review on PR #91, neither covered by the test above.
+test('abandoning a run settles its awaiters instead of parking them forever', async () => {
+  let t = 0;
+  const loop = createSaveLoop({
+    send: () => new Promise(() => {}),          // never settles
+    schedule: () => 1,
+    clear: () => {},
+    now: () => t,
+    stallMs: 45_000,
+  });
+
+  loop.setPending('v1');
+  let awaiterFinished = false;
+  // Finish does exactly this: `await saveNow()`. Parked on a run the watchdog later
+  // abandons, it would wait for a promise nobody is driving any more.
+  const awaiter = loop.flush().then(() => { awaiterFinished = true; });
+  await flushMicrotasks();
+  assert.equal(awaiterFinished, false, 'still waiting while the run is healthy');
+
+  t = 46_000;
+  loop.flush();                                  // triggers the abandon
+  await awaiter;
+  assert.equal(awaiterFinished, true, 'the abandoned run releases its callers');
+});
+
+test('a zombie run that settles late cannot touch newer state', async () => {
+  let t = 0;
+  const releases = [];
+  const sent = [];
+  const statuses = [];
+  const loop = createSaveLoop({
+    send: (payload) => {
+      sent.push(payload);
+      return new Promise((resolve) => releases.push(() => resolve({ ok: true })));
+    },
+    onStatus: (s2) => statuses.push(s2),
+    schedule: () => 1,
+    clear: () => {},
+    now: () => t,
+    stallMs: 45_000,
+  });
+
+  loop.setPending('v1');
+  loop.flush();
+  await flushMicrotasks();
+
+  t = 46_000;
+  loop.setPending('v2');
+  loop.flush();                                  // abandons run 1, starts run 2
+  await flushMicrotasks();
+  assert.deepEqual(sent, ['v1', 'v2']);
+
+  // The OS unfreezes the original request an age later and it completes.
+  releases[0]();
+  await flushMicrotasks();
+  assert.equal(loop.inFlight, true, 'the zombie does not clear the live run');
+  assert.equal(loop.lastSaved, null, 'the zombie does not mark stale data as saved');
+
+  releases[1]();
+  await flushMicrotasks();
+  assert.equal(loop.lastSaved, 'v2', 'the live run still reports correctly');
+  assert.equal(loop.isDirty(), false);
+  assert.equal(loop.inFlight, false);
+});
+
 test('the event log records what the loop did', async () => {
   const clock = fakeClock();
   const loop = createSaveLoop({
