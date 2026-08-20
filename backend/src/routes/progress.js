@@ -345,8 +345,14 @@ router.get('/suggestions', async (req, res) => {
       };
       // Appended to whatever reason follows, so the source of the comparison travels
       // with the advice instead of being inferred from the numbers.
-      const scope = (base.last_routine_name && !base.last_same_routine)
-        ? ` (from ${base.last_routine_name}, which prescribes a different range)`
+      //
+      // Only when a routine was actually asked for. Without one, `same_routine` is false
+      // for every row by construction, and the suffix would have fired on every
+      // suggestion in the list. And it states only what is known — which routine the
+      // numbers came from. Whether that routine prescribes a DIFFERENT range is not
+      // something this query establishes, so it no longer claims it.
+      const scope = (routineId != null && base.last_routine_name && !base.last_same_routine)
+        ? ` (last done on ${base.last_routine_name})`
         : '';
 
       if (!sets.length) {
