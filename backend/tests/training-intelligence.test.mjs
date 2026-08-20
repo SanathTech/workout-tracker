@@ -182,6 +182,68 @@ console.log('\n─── weekly series buckets by week ───');
   ok(total > mv.series[mv.series.length - 1].quads, 'history is kept separate from the current week');
 }
 
+// The same exercise can be prescribed a different rep range on different days, and the
+// suggestion engine used to be blind to that: one DISTINCT ON per exercise picked
+// whichever routine row had the lower id, and the history came from the most recent
+// session in ANY routine. On 2026-08-20 that told him to do 9 reps of an exercise whose
+// range in that routine tops out at 8 — he followed it, because the app is the
+// prescription. Range and history are both scoped to the routine now.
+//
+// Runs last: starting a program archives the active one, so anything after this would
+// be graded against the wrong block.
+console.log('\n─── suggestions are scoped to the routine ───');
+{
+  const { body: two } = await api('POST', '/api/programs', {
+    name: 'Two-routine ranges',
+    total_weeks: 4,
+    routines: [
+      { name: 'Heavy Day', exercises: [{ exercise_id: ex['Squat'], target_sets: 3, rep_range_low: 5, rep_range_high: 8 }] },
+      { name: 'Volume Day', exercises: [{ exercise_id: ex['Squat'], target_sets: 3, rep_range_low: 5, rep_range_high: 12 }] },
+    ],
+  });
+  await api('POST', `/api/programs/${two.id}/start`);
+  const heavy = two.routines.find((r) => r.name === 'Heavy Day');
+  const volume = two.routines.find((r) => r.name === 'Volume Day');
+
+  const log = async (routine, reps, daysAgo) => {
+    const { body: w } = await api('POST', '/api/workouts', { routine_id: routine.id });
+    await api('PUT', `/api/workouts/${w.id}`, {
+      exercises: [{ exercise_id: ex['Squat'], sets: reps.map((r, i) => ({ set_number: i + 1, reps: r, weight_kg: 100 })) }],
+    });
+    await api('POST', `/api/workouts/${w.id}/complete`);
+    if (daysAgo) {
+      await db.query(
+        `UPDATE workouts SET date = CURRENT_DATE - $1::int, created_at = NOW() - ($1 || ' days')::interval WHERE id = $2`,
+        [daysAgo, w.id]
+      );
+    }
+  };
+
+  // Heavy Day is older, so the unscoped query would grade it on Volume Day's session —
+  // where 10 reps clears Heavy Day's ceiling of 8 and reads as "add load".
+  await log(heavy, [6, 6, 6], 3);
+  await log(volume, [10, 10, 10], 0);
+
+  const { body: h } = await api('GET', `/api/progress/suggestions?routine_id=${heavy.id}`);
+  const hs = h.find((x) => x.exercise_name === 'Squat');
+  ok(hs.rep_range_high === 8, "the routine's own rep range is used", `got ${hs.rep_range_high}`);
+  ok(hs.last_same_routine === true, 'history comes from the same routine', JSON.stringify(hs.last_routine_name));
+  ok(hs.action === 'hold', '6/6/6 against 5-8 holds — not graded on the other routine', `${hs.action}: ${hs.reason}`);
+  ok(hs.suggested_weight_kg === 100, 'holds the working weight', `got ${hs.suggested_weight_kg}`);
+
+  const { body: v } = await api('GET', `/api/progress/suggestions?routine_id=${volume.id}`);
+  const vs = v.find((x) => x.exercise_name === 'Squat');
+  ok(vs.rep_range_high === 12, 'the other routine keeps its own range', `got ${vs.rep_range_high}`);
+  ok(vs.action === 'hold', '10/10/10 against 5-12 holds', `${vs.action}: ${vs.reason}`);
+  ok(/below 12 reps/.test(vs.reason), 'the reason quotes that routine\'s ceiling', vs.reason);
+
+  // An exercise a routine does not prescribe still gets its known working weight, but
+  // the caller is told the comparison crosses routines rather than being handed it
+  // silently as like-for-like.
+  const noRoutine = await api('GET', '/api/progress/suggestions');
+  ok(Array.isArray(noRoutine.body), 'a call without a routine still returns');
+}
+
 console.log('\n─────────────────────────────');
 console.log(`  ${pass} passed, ${fail} failed`);
 await db.end();

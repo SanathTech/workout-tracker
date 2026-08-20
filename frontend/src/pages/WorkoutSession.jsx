@@ -556,9 +556,16 @@ export default function WorkoutSession() {
 
   // Reflects the last *completed* session, so the workout being logged right now doesn't
   // move the goalposts underneath itself.
+  // Keyed by routine as well as name: the same exercise is prescribed different rep
+  // ranges on different days, so one cached "suggestions" list served all three routines
+  // the wrong answer for two of them.
+  const routineId = workout?.routine_id ?? null;
   const { data: suggestions = [] } = useQuery({
-    queryKey: ['suggestions'],
-    queryFn: getSuggestions,
+    queryKey: ['suggestions', routineId],
+    queryFn: () => getSuggestions(routineId),
+    // Wait for the workout, so the first fetch already knows its routine. A routine_id
+    // of null is legitimate (the routine was retired) and falls back to program-wide.
+    enabled: hydrated,
     staleTime: 5 * 60_000,
   });
   const suggestionByExercise = useMemo(
