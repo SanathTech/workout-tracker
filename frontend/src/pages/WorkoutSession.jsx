@@ -12,6 +12,7 @@ import { createSaveLoop } from '../util/saveLoop';
 import FinishRatingSheet from '../components/FinishRatingSheet';
 import { saveDraft, saveSnapshot, readDraft, clearDraft, pruneDrafts } from '../utils/draft';
 import MoreMenu from '../components/MoreMenu';
+import { track } from '../util/telemetry';
 
 const isBlank = (v) => v === '' || v == null;
 
@@ -114,7 +115,12 @@ function SetRow({ set, previousSet, showPrev, targetRir, suggestion, onChange, o
     const next = { ...set };
     if (isBlank(next.weight_kg) && prevWeight != null) next.weight_kg = prevWeight;
     if (isBlank(next.reps) && previousSet?.reps != null) next.reps = previousSet.reps;
-    if (next.weight_kg !== set.weight_kg || next.reps !== set.reps) onChange(next);
+    const filled = next.weight_kg !== set.weight_kg || next.reps !== set.reps;
+    // Whether the one-tap log actually earns its column. A tap that changes nothing is
+    // recorded too — it means he reached for it when there was nothing to copy, which
+    // is a different finding from not reaching for it at all.
+    track('tap', 'prev-fill', { filled });
+    if (filled) onChange(next);
   };
 
   // Swipe left to reveal Remove — the ledger has no room for an always-visible ✕, and
@@ -311,11 +317,12 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove, sug
     : null;
 
   const addSet = () => {
+    track('tap', 'add-set', { exercise_id: block.exercise_id });
     const nextNum = (block.sets[block.sets.length - 1]?.set_number || 0) + 1;
     onChange({ ...block, sets: [...block.sets, { set_number: nextNum, reps: null, weight_kg: null, rir: null, set_type: 'working' }] });
   };
   const updateSet = (i, u) => onChange({ ...block, sets: block.sets.map((s, j) => j === i ? u : s) });
-  const removeSet = (i) => onChange({
+  const removeSet = (i) => track('tap', 'remove-set') || onChange({
     ...block,
     sets: block.sets.filter((_, j) => j !== i).map((s, j) => ({ ...s, set_number: j + 1 })),
   });
@@ -346,9 +353,9 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove, sug
             // Two different notes, deliberately named apart: the program's coaching cue
             // (routine_exercises.notes, read-only) vs his own log for this session
             // (workout_exercises.notes, editable below).
-            target?.notes && { label: showNote ? 'Hide how-to' : 'How to do this', onSelect: () => setShowNote((v) => !v) },
-            { label: block.notes ? 'Edit my note' : 'Add my note', onSelect: () => setEditingNote(true) },
-            { label: 'Remove exercise', confirm: 'Remove — sure?', danger: true, onSelect: onRemove },
+            target?.notes && { label: showNote ? 'Hide how-to' : 'How to do this', onSelect: () => { track('tap', 'how-to-toggle'); setShowNote((v) => !v); } },
+            { label: block.notes ? 'Edit my note' : 'Add my note', onSelect: () => { track('tap', 'exercise-note'); setEditingNote(true); } },
+            { label: 'Remove exercise', confirm: 'Remove — sure?', danger: true, onSelect: () => { track('tap', 'remove-exercise'); onRemove(); } },
           ]}
         />
       </div>
@@ -537,6 +544,7 @@ export default function WorkoutSession() {
     loopRef.current = createSaveLoop({
       send: (payload, opts) => updateWorkout(id, JSON.parse(payload), opts),
       onStatus: (status) => {
+        track('save', status, status === 'error' ? { stalls: loopRef.current?.stalls ?? 0 } : undefined, Number(id));
         // The ref is safe after unmount; the setState is not. A save settling after the
         // page has gone would warn and do nothing useful.
         if (status === 'saved') dirtySinceRef.current = null;
@@ -756,13 +764,24 @@ export default function WorkoutSession() {
   // out a hung run on its own, but only when something calls flush — so something has to
   // call it. Cheap: one comparison every ten seconds, and it does nothing when clean.
   useEffect(() => {
-    const id = setInterval(() => {
+    let seenStalls = 0;
+    // Not `id` — that is the workout id from useParams, and shadowing it here loses the
+    // one thing the stall event most needs to be attached to.
+    const timer = setInterval(() => {
+      // The wedge itself, reported the moment the watchdog acts on it. Without this the
+      // only trace of a stall is an absence of PUTs, which is what made the last four
+      // so hard to pin down.
+      const stalls = loopRef.current?.stalls ?? 0;
+      if (stalls > seenStalls) {
+        track('save', 'stalled', { stalls, events: loopRef.current?.getEvents().slice(-12) }, Number(id));
+        seenStalls = stalls;
+      }
       if (loopRef.current?.isDirty()) flushRef.current?.();
       // Drives the "not saved for N minutes" wording below.
       setDirtyFor(loopRef.current?.isDirty() ? (dirtySinceRef.current || Date.now()) : null);
     }, 10_000);
-    return () => clearInterval(id);
-  }, []);
+    return () => clearInterval(timer);
+  }, [id]);
 
   const saveNow = useCallback(() => {
     loop.setPending(JSON.stringify(serializePayload(exercises, notes)));
@@ -1043,7 +1062,7 @@ export default function WorkoutSession() {
                       'Finish anyway?\n\nYour most recent sets have not reached the server yet. '
                       + 'They stay saved on this phone and will sync when the connection recovers — '
                       + 'reopen the workout later to check they arrived.'
-                    )) finish.mutate({ force: true });
+                    )) { track('tap', 'finish-anyway', { stalls: loop.stalls }, Number(id)); finish.mutate({ force: true }); }
                   }}
                   className="btn-secondary text-xs mt-1.5"
                 >
@@ -1071,7 +1090,7 @@ export default function WorkoutSession() {
               </button>
             ) : (
               <button
-                onClick={() => { if (confirm('Finish this workout?')) finish.mutate({}); }}
+                onClick={() => { if (confirm('Finish this workout?')) { track('tap', 'finish', undefined, Number(id)); finish.mutate({}); } }}
                 disabled={finish.isPending || skip.isPending}
                 className="btn-primary flex-1 justify-center h-12"
               >

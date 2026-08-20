@@ -10,6 +10,7 @@ const coachRouter = require('./routes/coach');
 const coachRunRouter = require('./routes/coachRun');
 const mcpRouter = require('./routes/mcp');
 const authRouter = require('./routes/auth');
+const eventsRouter = require('./routes/events');
 const { requireAuth, isConfigured } = require('./util/auth');
 
 const app = express();
@@ -66,6 +67,10 @@ app.use('/api/mcp/:token', mcpRouter);
 
 // Everything below requires a valid session cookie once auth is configured.
 app.use('/api', requireAuth);
+
+// Behind requireAuth like everything else — it writes to his database, and an open
+// ingest is an open write endpoint however boring the payload looks.
+app.use('/api/events', eventsRouter);
 
 app.use('/api/exercises', exercisesRouter);
 app.use('/api/programs', programsRouter);
