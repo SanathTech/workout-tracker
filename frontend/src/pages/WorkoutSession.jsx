@@ -536,7 +536,14 @@ export default function WorkoutSession() {
   if (loopRef.current == null) {
     loopRef.current = createSaveLoop({
       send: (payload, opts) => updateWorkout(id, JSON.parse(payload), opts),
-      onStatus: (status) => { if (mountedRef.current) setAutosave(status); },
+      onStatus: (status) => {
+        // The ref is safe after unmount; the setState is not. A save settling after the
+        // page has gone would warn and do nothing useful.
+        if (status === 'saved') dirtySinceRef.current = null;
+        if (!mountedRef.current) return;
+        if (status === 'saved') setDirtyFor(null);
+        setAutosave(status);
+      },
       onSaved: (updated) => { qc.setQueryData(['workout', id], updated); },
       canRetry: () => mountedRef.current,
     });
@@ -574,6 +581,13 @@ export default function WorkoutSession() {
   );
 
   const [recovered, setRecovered] = useState(false);
+  const [dirtyFor, setDirtyFor] = useState(null);
+  const dirtySinceRef = useRef(null);
+  // Whole minutes since the unsaved streak began, recomputed by the heartbeat rather
+  // than a timer of its own, so it costs nothing while everything is working. Declared
+  // HERE, below the state it reads: above it, `dirtyFor` is in the temporal dead zone
+  // and the page throws on render. The bundler compiles that without complaint.
+  const staleMinutes = dirtyFor ? Math.floor((Date.now() - dirtyFor) / 60_000) : 0;
 
   // The fixed action bar changes height (save error), and content has to be
   // able to scroll clear of whatever it currently is.
@@ -687,6 +701,7 @@ export default function WorkoutSession() {
     // Written before the network is even attempted: the point is to survive the app
     // being killed while offline, which is exactly when the PUT won't land.
     saveDraft(id, loop.pending);
+    if (dirtySinceRef.current == null) dirtySinceRef.current = Date.now();
     if (autosave !== 'saving') setAutosaveIfMounted('unsaved');
     const t = setTimeout(flush, 1200);
     return () => clearTimeout(t);
@@ -737,21 +752,43 @@ export default function WorkoutSession() {
     }
   }, []);
 
+  // A wedged loop used to need him to leave the page and come back. The loop now ages
+  // out a hung run on its own, but only when something calls flush — so something has to
+  // call it. Cheap: one comparison every ten seconds, and it does nothing when clean.
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (loopRef.current?.isDirty()) flushRef.current?.();
+      // Drives the "not saved for N minutes" wording below.
+      setDirtyFor(loopRef.current?.isDirty() ? (dirtySinceRef.current || Date.now()) : null);
+    }, 10_000);
+    return () => clearInterval(id);
+  }, []);
+
   const saveNow = useCallback(() => {
     loop.setPending(JSON.stringify(serializePayload(exercises, notes)));
     return flush();
   }, [exercises, notes, flush]);
 
+  // `force` completes the workout even when the last edits have not landed. Being
+  // stranded mid-session is the worse failure: on 2026-08-20 the loop wedged and the
+  // only way out was a workaround nobody would guess. Nothing is discarded — the draft
+  // survives, the loop keeps retrying, and re-opening the workout flushes it. The
+  // confirm below says plainly what is and is not on the server.
   const finish = useMutation({
-    mutationFn: async () => {
+    mutationFn: async ({ force = false } = {}) => {
       await saveNow(); // ensure the latest edits are persisted before completing
-      if (loop.isDirty()) {
-        throw new Error('Could not save your latest changes — check your connection and try again.');
+      if (loop.isDirty() && !force) {
+        const err = new Error('Could not save your latest changes — check your connection and try again.');
+        err.name = 'UnsavedChangesError';
+        throw err;
       }
       return completeWorkout(id);
     },
-    onSuccess: () => {
-      clearDraft(id);
+    onSuccess: (_data, variables) => {
+      // Only when the server genuinely has everything. Forced through with edits still
+      // pending, the draft is the only copy of them and must outlive the navigation.
+      if (!loop.isDirty()) clearDraft(id);
+      else if (variables?.force) flushRef.current?.();
       // The workout's own entry too: the autosave keeps it warm via setQueryData, so
       // without this the detail page reads a cached copy that still says in_progress
       // and renders "Workout complete" next to an IN PROGRESS badge.
@@ -920,7 +957,9 @@ export default function WorkoutSession() {
           }`}>
             {autosave === 'saving' ? 'Saving…'
               : autosave === 'saved' ? 'All changes saved'
-              : autosave === 'unsaved' ? 'Unsaved changes…'
+              : autosave === 'unsaved' ? (staleMinutes >= 1
+                  ? `Not saved for ${staleMinutes} min — still trying`
+                  : 'Unsaved changes…')
               : 'Couldn’t save — retrying…'}
           </p>
         )}
@@ -985,12 +1024,33 @@ export default function WorkoutSession() {
       >
         <div className="max-w-2xl mx-auto px-4">
           {(finish.isError || skip.isError || doneError) && (
-            <p className="pt-2 text-xs text-red-600 dark:text-red-400">
-              {doneError
-                || (skip.isError ? 'Could not skip the workout.' : null)
-                || finish.error?.message
-                || 'Could not finish the workout.'}
-            </p>
+            <div className="pt-2">
+              <p className="text-xs text-red-600 dark:text-red-400">
+                {doneError
+                  || (skip.isError ? 'Could not skip the workout.' : null)
+                  || finish.error?.message
+                  || 'Could not finish the workout.'}
+              </p>
+              {/* The escape hatch. Blocked on a save that will not land, the alternative
+                  is standing in the gym repeating a workaround — so offer the exit, and
+                  be specific about the trade rather than hiding it behind "are you
+                  sure?". The sets stay on the phone and sync when they can. */}
+              {finish.error?.name === 'UnsavedChangesError' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (confirm(
+                      'Finish anyway?\n\nYour most recent sets have not reached the server yet. '
+                      + 'They stay saved on this phone and will sync when the connection recovers — '
+                      + 'reopen the workout later to check they arrived.'
+                    )) finish.mutate({ force: true });
+                  }}
+                  className="btn-secondary text-xs mt-1.5"
+                >
+                  Finish anyway
+                </button>
+              )}
+            </div>
           )}
           <div className="py-3 flex gap-2">
             {autosave === 'error' && (
@@ -1011,7 +1071,7 @@ export default function WorkoutSession() {
               </button>
             ) : (
               <button
-                onClick={() => { if (confirm('Finish this workout?')) finish.mutate(); }}
+                onClick={() => { if (confirm('Finish this workout?')) finish.mutate({}); }}
                 disabled={finish.isPending || skip.isPending}
                 className="btn-primary flex-1 justify-center h-12"
               >
