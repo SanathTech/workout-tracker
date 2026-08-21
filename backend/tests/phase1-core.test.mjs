@@ -59,14 +59,27 @@ ok(workout.exercises.length === 2, 'workout prefilled from template');
 ok(workout.exercises[0].target?.rep_range_low === 5, 'target prescription present at start');
 ok(workout.exercises[0].target?.notes === 'brace hard', 'target notes present at start');
 
+// logged_at is the passive rest-tracking stamp: client-set when reps first land on a
+// row, stored verbatim, junk stored as null rather than failing the save.
+const t1 = '2026-01-05T09:00:00.000Z';
+const t2 = '2026-01-05T09:03:20.000Z';
 await api('PUT', `/api/workouts/${workout.id}`, {
   notes: 'felt strong',
   exercises: [
-    { exercise_id: squat, sets: [{ set_number: 1, reps: 5, weight_kg: 100, rir: 2 }, { set_number: 2, reps: 5, weight_kg: 100, rir: 1 }] },
-    { exercise_id: bench, sets: [{ set_number: 1, reps: 10, weight_kg: 60, rir: 2 }] },
+    { exercise_id: squat, sets: [{ set_number: 1, reps: 5, weight_kg: 100, rir: 2, logged_at: t1 }, { set_number: 2, reps: 5, weight_kg: 100, rir: 1, logged_at: t2 }] },
+    { exercise_id: bench, sets: [{ set_number: 1, reps: 10, weight_kg: 60, rir: 2, logged_at: 'not-a-date' }] },
   ],
 });
 await api('POST', `/api/workouts/${workout.id}/complete`);
+
+{
+  const { body: rt } = await api('GET', `/api/workouts/${workout.id}`);
+  const sets = rt.exercises[0].sets;
+  ok(Date.parse(sets[0].logged_at) === Date.parse(t1), 'logged_at round-trips', `got ${sets[0].logged_at}`);
+  ok(Date.parse(sets[1].logged_at) - Date.parse(sets[0].logged_at) === 200_000,
+    'rest between sets is derivable from the stamps');
+  ok(rt.exercises[1].sets[0].logged_at == null, 'an unparseable stamp stores as null, not a failed save');
+}
 
 const before = await api('GET', `/api/workouts/${workout.id}`);
 ok(before.body.routine_id != null, 'completed workout is linked to its routine');

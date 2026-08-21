@@ -78,8 +78,14 @@ export async function flush() {
 
 // Installed once, from main.jsx. Kept out of React so a re-render can never double up
 // the listeners, and so a crash inside the tree still gets its events out.
+let installed = false;
+
 export function installTelemetry() {
   if (typeof window === 'undefined') return;
+  // Idempotent: Vite HMR re-evaluates modules, and a second install would attach
+  // duplicate listeners — every lifecycle event counted twice, forever.
+  if (installed) return;
+  installed = true;
   try {
     document.addEventListener('visibilitychange', () => {
       track('lifecycle', document.visibilityState === 'hidden' ? 'hidden' : 'visible');

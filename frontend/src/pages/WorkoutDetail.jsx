@@ -164,21 +164,34 @@ export default function WorkoutDetail() {
                   <th className="pb-1 font-semibold">Weight</th>
                   <th className="pb-1 font-semibold">Reps</th>
                   <th className="pb-1 font-semibold">RIR</th>
+                  <th className="pb-1 font-semibold">Rest</th>
                   <th className="pb-1 font-semibold text-right">Vol</th>
                 </tr>
               </thead>
               <tbody>
-                {ex.sets.map((set) => {
+                {ex.sets.map((set, si) => {
                   // Fall back to the routine's per-set target RIR when none was
                   // logged manually, so older workouts don't show a blank RIR.
                   const targetRir = Array.isArray(ex.target?.target_rir_per_set) ? ex.target.target_rir_per_set : [];
                   const rir = set.rir ?? targetRir[set.set_number - 1] ?? null;
+                  // Rest is the gap from the previous set of the SAME exercise, derived
+                  // from the passive logged_at stamps. The first set shows nothing (its
+                  // gap is setup and warm-ups, not rest), and stamps only exist on
+                  // workouts logged after 2026-08-22 — a dash is history, not a bug.
+                  const prev = ex.sets[si - 1];
+                  const gapMs = si > 0 && set.logged_at && prev?.logged_at
+                    ? Date.parse(set.logged_at) - Date.parse(prev.logged_at)
+                    : null;
+                  const rest = gapMs != null && gapMs > 0 && gapMs < 30 * 60_000
+                    ? `${Math.floor(gapMs / 60000)}:${String(Math.floor((gapMs % 60000) / 1000)).padStart(2, '0')}`
+                    : null;
                   return (
                     <tr key={set.id}>
                       <td className="py-1.5 text-xs text-neutral-500 dark:text-neutral-400">{set.set_number}</td>
                       <td className="py-1.5">{formatKg(set.weight_kg)}</td>
                       <td className="py-1.5">{set.reps ?? '—'}</td>
                       <td className="py-1.5">{rir ?? '—'}</td>
+                      <td className="py-1.5 text-xs text-neutral-500 dark:text-neutral-400">{rest ?? '—'}</td>
                       <td className="py-1.5 text-right text-neutral-500 dark:text-neutral-400">
                         {set.weight_kg && set.reps ? formatKg(set.weight_kg * set.reps) : '—'}
                       </td>

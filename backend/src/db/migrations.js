@@ -60,6 +60,10 @@ END $$`,
   // Phase 4: set types. Existing rows are working sets by definition — nothing else
   // could be logged before this column existed.
   "ALTER TABLE workout_sets ADD COLUMN IF NOT EXISTS set_type VARCHAR(16) NOT NULL DEFAULT 'working'",
+
+  // Rest tracking: when a set was first logged, stamped client-side the first time reps
+  // land on the row. Rests are derived from the gaps. Nullable — history has no stamps.
+  'ALTER TABLE workout_sets ADD COLUMN IF NOT EXISTS logged_at TIMESTAMPTZ',
 ];
 
 // Applies all migrations atomically on the given client (BEGIN/COMMIT, ROLLBACK on error).

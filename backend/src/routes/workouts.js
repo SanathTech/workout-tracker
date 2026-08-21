@@ -124,6 +124,9 @@ async function writeWorkoutExercises(client, workoutId, exercises) {
         // Anything unrecognised is stored as a working set: a typo must not quietly
         // remove a set from every volume total.
         set_type: SET_TYPES.has(s.set_type) ? s.set_type : 'working',
+        // Client clock, validated loosely: an unparseable stamp becomes null rather
+        // than failing the save — the set matters more than its timestamp.
+        logged_at: Number.isFinite(Date.parse(s.logged_at)) ? new Date(s.logged_at).toISOString() : null,
       });
     }
   });
@@ -137,10 +140,10 @@ async function writeWorkoutExercises(client, workoutId, exercises) {
          FROM jsonb_to_recordset($2::jsonb) AS x(idx int, exercise_id int, notes text)
        RETURNING id, sort_order
      )
-     INSERT INTO workout_sets (workout_exercise_id, set_number, reps, weight_kg, rir, set_type)
-     SELECT ins_ex.id, s.set_number, s.reps, s.weight_kg, s.rir, s.set_type
+     INSERT INTO workout_sets (workout_exercise_id, set_number, reps, weight_kg, rir, set_type, logged_at)
+     SELECT ins_ex.id, s.set_number, s.reps, s.weight_kg, s.rir, s.set_type, s.logged_at
        FROM jsonb_to_recordset($3::jsonb)
-              AS s(ex_idx int, set_number int, reps int, weight_kg numeric, rir int, set_type text)
+              AS s(ex_idx int, set_number int, reps int, weight_kg numeric, rir int, set_type text, logged_at timestamptz)
        JOIN ins_ex ON ins_ex.sort_order = s.ex_idx`,
     [workoutId, JSON.stringify(exPayload), JSON.stringify(setPayload)]
   );
@@ -232,6 +235,7 @@ async function fetchWorkout(id) {
         reps: s.reps,
         weight_kg: s.weight_kg,
         rir: s.rir,
+        logged_at: s.logged_at,
       })),
     })),
   };
