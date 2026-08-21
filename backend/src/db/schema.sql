@@ -116,6 +116,12 @@ CREATE TABLE workout_sets (
   -- volume, and only working sets are eligible for 1RM estimates and personal bests —
   -- a warm-up single would otherwise read as a PR.
   set_type VARCHAR(16) NOT NULL DEFAULT 'working',
+  -- When the set was first logged (client clock, first time reps land on the row).
+  -- Rest between consecutive sets is DERIVED from these — recorded passively, because
+  -- the visible rest timer was removed on purpose (2026-08-10, he rests by his Garmin)
+  -- and this must never become one. created_at can't serve: the autosave rewrites every
+  -- set on every save, so created_at is just the last save time.
+  logged_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

@@ -179,3 +179,34 @@ CREATE TABLE IF NOT EXISTS sync_state (
   rows_written  INTEGER,
   detail        JSONB
 );
+
+-- Every action taken in the app, and the events around it. Two jobs: give a recurring
+-- bug evidence instead of inference (the autosave loop wedged four times and each
+-- diagnosis was reconstructed from HTTP logs afterwards), and answer what the layout
+-- redesign otherwise has to guess at — which affordances actually get used, in what
+-- order, and where he doubles back because something was not where he expected.
+--
+-- Deliberately records ACTIONS, not values. The weights and reps are already stored as
+-- workout data; logging keystrokes would be volume without information.
+--
+-- Retention is 30 days, pruned on write (see routes/events.js). Nothing here is worth
+-- keeping longer than the question it answers.
+CREATE TABLE IF NOT EXISTS app_events (
+  id          BIGSERIAL PRIMARY KEY,
+  -- The client's clock, so ordering within a session survives batching, and the
+  -- server's, because the client's clock cannot be trusted for anything cross-session.
+  ts          TIMESTAMPTZ NOT NULL,
+  received_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  -- One id per app load. What turns a pile of rows into a journey.
+  session_id  VARCHAR(40) NOT NULL,
+  kind        VARCHAR(24) NOT NULL,   -- nav | tap | save | error | lifecycle
+  name        VARCHAR(60) NOT NULL,   -- the specific action
+  route       TEXT,
+  workout_id  INTEGER,
+  -- Small, bounded, action-shaped: durations, counts, exercise ids. Never set values.
+  detail      JSONB
+);
+
+CREATE INDEX IF NOT EXISTS idx_app_events_ts ON app_events(ts DESC);
+CREATE INDEX IF NOT EXISTS idx_app_events_session ON app_events(session_id, ts);
+CREATE INDEX IF NOT EXISTS idx_app_events_kind ON app_events(kind, ts DESC);

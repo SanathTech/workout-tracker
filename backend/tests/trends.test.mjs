@@ -190,6 +190,41 @@ ok(frac?.wellness?.length === 7, 'a fractional days truncates rather than roundi
 const { status: junk } = await api('/api/coach/load-history?days=abc');
 ok(junk === 200, 'a non-numeric days does not 500', `got ${junk}`);
 
+// The events ingest is the one endpoint that writes arbitrary client input, so its
+// cleaning rules are the security surface: whitelisted kinds, capped lengths, junk
+// timestamps clamped, and partial acceptance — a batch with rubbish in it stores the
+// good rows rather than 400ing, because the client is fire-and-forget.
+console.log('\nEvents ingest');
+{
+  const now = Date.now();
+  const res = await fetch(BASE + '/api/events', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ events: [
+      { ts: now, session_id: 's-test', kind: 'nav', name: 'enter', route: '/week' },
+      { ts: now, session_id: 's-test', kind: 'BOGUS', name: 'x' },                       // bad kind
+      { ts: now, session_id: 's-test', kind: 'tap', name: '' },                          // empty name
+      { ts: 123, session_id: 's-test', kind: 'tap', name: 'prev-fill', workout_id: 4 },  // ancient ts
+      { ts: now, session_id: 's-test', kind: 'save', name: 'x'.repeat(500) },            // oversized name
+    ] }),
+  });
+  const eb = await res.json();
+  ok(res.status === 200, 'a partly-invalid batch is accepted, not 400d', `got ${res.status}`);
+  ok(eb?.stored === 3, 'only the cleanable events store', `got ${eb?.stored}`);
+
+  const { rows } = await db.query(
+    `SELECT kind, name, LENGTH(name) name_len,
+            (ts > NOW() - INTERVAL '2 minutes') AS ts_clamped
+       FROM app_events WHERE session_id = 's-test' ORDER BY id`
+  );
+  ok(rows.length === 3, 'three rows landed', `got ${rows.length}`);
+  ok(!rows.some((r) => r.kind === 'BOGUS'), 'unknown kinds are rejected');
+  ok(rows.every((r) => r.name_len <= 60), 'names are capped at 60');
+  ok(rows.find((r) => r.name === 'prev-fill')?.ts_clamped === true,
+    'an implausible client timestamp is clamped to now');
+  await db.query(`DELETE FROM app_events WHERE session_id = 's-test'`);
+}
+
 await db.end();
 console.log(`\n  ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
