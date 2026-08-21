@@ -138,17 +138,11 @@ const SESSIONS = [
         subs: ['Leg Press Calf Press', 'Calf Raise'],
         notes: 'Knees BENT — this is the soleus, which the standing version barely touches. '
              + 'It is the main shock absorber below the knee when running.' },
-      { name: 'Standing Calf Raise', sets: 2, repLow: 8, repHigh: 12, rir: [1, 1], rest: 90, warmup: [1, 1],
-        subs: ['Leg Press Calf Press', 'Seated Calf Raise'],
-        notes: '1–2 s pause at the bottom, full stretch. Target 0–1 RIR.' },
-      { name: 'Seated DB Shoulder Press', sets: 2, repLow: 8, repHigh: 10, rir: [1, 1], rest: 120, warmup: [1, 2],
-        subs: ['Barbell Overhead Press', 'Machine Shoulder Press'],
-        notes: 'Secondary press (OHP is the Day C main). The most droppable thing here — '
-             + 'Day C already carries the overhead press as its main.' },
-      { name: 'Hanging Leg Raise', sets: 2, repLow: 10, repHigh: 15, rir: [1, 1], rest: 60,
-        subs: ['Cable Crunch', 'Lying Leg Raise'],
-        notes: 'Optional core — the first thing to drop if the session is running long. '
-             + 'Control down, no swinging.' },
+      // Nothing after this. Day A lands on Thursday, which is an office day every week,
+      // and six weeks of data showed its accessory tail at zero sets logged — the
+      // session is ~50 minutes long whether the plan admits it or not. Standing calf
+      // moved to Day B (Saturday); the shoulder press (duplicated Day C's OHP) and the
+      // hanging leg raise (optional, never done) were cut in the 2026-08-21 restructure.
     ],
   },
   {
@@ -171,12 +165,15 @@ const SESSIONS = [
       { name: 'Bulgarian Split Squat', sets: 2, repLow: 8, repHigh: 12, rir: [1, 1], rest: 120, warmup: [1, 2],
         subs: ['Walking Lunge', 'Leg Press'],
         notes: '8–12 per leg. Single-leg strength & stability — carries over to running.' },
+      { name: 'Standing Calf Raise', sets: 2, repLow: 8, repHigh: 12, rir: [1, 1], rest: 60,
+        subs: ['Leg Press Calf Press', 'Seated Calf Raise'],
+        notes: 'Moved here from Day A in the 2026-08-21 restructure: Saturday has the time '
+             + 'Thursday does not, and each leg day now carries one calf exercise.' },
       { name: 'Lateral Raise', sets: 3, repLow: 12, repHigh: 15, rir: [0, 0, 0], rest: 60,
         subs: ['Cable Lateral Raise', 'Machine Lateral Raise'],
-        notes: 'Lead with the elbow; smooth, controlled reps.' },
-      { name: 'Face Pull', sets: 2, repLow: 15, repHigh: 20, rir: [1, 1], rest: 60,
-        subs: ['Reverse Pec Deck', 'Band Pull-Apart'],
-        notes: 'Optional. Shoulder health — worth keeping given swim volume.' },
+        notes: 'Lead with the elbow; smooth, controlled reps. Kept over the face pull when '
+             + 'both were dying unfinished: side delts were at 0.8 sets/week, and the rows '
+             + 'cover rear delts.' },
     ],
   },
 ];

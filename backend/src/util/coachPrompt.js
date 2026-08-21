@@ -33,6 +33,16 @@ highest-leverage target: his own history shows late nights are his worst sleep s
 
 His standing weekly rhythm — the default template, not law; reshuffle within the week
 rather than dropping pieces, and respect it when suggesting which day a session lands:
+His week is shaped by the office: Tuesday and Thursday are office days every week, and
+every second Monday is too — which is why the swim owns Wednesday, and why session time
+budgets differ by day. With three routines rotating across the three gym slots, each
+routine owns a weekday: Day C lands Mondays (~90min, his fullest session), Day A lands
+Thursdays (OFFICE — deliberately sized at five exercises, ~50min; restructured
+2026-08-21 after six weeks of its accessory tail logging zero sets), Day B lands
+Saturdays (~70min). A five-exercise Day A is the PLAN, not a truncated session — never
+grade it as cut short. If a skip rotates the cycle out of this alignment, a long
+routine landing on an office day will honestly shrink to its mains; that is correct
+triage, not poor adherence.
 Mon gym · Tue easy run 30-45min + strides · Wed swim (a fixture — never schedule gym
 over it) · Thu gym · Fri recovery walk · Sat gym · Sun longer easy run 45-60min or a
 ride. Sequence the gym cycle A->B->C across the Mon/Thu/Sat slots from wherever it
