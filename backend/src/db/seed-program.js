@@ -129,21 +129,22 @@ const SESSIONS = [
       { name: 'Weighted Pull-Up', sets: 3, repLow: 6, repHigh: 8, rir: [1, 1, 1], rest: 150, warmup: [1, 2], main: true,
         subs: ['Lat Pulldown', 'Assisted Pull-Up'],
         notes: 'Second vertical pull of the week. Add load once bodyweight is easy; full ROM.' },
-      { name: 'Seated DB Shoulder Press', sets: 2, repLow: 8, repHigh: 10, rir: [1, 1], rest: 120, warmup: [1, 2],
-        subs: ['Barbell Overhead Press', 'Machine Shoulder Press'],
-        notes: 'Secondary press (OHP is the Day C main).' },
-      { name: 'Standing Calf Raise', sets: 2, repLow: 8, repHigh: 12, rir: [1, 1], rest: 90, warmup: [1, 1],
-        subs: ['Leg Press Calf Press', 'Seated Calf Raise'],
-        notes: '1–2 s pause at the bottom, full stretch. Target 0–1 RIR.' },
-      { name: 'Seated Calf Raise', sets: 2, repLow: 10, repHigh: 15, rir: [1, 1], rest: 60,
-        subs: ['Leg Press Calf Press', 'Calf Raise'],
-        notes: 'Knees BENT — this is the soleus, which the standing version barely touches. '
-             + 'It is the main shock absorber below the knee when running.' },
       { name: 'Banded Hip Abduction', sets: 2, repLow: 12, repHigh: 15, rir: [1, 1], rest: 60,
         subs: ['Cable Hip Abduction', 'Clamshell'],
         notes: '12–15 per side. Added 2026-08-18 on physio advice for recurring knee pain. '
              + 'The whole program was sagittal-plane before this; hip abductors are what stop '
              + 'the knee falling inward on every running stride.' },
+      { name: 'Seated Calf Raise', sets: 2, repLow: 10, repHigh: 15, rir: [1, 1], rest: 60,
+        subs: ['Leg Press Calf Press', 'Calf Raise'],
+        notes: 'Knees BENT — this is the soleus, which the standing version barely touches. '
+             + 'It is the main shock absorber below the knee when running.' },
+      { name: 'Standing Calf Raise', sets: 2, repLow: 8, repHigh: 12, rir: [1, 1], rest: 90, warmup: [1, 1],
+        subs: ['Leg Press Calf Press', 'Seated Calf Raise'],
+        notes: '1–2 s pause at the bottom, full stretch. Target 0–1 RIR.' },
+      { name: 'Seated DB Shoulder Press', sets: 2, repLow: 8, repHigh: 10, rir: [1, 1], rest: 120, warmup: [1, 2],
+        subs: ['Barbell Overhead Press', 'Machine Shoulder Press'],
+        notes: 'Secondary press (OHP is the Day C main). The most droppable thing here — '
+             + 'Day C already carries the overhead press as its main.' },
       { name: 'Hanging Leg Raise', sets: 2, repLow: 10, repHigh: 15, rir: [1, 1], rest: 60,
         subs: ['Cable Crunch', 'Lying Leg Raise'],
         notes: 'Optional core — the first thing to drop if the session is running long. '
@@ -162,16 +163,17 @@ const SESSIONS = [
       { name: 'Chest-Supported Row', sets: 3, repLow: 8, repHigh: 10, rir: [1, 1, 1], rest: 120, warmup: [1, 2], main: true,
         subs: ['Barbell Row', 'Seated Cable Row'],
         notes: 'Squeeze shoulder blades, elbows ~45°. Balances the pressing.' },
+      { name: 'Banded Hip Abduction', sets: 2, repLow: 12, repHigh: 15, rir: [1, 1], rest: 60,
+        subs: ['Cable Hip Abduction', 'Clamshell'],
+        notes: '12–15 per side. Second dose of the week. Sits BEFORE the split squat on '
+             + 'purpose: at band load this is glute activation before single-leg work, not '
+             + 'pre-fatigue.' },
       { name: 'Bulgarian Split Squat', sets: 2, repLow: 8, repHigh: 12, rir: [1, 1], rest: 120, warmup: [1, 2],
         subs: ['Walking Lunge', 'Leg Press'],
         notes: '8–12 per leg. Single-leg strength & stability — carries over to running.' },
       { name: 'Lateral Raise', sets: 3, repLow: 12, repHigh: 15, rir: [0, 0, 0], rest: 60,
         subs: ['Cable Lateral Raise', 'Machine Lateral Raise'],
         notes: 'Lead with the elbow; smooth, controlled reps.' },
-      { name: 'Banded Hip Abduction', sets: 2, repLow: 12, repHigh: 15, rir: [1, 1], rest: 60,
-        subs: ['Cable Hip Abduction', 'Clamshell'],
-        notes: '12–15 per side. Second dose of the week — twice is what the physio protocol '
-             + 'asks for, and it pairs with the split squat already here.' },
       { name: 'Face Pull', sets: 2, repLow: 15, repHigh: 20, rir: [1, 1], rest: 60,
         subs: ['Reverse Pec Deck', 'Band Pull-Apart'],
         notes: 'Optional. Shoulder health — worth keeping given swim volume.' },
