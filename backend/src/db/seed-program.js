@@ -42,6 +42,7 @@ const EXERCISES = {
   'Leg Press': ['Legs', 'Press a weighted platform away from you using your legs on a machine.'],
   'Standing Calf Raise': ['Legs', 'Raise onto the toes while standing against resistance.'],
   'Seated Calf Raise': ['Legs', 'Calf raise performed seated with the knees bent.'],
+  'Machine Hip Abduction': ['Legs', 'Seated abduction machine — drive the knees apart against the pads.'],
   'Banded Hip Abduction': ['Legs', 'Drive the knees apart against a band — side-lying, seated, or as lateral walks.'],
   'Cable Hip Abduction': ['Legs', 'Standing hip abduction against a cable, one leg at a time.'],
   'Clamshell': ['Legs', 'Side-lying, heels together, open the top knee against a band.'],
@@ -129,11 +130,12 @@ const SESSIONS = [
       { name: 'Weighted Pull-Up', sets: 3, repLow: 6, repHigh: 8, rir: [1, 1, 1], rest: 150, warmup: [1, 2], main: true,
         subs: ['Lat Pulldown', 'Assisted Pull-Up'],
         notes: 'Second vertical pull of the week. Add load once bodyweight is easy; full ROM.' },
-      { name: 'Banded Hip Abduction', sets: 2, repLow: 12, repHigh: 15, rir: [1, 1], rest: 60,
-        subs: ['Cable Hip Abduction', 'Clamshell'],
-        notes: '12–15 per side. Added 2026-08-18 on physio advice for recurring knee pain. '
-             + 'The whole program was sagittal-plane before this; hip abductors are what stop '
-             + 'the knee falling inward on every running stride.' },
+      { name: 'Machine Hip Abduction', sets: 2, repLow: 12, repHigh: 15, rir: [1, 1], rest: 60,
+        subs: ['Banded Hip Abduction', 'Cable Hip Abduction'],
+        notes: 'Added 2026-08-18 on physio advice for recurring knee pain; machine over band '
+             + 'from 2026-08-22 (his call) — a stack progresses, a band guesses. The program '
+             + 'was sagittal-plane before this; hip abductors stop the knee falling inward '
+             + 'on every running stride.' },
       { name: 'Seated Calf Raise', sets: 2, repLow: 10, repHigh: 15, rir: [1, 1], rest: 60,
         subs: ['Leg Press Calf Press', 'Calf Raise'],
         notes: 'Knees BENT — this is the soleus, which the standing version barely touches. '
@@ -157,11 +159,10 @@ const SESSIONS = [
       { name: 'Chest-Supported Row', sets: 3, repLow: 8, repHigh: 10, rir: [1, 1, 1], rest: 120, warmup: [1, 2], main: true,
         subs: ['Barbell Row', 'Seated Cable Row'],
         notes: 'Squeeze shoulder blades, elbows ~45°. Balances the pressing.' },
-      { name: 'Banded Hip Abduction', sets: 2, repLow: 12, repHigh: 15, rir: [1, 1], rest: 60,
-        subs: ['Cable Hip Abduction', 'Clamshell'],
-        notes: '12–15 per side. Second dose of the week. Sits BEFORE the split squat on '
-             + 'purpose: at band load this is glute activation before single-leg work, not '
-             + 'pre-fatigue.' },
+      { name: 'Machine Hip Abduction', sets: 2, repLow: 12, repHigh: 15, rir: [1, 1], rest: 60,
+        subs: ['Banded Hip Abduction', 'Cable Hip Abduction'],
+        notes: 'Second dose of the week. Sits BEFORE the split squat on purpose: at this '
+             + 'load it is glute activation before single-leg work, not pre-fatigue.' },
       { name: 'Bulgarian Split Squat', sets: 2, repLow: 8, repHigh: 12, rir: [1, 1], rest: 120, warmup: [1, 2],
         subs: ['Walking Lunge', 'Leg Press'],
         notes: '8–12 per leg. Single-leg strength & stability — carries over to running.' },
