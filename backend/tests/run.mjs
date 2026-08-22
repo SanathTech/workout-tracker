@@ -36,7 +36,7 @@ if (!LOCAL.includes(dbHost)) {
 const RESET = `TRUNCATE workouts, workout_exercises, workout_sets, routines,
   routine_exercises, routine_exercise_subs, programs, bodyweight_logs,
   activities, training_load, wellness_daily, checkins, session_feel, coach_advice,
-  app_events
+  app_events, coach_notes
   RESTART IDENTITY CASCADE`;
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));

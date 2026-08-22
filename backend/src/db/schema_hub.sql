@@ -210,3 +210,25 @@ CREATE TABLE IF NOT EXISTS app_events (
 CREATE INDEX IF NOT EXISTS idx_app_events_ts ON app_events(ts DESC);
 CREATE INDEX IF NOT EXISTS idx_app_events_session ON app_events(session_id, ts);
 CREATE INDEX IF NOT EXISTS idx_app_events_kind ON app_events(kind, ts DESC);
+
+-- Standing guidance from coaching conversations, surfaced in the app where the decision
+-- actually gets made. The pattern this fixes: advice agreed in chat ("hold the RDL at 60
+-- despite the suggestion — one clean back session buys the 62.5") was gone by Saturday,
+-- and the suggestion chip, being the thing in his hand mid-session, won by default.
+--
+-- Written and resolved from the coaching side (direct SQL or future tooling), read-only
+-- to the app. A note scoped to an exercise renders under that exercise in the session;
+-- one with no exercise_id is session-general. Notes live until resolved_at is set —
+-- these are standing calls, not dailies, and they outlast the session that prompted them.
+CREATE TABLE IF NOT EXISTS coach_notes (
+  id          SERIAL PRIMARY KEY,
+  exercise_id INTEGER REFERENCES exercises(id) ON DELETE CASCADE,
+  -- Optional narrowing: only show with this routine (e.g. pull-up advice that applies
+  -- on Day A's 6-8 range but not Day C's 6-10). NULL = wherever the exercise appears.
+  routine_id  INTEGER REFERENCES routines(id) ON DELETE CASCADE,
+  note        TEXT NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  resolved_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_coach_notes_active ON coach_notes(exercise_id) WHERE resolved_at IS NULL;
