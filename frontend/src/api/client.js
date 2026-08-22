@@ -123,6 +123,8 @@ export const getAdherence = (params) =>
   api.get('/coach/adherence', { params }).then((r) => r.data);
 export const getWeek = () => api.get('/coach/week').then((r) => r.data);
 
+export const getCoachNotes = () => api.get('/coach/notes').then((r) => r.data);
+
 export const getTrends = (params) =>
   api.get('/coach/trends', { params }).then((r) => r.data);
 export const getLoadHistory = (params) =>

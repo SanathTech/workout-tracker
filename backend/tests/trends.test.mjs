@@ -225,6 +225,18 @@ console.log('\nEvents ingest');
   await db.query(`DELETE FROM app_events WHERE session_id = 's-test'`);
 }
 
+// Coach notes: active rows served, resolved rows not.
+console.log('\nCoach notes');
+{
+  await db.query(`INSERT INTO coach_notes (exercise_id, note) VALUES (NULL, 'active note')`);
+  await db.query(`INSERT INTO coach_notes (exercise_id, note, resolved_at) VALUES (NULL, 'resolved note', NOW())`);
+  const { status: ns, body: notes } = await api('/api/coach/notes');
+  ok(ns === 200, 'GET /api/coach/notes returns 200', `got ${ns}`);
+  ok(notes.some((n) => n.note === 'active note'), 'active notes are served');
+  ok(!notes.some((n) => n.note === 'resolved note'), 'resolved notes are not');
+  await db.query(`DELETE FROM coach_notes WHERE note IN ('active note','resolved note')`);
+}
+
 await db.end();
 console.log(`\n  ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

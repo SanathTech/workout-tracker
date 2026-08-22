@@ -205,6 +205,22 @@ router.get('/week', async (req, res) => {
   }
 });
 
+// GET /api/coach/notes — standing guidance from coaching conversations, active until
+// resolved. The session page matches these to its exercises; a row with no exercise_id
+// applies to the whole session. Read-only by design: notes are written and resolved
+// from the coaching side, so the app can never end up arguing with itself about state.
+router.get('/notes', async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      `SELECT id, exercise_id, routine_id, note, created_at
+         FROM coach_notes WHERE resolved_at IS NULL ORDER BY created_at`
+    );
+    res.json(rows);
+  } catch (err) {
+    serverError(res, err);
+  }
+});
+
 // GET /api/coach/load-history — the CTL/ATL/TSB series behind the fitness chart.
 // Separate from /trends so it is fetched alongside the lazy Recharts bundle rather
 // than blocking the numbers above it.

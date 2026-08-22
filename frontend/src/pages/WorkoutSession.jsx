@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate, Navigate } from 'react-router-dom';
-import { getWorkout, updateWorkout, completeWorkout, skipWorkout, getLastByExercise, getSuggestions } from '../api/client';
+import { getWorkout, updateWorkout, completeWorkout, skipWorkout, getLastByExercise, getSuggestions, getCoachNotes } from '../api/client';
 import { Skeleton } from '../components/Skeleton';
 import ExercisePickerSheet from '../components/ExercisePickerSheet';
 import MainBadge from '../components/MainBadge';
@@ -272,7 +272,7 @@ function useSwipeToReveal(width = 80) {
   return { offset, revealed, close, handlers };
 }
 
-function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove, suggestion }) {
+function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove, suggestion, coachNote }) {
   const [showNote, setShowNote] = useState(false);
   const [showReason, setShowReason] = useState(false);
   // Open the editor whenever a note already exists, so an existing note is never
@@ -382,6 +382,16 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove, sug
         />
       </div>
 
+      {/* Standing guidance from coaching conversations — the call that would otherwise
+          be forgotten by Saturday. Rendered next to the suggestion chip on purpose:
+          when they disagree (the engine is note-blind — it reads sets, never notes),
+          this is the one that wins, and the two need to be visible together for that
+          to be legible. Amber, always visible, no tap required. */}
+      {coachNote && (
+        <p className="text-xs text-amber-700 dark:text-amber-500 mt-1 mb-0.5">
+          Coach: {coachNote.note}
+        </p>
+      )}
       {(metaChips.length > 0 || suggestionLabel) && (
         <div className="flex flex-wrap items-center gap-1.5 mt-1 mb-1.5">
           {metaChips.map((c) => <TargetChip key={c}>{c}</TargetChip>)}
@@ -605,6 +615,27 @@ export default function WorkoutSession() {
     enabled: hydrated,
     staleTime: 5 * 60_000,
   });
+  // Standing coach guidance, matched to this workout's exercises. Cheap and cached —
+  // notes change between sessions, not during them.
+  const { data: coachNotes = [] } = useQuery({
+    queryKey: ['coach-notes'],
+    queryFn: getCoachNotes,
+    staleTime: 5 * 60_000,
+  });
+  const noteByExercise = useMemo(() => {
+    const map = {};
+    for (const n of coachNotes) {
+      if (n.routine_id != null && n.routine_id !== workout?.routine_id) continue;
+      if (n.exercise_id != null) map[n.exercise_id] = n;
+    }
+    return map;
+  }, [coachNotes, workout?.routine_id]);
+  const generalNotes = useMemo(
+    () => coachNotes.filter((n) => n.exercise_id == null
+      && (n.routine_id == null || n.routine_id === workout?.routine_id)),
+    [coachNotes, workout?.routine_id]
+  );
+
   const suggestionByExercise = useMemo(
     () => Object.fromEntries((suggestions || []).map((s) => [s.exercise_id, s])),
     [suggestions]
@@ -1006,6 +1037,17 @@ export default function WorkoutSession() {
         )}
       </div>
 
+      {/* Session-wide coach guidance (no exercise attached) sits above the ledger,
+          where the session-level facts live. */}
+      {generalNotes.length > 0 && (
+        <div className="mb-2">
+          {generalNotes.map((n) => (
+            <p key={n.id} className="text-xs text-amber-700 dark:text-amber-500 mt-0.5">
+              Coach: {n.note}
+            </p>
+          ))}
+        </div>
+      )}
       {/* Hairline dividers between exercises instead of card borders — the ledger gets
           its structure from alignment, not boxes. */}
       <div className="divide-y divide-neutral-200 dark:divide-neutral-800" data-editor-root onKeyDown={handleEditorEnter}>
@@ -1018,6 +1060,7 @@ export default function WorkoutSession() {
             onChange={(u) => setExercises(exercises.map((x, j) => j === i ? u : x))}
             onRemove={() => setExercises(exercises.filter((_, j) => j !== i))}
             suggestion={suggestionByExercise[ex.exercise_id]}
+            coachNote={noteByExercise[ex.exercise_id]}
           />
         ))}
       </div>
