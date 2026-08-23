@@ -258,7 +258,10 @@ router.get('/', async (req, res) => {
     const { rows } = await db.query(
       `SELECT w.*, p.name AS program_name,
               COUNT(DISTINCT we.id)::int AS exercise_count,
-              COALESCE(SUM(${SET_VOLUME()}), 0) AS total_volume
+              -- Working sets only, like every other volume figure. This list was the one
+              -- query missing the filter, so a session's history total already disagreed
+              -- with the same session on the stats and chart endpoints.
+              COALESCE(SUM(${SET_VOLUME()}) FILTER (WHERE ws.set_type <> 'warmup'), 0) AS total_volume
          FROM workouts w
          LEFT JOIN programs p ON p.id = w.program_id
          LEFT JOIN workout_exercises we ON we.workout_id = w.id

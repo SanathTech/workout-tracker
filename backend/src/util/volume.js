@@ -18,15 +18,20 @@
 
 // Both joins are LEFT: `workouts` history counts sessions with no exercises logged yet,
 // and an inner join would silently drop them from the list.
+//
+// `pref` breaks a same-day tie towards the manual weigh-in, matching what the coach's
+// bodyweight block already does (`COALESCE(bodyweight_logs, training_load)`). Without it
+// the two sources disagree only on the days he corrected the scale, which is exactly
+// when the manual number is the one worth having.
 const LOAD_JOINS = (we = 'we', w = 'w') => `
     LEFT JOIN exercises bw_ex ON bw_ex.id = ${we}.exercise_id
     LEFT JOIN LATERAL (
       SELECT src.weight_kg
-        FROM (SELECT date, weight_kg FROM bodyweight_logs WHERE weight_kg IS NOT NULL
+        FROM (SELECT date, weight_kg, 0 AS pref FROM bodyweight_logs WHERE weight_kg IS NOT NULL
               UNION ALL
-              SELECT date, weight_kg FROM training_load WHERE weight_kg IS NOT NULL) src
+              SELECT date, weight_kg, 1 AS pref FROM training_load WHERE weight_kg IS NOT NULL) src
        WHERE src.date <= ${w}.date
-       ORDER BY src.date DESC
+       ORDER BY src.date DESC, src.pref
        LIMIT 1
     ) bw_at ON TRUE`;
 

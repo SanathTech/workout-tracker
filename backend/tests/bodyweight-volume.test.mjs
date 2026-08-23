@@ -45,11 +45,21 @@ const ex = Object.fromEntries(exercises.map((e) => [e.name, e.id]));
   ok(bw['Squat'] === false, 'Squat is not');
 }
 
-// He weighed 90kg the day before the session. The lookup takes the last reading on or
-// before the workout date, so a stale-by-a-day scale still gives the right answer.
+// He weighed 90kg the day before the session, and the lookup takes the last reading on
+// or before the workout date — a stale-by-a-day scale still gives the right answer, and
+// the older reading must not win.
+//
+// The same day carries a Garmin figure too, deliberately absurd: a manual weigh-in is a
+// correction, so it has to beat the scale on a tie the way the coach's bodyweight block
+// already does. If the tie-break breaks, every number below moves.
 await db.query(
   `INSERT INTO training_load (date, weight_kg, ctl, atl, raw)
-        VALUES ($1, 90, 10, 10, '{}'::jsonb) ON CONFLICT (date) DO NOTHING`,
+        VALUES ($1, 200, 10, 10, '{}'::jsonb), ($2, 55, 10, 10, '{}'::jsonb)
+   ON CONFLICT (date) DO NOTHING`,
+  [shift(today, -1), shift(today, -4)]
+);
+await db.query(
+  'INSERT INTO bodyweight_logs (date, weight_kg) VALUES ($1, 90) ON CONFLICT (date) DO NOTHING',
   [shift(today, -1)]
 );
 
@@ -69,14 +79,23 @@ await api('POST', `/api/programs/${prog.id}/start`);
 const { body: w } = await api('POST', '/api/workouts', { routine_id: prog.routines[0].id });
 await api('PUT', `/api/workouts/${w.id}`, {
   exercises: [
-    { exercise_id: ex['Squat'], sets: [{ set_number: 1, reps: 5, weight_kg: 100, set_type: 'working' }] },
-    { exercise_id: ex['Dips'], sets: [{ set_number: 1, reps: 10, weight_kg: 0, set_type: 'working' }] },
+    { exercise_id: ex['Squat'], sets: [
+      { set_number: 1, reps: 5, weight_kg: 60, set_type: 'warmup' },
+      { set_number: 2, reps: 5, weight_kg: 100, set_type: 'working' },
+    ] },
+    // A bodyweight warm-up is the case that made the history list's missing filter
+    // visible: before, it contributed nothing and hid the omission.
+    { exercise_id: ex['Dips'], sets: [
+      { set_number: 1, reps: 8, weight_kg: 0, set_type: 'warmup' },
+      { set_number: 2, reps: 10, weight_kg: 0, set_type: 'working' },
+    ] },
     { exercise_id: ex['Pull-Up'], sets: [{ set_number: 1, reps: 10, weight_kg: -20, set_type: 'working' }] },
   ],
 });
 await api('POST', `/api/workouts/${w.id}/complete`);
 
 // 100x5 squat = 500, bodyweight dips 90x10 = 900, pull-ups assisted to 70kg x10 = 700.
+// The warm-ups would add 300 and 720 on top if any surface forgot to exclude them.
 const EXPECTED = 500 + 900 + 700;
 
 console.log('\n─── the body counts, and assistance subtracts from it ───');
@@ -90,7 +109,8 @@ console.log('\n─── the body counts, and assistance subtracts from it ─�
   ok(Number(vol[0].total_volume) === EXPECTED, 'the weekly chart agrees', `got ${vol[0]?.total_volume}`);
 
   const { body: hist } = await api('GET', '/api/workouts?status=completed');
-  ok(Number(hist[0].total_volume) === EXPECTED, 'the history list agrees', `got ${hist[0]?.total_volume}`);
+  ok(Number(hist[0].total_volume) === EXPECTED,
+    'the history list agrees, warm-ups and all', `got ${hist[0]?.total_volume}`);
 
   const { body: perEx } = await api('GET', `/api/progress/exercise/${ex['Pull-Up']}?weeks=4`);
   ok(Number(perEx[0].volume) === 700, 'per-exercise volume is 70kg x 10', `got ${perEx[0]?.volume}`);
