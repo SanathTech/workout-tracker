@@ -242,6 +242,16 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
   or the same session reports different numbers on different cards. Drop and failure sets
   DO count: they're working sets taken past the prescribed stopping point. An unrecognised
   value is stored as `working`, because a typo must not silently delete a set from the totals.
+- **Volume counts the body; progression does not.** On a `is_bodyweight` exercise
+  `weight_kg` is what was *added* — 0 on a plain dip, negative on an assisted pull-up — so
+  summing it raw reads a bodyweight set as no work and an assisted one as work destroyed
+  (a real session totalled **-21kg** and the coach graded it a data entry glitch). Every
+  volume query therefore goes through `SET_VOLUME`/`LOAD_JOINS` in `src/util/volume.js`,
+  which adds his weight as of the session date and floors the result at zero. Five queries
+  across `progress.js`, `workouts.js` and `coachContext.js` use it and have to agree.
+  Personal bests, estimated 1RM and the progression suggestions still rank on `weight_kg`
+  alone — -23kg → -20.5kg is the axis he moves along on an assisted lift, and folding
+  bodyweight in would score a heavier morning as progress.
 
 ### Things explicitly chosen
 - RIR (reps in reserve) is a routine *target* only; not captured per logged set, to keep logging fast.

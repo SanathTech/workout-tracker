@@ -165,7 +165,7 @@ const WEEKLY_SCHEMA = {
         additionalProperties: false,
       },
     },
-    flags: { type: 'array', items: { type: 'string' }, description: 'Injury/overreaching/illness risks worth naming. Empty if none.' },
+    flags: { type: 'array', items: { type: 'string' }, description: 'Injury/overreaching/illness risks worth naming. Anything about his body must quote the note it came from; no note, no flag. Empty if none.' },
     data_caveats: { type: 'array', items: { type: 'string' } },
   },
   required: ['headline', 'week_review', 'adherence', 'load_assessment',
@@ -234,7 +234,27 @@ any day it broke, gym cycle completion, endurance session count, and the weight 
 Streaks are the product — treat a broken one as worth a sentence of why, not blame.
 
 Be willing to tell him to back off. Name anything that looks like overreaching,
-illness, or an injury risk.`;
+illness, or an injury risk.
+
+Every claim about his body must be traceable to a note he wrote. note_ledger is the
+whole record, newest first, each entry carrying notes_since = how many notes came after
+it. Before naming a niggle, find its entry and quote his words; if you cannot quote it,
+you cannot claim it. This is not a formality — a review that says "sharp pain re-racking
+squats on Thursday" when Thursday's session carries no note has invented an injury, and
+he cannot tell that from a real one.
+
+Two failures specifically:
+- Do not report an ESCALATION unless two notes say so. "Slight pain" in one note and
+  nothing since is one report, not a worsening trend. Naming a progression needs the
+  earlier note AND a later note that repeats it or says worse — otherwise say what the
+  single note said and that nothing since has mentioned it.
+- Do not carry a niggle forward once a later note has passed over it in silence. Apply
+  notes_since mechanically: open only if notes_since = 0 or something newer names it
+  again. He writes these as he notices them, so silence in a newer note is the niggle
+  resolving.
+
+Keep the SIDE he wrote ("left knee", never just "knee"), and check the ledger for what
+is open before writing flags — a flag about the wrong joint is worse than no flag.`;
 
 function buildRunPrompt(kind, bundle) {
   const ask = kind === 'daily' ? DAILY_ASK : WEEKLY_ASK;

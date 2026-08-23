@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../db');
 const { serverError } = require('../util/errors');
 const { resolveWorkoutDate, isValidDateString } = require('../util/dates');
+const { LOAD_JOINS, SET_VOLUME } = require('../util/volume');
 
 // Only 'working' counts toward volume, 1RM estimates and personal bests. 'drop' and
 // 'failure' are working sets taken past the prescribed stopping point — they still count
@@ -257,11 +258,12 @@ router.get('/', async (req, res) => {
     const { rows } = await db.query(
       `SELECT w.*, p.name AS program_name,
               COUNT(DISTINCT we.id)::int AS exercise_count,
-              COALESCE(SUM(ws.weight_kg * ws.reps), 0) AS total_volume
+              COALESCE(SUM(${SET_VOLUME()}), 0) AS total_volume
          FROM workouts w
          LEFT JOIN programs p ON p.id = w.program_id
          LEFT JOIN workout_exercises we ON we.workout_id = w.id
          LEFT JOIN workout_sets ws ON ws.workout_exercise_id = we.id
+         ${LOAD_JOINS()}
          ${where}
         GROUP BY w.id, p.name
         ORDER BY w.date DESC, w.created_at DESC

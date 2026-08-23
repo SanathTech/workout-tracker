@@ -4,6 +4,7 @@ const db = require('../db');
 const { serverError } = require('../util/errors');
 const { LANDMARKS } = require('../db/muscles');
 const { resolveWorkoutDate, currentWeekStart } = require('../util/dates');
+const { LOAD_JOINS, SET_VOLUME } = require('../util/volume');
 
 // GET /api/progress/exercise/:exerciseId — per-date max weight and volume
 router.get('/exercise/:exerciseId', async (req, res) => {
@@ -13,13 +14,14 @@ router.get('/exercise/:exerciseId', async (req, res) => {
       `SELECT
          w.date,
          MAX(ws.weight_kg) AS max_weight,
-         SUM(ws.weight_kg * ws.reps) AS volume,
+         SUM(${SET_VOLUME()}) AS volume,
          SUM(ws.reps) AS total_reps,
          ROUND(AVG(ws.rir), 1) AS avg_rir,
          COUNT(*)::int AS set_count
        FROM workout_sets ws
        JOIN workout_exercises we ON we.id = ws.workout_exercise_id
        JOIN workouts w ON w.id = we.workout_id
+       ${LOAD_JOINS()}
        WHERE we.exercise_id = $1
          AND w.status = 'completed'
          AND ws.set_type <> 'warmup'
@@ -41,11 +43,12 @@ router.get('/volume', async (req, res) => {
     const { rows } = await db.query(
       `SELECT
          DATE_TRUNC('week', w.date)::date AS week_start,
-         SUM(ws.weight_kg * ws.reps) AS total_volume,
+         SUM(${SET_VOLUME()}) AS total_volume,
          COUNT(DISTINCT w.id)::int AS workout_count
        FROM workout_sets ws
        JOIN workout_exercises we ON we.id = ws.workout_exercise_id
        JOIN workouts w ON w.id = we.workout_id
+       ${LOAD_JOINS()}
        WHERE w.status = 'completed'
          AND ws.set_type <> 'warmup'
          AND w.date >= CURRENT_DATE - ($1 || ' weeks')::INTERVAL
@@ -65,10 +68,11 @@ router.get('/stats', async (req, res) => {
     const [workoutCount, totalVolume, totalSets, thisWeek] = await Promise.all([
       db.query("SELECT COUNT(*)::int AS count FROM workouts WHERE status = 'completed'"),
       db.query(
-        `SELECT COALESCE(SUM(ws.weight_kg * ws.reps), 0) AS total
+        `SELECT COALESCE(SUM(${SET_VOLUME()}), 0) AS total
            FROM workout_sets ws
            JOIN workout_exercises we ON we.id = ws.workout_exercise_id
            JOIN workouts w ON w.id = we.workout_id
+           ${LOAD_JOINS()}
           WHERE w.status = 'completed' AND ws.set_type <> 'warmup'`
       ),
       db.query(
