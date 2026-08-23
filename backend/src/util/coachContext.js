@@ -1,5 +1,6 @@
 const db = require('../db');
 const { todayInAppTimezone, currentWeekStart } = require('./dates');
+const { LOAD_JOINS, SET_VOLUME } = require('./volume');
 
 // Every context bundle the coach reasons over — daily, weekly, and chat — is built
 // here, from one set of query helpers. This file replaced coach_context.py on
@@ -181,7 +182,7 @@ async function strengthSessions(days = 14) {
   const { rows } = await db.query(
     `SELECT w.date, w.routine_name, w.duration_minutes, w.notes,
             COUNT(*) FILTER (WHERE s.set_type <> 'warmup')::int AS working_sets,
-            ROUND(SUM(s.weight_kg * s.reps) FILTER (WHERE s.set_type <> 'warmup')) AS volume_kg,
+            ROUND(SUM(${SET_VOLUME('s')}) FILTER (WHERE s.set_type <> 'warmup')) AS volume_kg,
             (SELECT ROUND(a.training_load) FROM activities a
               WHERE a.type = 'WeightTraining' AND a.date = w.date LIMIT 1) AS garmin_load,
             (SELECT a.average_hr FROM activities a
@@ -201,6 +202,7 @@ async function strengthSessions(days = 14) {
        FROM workouts w
        JOIN workout_exercises we ON we.workout_id = w.id
        JOIN workout_sets s ON s.workout_exercise_id = we.id
+       ${LOAD_JOINS()}
       WHERE w.status = 'completed' AND w.date >= $1::date - $2::int
       GROUP BY w.id, w.date, w.routine_name, w.duration_minutes
       ORDER BY w.date DESC`,
