@@ -396,9 +396,8 @@ router.get('/suggestions', async (req, res) => {
       // target is derived from the sets actually done AT this weight, lowest first,
       // because that is the rung every set still has to clear.
       const atWeight = sets.filter((s) => s.weight_kg === workingWeight && s.reps != null);
-      const suggestedRepsNext = atWeight.length
-        ? Math.min(Math.min(...atWeight.map((s) => s.reps)) + 1, top)
-        : low;
+      const worstAtWeight = atWeight.length ? Math.min(...atWeight.map((s) => s.reps)) : null;
+      const suggestedRepsNext = worstAtWeight != null ? Math.min(worstAtWeight + 1, top) : low;
       return {
         ...base,
         action: 'hold',
@@ -412,7 +411,7 @@ router.get('/suggestions', async (req, res) => {
         reason: workingWeight == null
           ? `Not all sets at ${top} reps yet — add reps before load.${scope}`
           : new Set(weights).size > 1
-            ? `Worked up to ${workingWeight}kg for ${Math.min(...atWeight.map((s) => s.reps))} last time — stay there and aim for ${suggestedRepsNext}.${scope}`
+            ? `Worked up to ${workingWeight}kg for ${worstAtWeight} last time — stay there and aim for ${suggestedRepsNext}.${scope}`
             : `${shortfall} of ${sets.length} sets below ${top} reps — stay at ${workingWeight}kg and add reps.${scope}`,
       };
     });

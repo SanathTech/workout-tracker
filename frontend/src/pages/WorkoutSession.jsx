@@ -140,10 +140,14 @@ function SetRow({ set, previousSet, showPrev, targetRir, suggestion, onChange, o
   const ghostWeight = suggestion?.suggested_weight_kg ?? null;
   const prevAtGhostWeight = previousSet?.weight_kg != null && ghostWeight != null
     && Number(previousSet.weight_kg) === ghostWeight;
-  const ghostReps = suggestion == null
-    ? null
-    : suggestion.action === 'increase'
-      ? suggestion.suggested_reps_low ?? null
+  // Only 'increase' and 'hold' carry a target. 'no_history' and 'no_target' are the
+  // engine saying it has nothing to progress against, and inventing "one more than last
+  // time" there would dress a guess up as a prescription — they get plain unit labels,
+  // matching the chip, which already hides itself for both.
+  const ghostReps = suggestion?.action === 'increase'
+    ? suggestion.suggested_reps_low ?? null
+    : suggestion?.action !== 'hold'
+      ? null
       : prevAtGhostWeight && previousSet?.reps != null
         ? Math.min(previousSet.reps + 1, suggestion.suggested_reps_high ?? previousSet.reps + 1)
         : suggestion.suggested_reps_next ?? suggestion.suggested_reps_low ?? null;
