@@ -82,9 +82,13 @@ router.get('/stats', async (req, res) => {
            JOIN workouts w ON w.id = we.workout_id
           WHERE w.status = 'completed' AND ws.set_type <> 'warmup'`
       ),
+      // Same local-time question as /muscle-volume: CURRENT_DATE is the UTC server's
+      // idea of the week, so a Melbourne Monday morning still counted last week's
+      // sessions — the counter read 3 at 9am on a week where nothing had happened yet.
       db.query(
         `SELECT COUNT(DISTINCT id)::int AS count FROM workouts
-          WHERE status = 'completed' AND date >= DATE_TRUNC('week', CURRENT_DATE)`
+          WHERE status = 'completed' AND date >= $1::date`,
+        [currentWeekStart()]
       ),
     ]);
 
