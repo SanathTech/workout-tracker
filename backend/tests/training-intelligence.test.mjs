@@ -263,6 +263,89 @@ console.log('\n─── suggestions are scoped to the routine ───');
   ok(Array.isArray(noRoutine.body), 'a call without a routine still returns');
 }
 
+// Rest-aware progression. On a short-on-time day the plan is: cut rest, hold the
+// weight, let the reps fall. The engine has to know that, or every compressed office
+// Thursday reads as a plateau and a weight full-rest days already cleared is held
+// forever. Sets carry logged_at, so a session's median inter-set gap is comparable to
+// the routine's prescribed rest floor.
+console.log('\n─── short rest is not a plateau ───');
+{
+  const { body: prog } = await api('POST', '/api/programs', {
+    name: 'Rest Aware', total_weeks: 4,
+    routines: [{
+      name: 'Day X',
+      exercises: [{ exercise_id: ex['Squat'], target_sets: 3, rep_range_low: 5, rep_range_high: 8, rest_seconds: 180, rest_seconds_high: 300 }],
+    }],
+  });
+  await api('POST', `/api/programs/${prog.id}/start`);
+  const routineId = prog.routines[0].id;
+
+  // gapSeconds spaces logged_at stamps; null leaves sets unstamped (pre-stamp history).
+  const log = async (reps, weight, daysAgo, gapSeconds) => {
+    const { body: w } = await api('POST', '/api/workouts', { routine_id: routineId });
+    const t0 = Date.now() - daysAgo * 86400_000;
+    await api('PUT', `/api/workouts/${w.id}`, {
+      exercises: [{
+        exercise_id: ex['Squat'],
+        sets: reps.map((r, i) => ({
+          set_number: i + 1, reps: r, weight_kg: weight,
+          ...(gapSeconds != null ? { logged_at: new Date(t0 + i * gapSeconds * 1000).toISOString() } : {}),
+        })),
+      }],
+    });
+    await api('POST', `/api/workouts/${w.id}/complete`);
+    if (daysAgo) {
+      await db.query(
+        `UPDATE workouts SET date = CURRENT_DATE - $1::int, created_at = NOW() - ($1 || ' days')::interval WHERE id = $2`,
+        [daysAgo, w.id]
+      );
+    }
+    return w.id;
+  };
+  const squat = async () => {
+    const { body } = await api('GET', `/api/progress/suggestions?routine_id=${routineId}`);
+    return body.find((x) => x.exercise_name === 'Squat');
+  };
+
+  // Full rest (200s gaps > 180 floor), range cleared at 100kg.
+  await log([8, 8, 8], 100, 3, 200);
+  // Then a compressed session (70s gaps): same weight, reps fell — the plan working.
+  await log([6, 6, 6], 100, 0, 70);
+  {
+    const s = await squat();
+    ok(s.action === 'increase', 'a compressed shortfall does not cancel a full-rest clear', `${s.action}: ${s.reason}`);
+    ok(s.suggested_weight_kg === 102.5, 'the increase the full-rest session earned', `got ${s.suggested_weight_kg}`);
+    ok(/short-rest/.test(s.reason), 'the reason says why the last session did not count', s.reason);
+  }
+
+  // He takes the increase on another short day: 102.5 has no normal-rest history, so
+  // there is nothing to judge against — hold, but named as short-rest, not a stall.
+  await log([5, 5, 5], 102.5, 0, 70);
+  {
+    const s = await squat();
+    ok(s.action === 'hold', 'no normal-rest baseline at the new weight → hold', `${s.action}: ${s.reason}`);
+    ok(s.suggested_reps_next === 6, 'aims one over the compressed worst', `got ${s.suggested_reps_next}`);
+    ok(/short-rest.*not a stall/.test(s.reason), 'and says the reps read low', s.reason);
+  }
+
+  // A normal-rest shortfall stays an honest hold — no excuse appended.
+  await log([7, 7, 6], 102.5, 0, 200);
+  {
+    const s = await squat();
+    ok(s.action === 'hold', 'full-rest shortfall holds', `${s.action}: ${s.reason}`);
+    ok(!/short-rest/.test(s.reason), 'with no short-rest caveat', s.reason);
+  }
+
+  // Unstamped history (every set before 2026-08-24) has unknown rest, which must never
+  // be read as compressed: the verdict comes from the session itself, as it always did.
+  await log([8, 8, 8], 102.5, 0, null);
+  {
+    const s = await squat();
+    ok(s.action === 'increase', 'an unstamped clear still progresses', `${s.action}: ${s.reason}`);
+    ok(s.suggested_weight_kg === 105, 'to the next step', `got ${s.suggested_weight_kg}`);
+  }
+}
+
 console.log('\n─────────────────────────────');
 console.log(`  ${pass} passed, ${fail} failed`);
 await db.end();

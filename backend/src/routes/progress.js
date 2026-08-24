@@ -275,6 +275,7 @@ router.get('/suggestions', async (req, res) => {
        prescribed AS (
          SELECT DISTINCT ON (re.exercise_id)
                 re.exercise_id, re.rep_range_low, re.rep_range_high, re.target_sets,
+                re.rest_seconds,
                 e.name AS exercise_name, e.is_bodyweight,
                 COALESCE(pm.muscle, 'other') AS primary_muscle
            FROM routine_exercises re
@@ -292,41 +293,44 @@ router.get('/suggestions', async (req, res) => {
           ORDER BY re.exercise_id,
                    ($1::int IS NOT NULL AND r.id = $1::int) DESC, re.id
        ),
-       last_session AS (
-         SELECT DISTINCT ON (we.exercise_id)
-                we.exercise_id, w.id AS workout_id, w.date, w.routine_name,
-                ($1::int IS NOT NULL AND w.routine_id = $1::int) AS same_routine
+       -- The last few sessions, not just the last one. Rest-aware progression needs a
+       -- normal-rest session to judge against when the latest was compressed, so each
+       -- exercise carries up to three, same-routine history first, then the most recent
+       -- anywhere. The anywhere-fallback matters: an exercise newly added to a routine
+       -- still has a known working weight elsewhere, and "no history" would throw that
+       -- away. But the caller is told which it got — progressing Day A off a Day C
+       -- session is a different claim, and it should not be made silently.
+       sessions AS (
+         SELECT we.exercise_id, w.id AS workout_id, w.date, w.routine_name,
+                ($1::int IS NOT NULL AND w.routine_id = $1::int) AS same_routine,
+                ROW_NUMBER() OVER (
+                  PARTITION BY we.exercise_id
+                  ORDER BY ($1::int IS NOT NULL AND w.routine_id = $1::int) DESC,
+                           w.date DESC, w.id DESC
+                ) AS pick,
+                json_agg(json_build_object(
+                  'reps', ws.reps, 'weight_kg', ws.weight_kg::float, 'rir', ws.rir,
+                  'logged_at', ws.logged_at
+                ) ORDER BY ws.set_number) AS sets
            FROM workout_exercises we
            JOIN workouts w ON w.id = we.workout_id
+           JOIN workout_sets ws ON ws.workout_exercise_id = we.id
           WHERE w.status = 'completed'
-          -- Same-routine history first, then the most recent anywhere. The fallback
-          -- matters: an exercise newly added to a routine still has a known working
-          -- weight elsewhere, and "no history" would throw that away. But the caller is
-          -- told which it got — progressing Day A off a Day C session is a different
-          -- claim, and it should not be made silently.
-          ORDER BY we.exercise_id,
-                   ($1::int IS NOT NULL AND w.routine_id = $1::int) DESC,
-                   w.date DESC, w.id DESC
+            AND ws.reps IS NOT NULL AND ws.reps > 0 AND ws.set_type <> 'warmup'
+          GROUP BY we.exercise_id, w.id, w.date, w.routine_name, w.routine_id
        )
-       SELECT p.*, ls.date AS last_date,
-              ls.routine_name AS last_routine_name,
-              COALESCE(ls.same_routine, false) AS last_same_routine,
+       SELECT p.*,
               COALESCE(
-                json_agg(json_build_object('reps', ws.reps, 'weight_kg', ws.weight_kg::float, 'rir', ws.rir)
-                         ORDER BY ws.set_number)
-                FILTER (WHERE ws.id IS NOT NULL),
+                json_agg(json_build_object(
+                  'date', s.date, 'routine_name', s.routine_name,
+                  'same_routine', s.same_routine, 'sets', s.sets
+                ) ORDER BY s.pick) FILTER (WHERE s.workout_id IS NOT NULL),
                 '[]'
-              ) AS last_sets
+              ) AS sessions
          FROM prescribed p
-         LEFT JOIN last_session ls ON ls.exercise_id = p.exercise_id
-         LEFT JOIN workout_exercises we2
-                ON we2.workout_id = ls.workout_id AND we2.exercise_id = p.exercise_id
-         LEFT JOIN workout_sets ws
-                ON ws.workout_exercise_id = we2.id AND ws.reps IS NOT NULL AND ws.reps > 0
-               AND ws.set_type <> 'warmup'
+         LEFT JOIN sessions s ON s.exercise_id = p.exercise_id AND s.pick <= 3
         GROUP BY p.exercise_id, p.rep_range_low, p.rep_range_high, p.target_sets,
-                 p.exercise_name, p.is_bodyweight, p.primary_muscle, ls.date,
-                 ls.routine_name, ls.same_routine
+                 p.rest_seconds, p.exercise_name, p.is_bodyweight, p.primary_muscle
         ORDER BY p.exercise_name`,
       [routineId]
     );
@@ -335,21 +339,52 @@ router.get('/suggestions', async (req, res) => {
     // 2.5kg total on a bar, but a 2.5kg jump on a cable curl is a ~10% step.
     const COMPOUND = new Set(['quads', 'hamstrings', 'glutes', 'chest', 'lats', 'upper_back', 'lower_back']);
 
+    // Rest-aware progression, possible since sets carry logged_at (2026-08-24). A
+    // compressed session — median gap between an exercise's sets under its prescribed
+    // rest floor — yields fewer reps at the same weight BY DESIGN: on a short day the
+    // plan is to cut rest, hold the load and let reps fall. Judging progression against
+    // that session reads the plan working as a plateau, and a run of office-Thursday
+    // sessions would hold a weight forever that full-rest days had already cleared.
+    //
+    // The gap includes the set itself (~30-45s), so a median under the floor means true
+    // rest well short of it — deliberately conservative. Fewer than two stamps means the
+    // rest is unknown (pre-stamp history, or a single-set session), never compressed.
+    const medianGapSeconds = (sets) => {
+      const times = sets.map((s) => Date.parse(s.logged_at)).filter(Number.isFinite).sort((a, b) => a - b);
+      if (times.length < 2) return null;
+      const gaps = times.slice(1).map((t, i) => (t - times[i]) / 1000).sort((a, b) => a - b);
+      const mid = gaps.length >> 1;
+      return gaps.length % 2 ? gaps[mid] : (gaps[mid - 1] + gaps[mid]) / 2;
+    };
+    const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const dayLabel = (iso) => {
+      const [, m, d] = String(iso).split('-').map(Number);
+      return `${d} ${SHORT_MONTHS[m - 1] || ''}`.trim();
+    };
+
     const suggestions = rows.map((r) => {
-      const sets = r.last_sets || [];
+      const sessions = r.sessions || [];
+      const latest = sessions[0] || null;
+      const sets = latest?.sets || [];
       const top = r.rep_range_high;
       const low = r.rep_range_low;
+      const restFloor = r.rest_seconds != null ? Number(r.rest_seconds) : null;
+      const compressed = (sess) => {
+        if (restFloor == null || !sess) return false;
+        const median = medianGapSeconds(sess.sets || []);
+        return median != null && median < restFloor;
+      };
       const base = {
         exercise_id: r.exercise_id,
         exercise_name: r.exercise_name,
         rep_range_low: low,
         rep_range_high: top,
-        last_date: r.last_date || null,
+        last_date: latest?.date || null,
         last_sets: sets,
-        last_routine_name: r.last_routine_name || null,
+        last_routine_name: latest?.routine_name || null,
         // False when the numbers came from a different routine, which prescribes a
         // different range. The UI says so rather than presenting it as like-for-like.
-        last_same_routine: r.last_same_routine === true,
+        last_same_routine: latest?.same_routine === true,
       };
       // Appended to whatever reason follows, so the source of the comparison travels
       // with the advice instead of being inferred from the numbers.
@@ -375,6 +410,8 @@ router.get('/suggestions', async (req, res) => {
       const atTop = sets.every((s) => s.reps >= top);
       const step = COMPOUND.has(r.primary_muscle) ? 2.5 : 1.25;
 
+      // Topped out is topped out — clearing the range on short rest is MORE convincing,
+      // not less, so a compressed session never blocks an increase it earned.
       if (atTop && workingWeight != null) {
         return {
           ...base,
@@ -388,16 +425,52 @@ router.get('/suggestions', async (req, res) => {
       if (atTop) {
         return { ...base, action: 'increase', reason: `Hit ${top} on every set — add load next session.${scope}` };
       }
+
+      // Short of the top. If that shortfall came from a compressed session, it is what
+      // the short-on-time plan prescribes, not evidence about the weight — so the
+      // verdict comes from the most recent normal-rest session at the same weight and
+      // scope instead, and says so. Same-scope only: a same-routine session judged
+      // against another routine's day would smuggle back the cross-routine bug.
+      const latestCompressed = compressed(latest);
+      const judged = (latestCompressed && workingWeight != null)
+        ? sessions.slice(1).find((sess) =>
+            sess.same_routine === latest.same_routine
+            && !compressed(sess)
+            && (sess.sets || []).some((s) => s.weight_kg === workingWeight)) || null
+        : null;
+
+      if (judged && judged.sets.every((s) => s.reps >= top)) {
+        return {
+          ...base,
+          action: 'increase',
+          suggested_weight_kg: Math.round((workingWeight + step) * 100) / 100,
+          suggested_reps_low: low,
+          suggested_reps_high: top,
+          reason: `Hit ${top} at ${workingWeight}kg on ${dayLabel(judged.date)} — the short-rest session since doesn't reset that. Add ${step}kg.${scope}`,
+        };
+      }
+
       const shortfall = sets.filter((s) => s.reps < top).length;
       // The next rung at the working weight, for rows where beating the positionally
       // matching set is the wrong comparison. A session ramped 45x12 then 50x8 has a
       // working weight of 50 but a first set of 12 reps, and "one more than last time"
       // read against that row asks for 50x12 — a load he has never taken past 8. So the
       // target is derived from the sets actually done AT this weight, lowest first,
-      // because that is the rung every set still has to clear.
-      const atWeight = sets.filter((s) => s.weight_kg === workingWeight && s.reps != null);
-      const worstAtWeight = atWeight.length ? Math.min(...atWeight.map((s) => s.reps)) : null;
-      const suggestedRepsNext = worstAtWeight != null ? Math.min(worstAtWeight + 1, top) : low;
+      // because that is the rung every set still has to clear. When a normal-rest
+      // baseline exists, aims come from whichever is higher — a compressed week must
+      // never lower the target.
+      const worstAt = (list) => {
+        const at = (list || []).filter((s) => s.weight_kg === workingWeight && s.reps != null);
+        return at.length ? Math.min(...at.map((s) => s.reps)) : null;
+      };
+      const worstAtWeight = worstAt(sets);
+      const worstJudged = judged ? worstAt(judged.sets) : null;
+      const bestWorst = Math.max(worstAtWeight ?? -1, worstJudged ?? -1);
+      const suggestedRepsNext = bestWorst >= 0 ? Math.min(bestWorst + 1, top) : low;
+      const restTail = !latestCompressed ? ''
+        : judged
+          ? ` Last session was short-rest — judged against ${dayLabel(judged.date)}.`
+          : ' Last session was short-rest — reps read low, not a stall.';
       return {
         ...base,
         action: 'hold',
@@ -408,11 +481,11 @@ router.get('/suggestions', async (req, res) => {
         // "Stay at 50kg" is a lie when only the last set was at 50 — it reads as though
         // the whole session was there, which is how a ramped session gets mistaken for a
         // jump in load. Say what was actually done at the working weight instead.
-        reason: workingWeight == null
+        reason: (workingWeight == null
           ? `Not all sets at ${top} reps yet — add reps before load.${scope}`
           : new Set(weights).size > 1
             ? `Worked up to ${workingWeight}kg for ${worstAtWeight} last time — stay there and aim for ${suggestedRepsNext}.${scope}`
-            : `${shortfall} of ${sets.length} sets below ${top} reps — stay at ${workingWeight}kg and add reps.${scope}`,
+            : `${shortfall} of ${sets.length} sets below ${top} reps — stay at ${workingWeight}kg and add reps.${scope}`) + restTail,
       };
     });
 

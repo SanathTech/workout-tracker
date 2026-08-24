@@ -232,6 +232,15 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
   limiter → add weight (2.5kg compound, 1.25kg isolation) and drop back down the range.
   Suggestions read the last *completed* session, so the workout being logged can't move its
   own goalposts.
+- **Progression is rest-aware** (2026-08-24, once sets carried `logged_at`). On a
+  short-on-time day the plan is cut rest / hold weight / let reps fall — so a *compressed*
+  session (median inter-set gap under the routine's `rest_seconds` floor; the gap includes
+  the set itself, which makes the threshold conservative) is what the plan prescribes, not
+  evidence about the weight. A hold verdict then comes from the most recent normal-rest
+  session at the same weight and scope, the reason says so, and ghost targets never drop
+  below the normal-rest baseline. Compressed sessions still count everywhere else (volume,
+  muscle sets, PRs, history). Unstamped sets (all history before 2026-08-24) mean rest is
+  *unknown*, never compressed. A topped-out compressed session still earns its increase.
 
 - **`npm test` truncates tables and refuses any non-local `DATABASE_URL`.** The suites seed
   their own programs, so each one starts from a reset database; the host allowlist in
