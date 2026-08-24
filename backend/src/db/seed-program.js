@@ -62,6 +62,7 @@ const EXERCISES = {
   'Weighted Pull-Up': ['Back', 'Pull-up with added load once bodyweight reps are easy.'],
   'Assisted Pull-Up': ['Back', 'Pull-up with machine or band assistance.'],
   'Neutral-Grip Pull-Up': ['Back', 'Pull-up with the palms facing each other.'],
+  'Dead Hang': ['Arms', 'Hang from a pull-up bar with a full grip, thumb wrapped. Log SECONDS in the reps column.'],
   'Chest-Supported Row': ['Back', 'Row with the chest supported on a pad to remove lower-back involvement.'],
   'Lat Pulldown': ['Back', 'Pull a cable bar down to chest level, targeting the lats.'],
   'Barbell Row': ['Back', 'Hinge at the hips and row a barbell to your lower chest.'],
@@ -104,6 +105,12 @@ const SESSIONS = [
       { name: 'Weighted Pull-Up', sets: 3, repLow: 6, repHigh: 10, rir: [1, 1, 1], rest: 150, warmup: [1, 2], main: true,
         subs: ['Lat Pulldown', 'Neutral-Grip Pull-Up'],
         notes: 'First vertical pull of the week. Add load once bodyweight is easy; full ROM, control the negative.' },
+      // Added 2026-08-24: grip was ending the pull-up sets before the lats did. Straight
+      // after the pull-up, on the same bar, while the forearms are already the thing that
+      // just gave out. Reps are SECONDS — see the note, and see muscles.js for why this
+      // is NOT flagged is_bodyweight (a 45s hang would report as ~4,300kg of volume).
+      { name: 'Dead Hang', sets: 2, repLow: 20, repHigh: 45, rir: [], rest: 60, restHigh: 90, subs: [],
+        notes: 'Seconds, not reps. Full grip, thumb wrapped. Hold 45s twice before adding load.' },
       { name: 'Flat DB Press', sets: 2, repLow: 8, repHigh: 12, rir: [1, 1], rest: 120, warmup: [1, 2],
         subs: ['Machine Chest Press', 'Bench Press'],
         notes: 'First horizontal press of the week. Flat or incline; chase reps in the range before adding load.' },
@@ -224,9 +231,9 @@ async function run() {
         const exerciseId = await ensureExercise(client, ex.name);
         const reRes = await client.query(
           `INSERT INTO routine_exercises
-             (routine_id, exercise_id, sort_order, target_sets, rep_range_low, rep_range_high, target_rir_per_set, rest_seconds, notes, warmup_sets_low, warmup_sets_high, is_main)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id`,
-          [routineId, exerciseId, e, ex.sets, ex.repLow, ex.repHigh, ex.rir, ex.rest, ex.notes, ex.warmup?.[0] ?? null, ex.warmup?.[1] ?? null, ex.main === true]
+             (routine_id, exercise_id, sort_order, target_sets, rep_range_low, rep_range_high, target_rir_per_set, rest_seconds, rest_seconds_high, notes, warmup_sets_low, warmup_sets_high, is_main)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id`,
+          [routineId, exerciseId, e, ex.sets, ex.repLow, ex.repHigh, ex.rir, ex.rest, ex.restHigh ?? null, ex.notes, ex.warmup?.[0] ?? null, ex.warmup?.[1] ?? null, ex.main === true]
         );
         const reId = reRes.rows[0].id;
 

@@ -65,6 +65,8 @@ const EXERCISES = {
   'machine lateral raise':    [['side_delts'], []],
   'band pull-apart':          [['rear_delts'], ['upper_back']],
   'hanging leg raise':        [['abs'], ['forearms']],
+  // Reps are SECONDS — see the note on BODYWEIGHT below for why it is not flagged.
+  'dead hang':                [['forearms'], ['lats', 'upper_back']],
   'lying leg raise':          [['abs'], []],
 
   // ── added after a dry run against the live library flagged these as guesses ──
@@ -196,6 +198,10 @@ function musclesFor(name, muscleGroup) {
 }
 
 // Exercises where the load moved is bodyweight plus whatever is added or assisted.
+//
+// Do NOT add /hang/ here. A dead hang is bodyweight, but its reps column holds SECONDS,
+// and volume multiplies load by reps — a 45-second hold would report as ~4,300kg. Any
+// isometric logged in time belongs out of this list for the same reason.
 const BODYWEIGHT = [
   /pull-?up/, /chin-?up/, /dip/, /push-?up/, /muscle-?up/, /inverted row/,
 ];

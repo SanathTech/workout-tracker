@@ -389,15 +389,31 @@ router.get('/suggestions', async (req, res) => {
         return { ...base, action: 'increase', reason: `Hit ${top} on every set — add load next session.${scope}` };
       }
       const shortfall = sets.filter((s) => s.reps < top).length;
+      // The next rung at the working weight, for rows where beating the positionally
+      // matching set is the wrong comparison. A session ramped 45x12 then 50x8 has a
+      // working weight of 50 but a first set of 12 reps, and "one more than last time"
+      // read against that row asks for 50x12 — a load he has never taken past 8. So the
+      // target is derived from the sets actually done AT this weight, lowest first,
+      // because that is the rung every set still has to clear.
+      const atWeight = sets.filter((s) => s.weight_kg === workingWeight && s.reps != null);
+      const suggestedRepsNext = atWeight.length
+        ? Math.min(Math.min(...atWeight.map((s) => s.reps)) + 1, top)
+        : low;
       return {
         ...base,
         action: 'hold',
         suggested_weight_kg: workingWeight,
         suggested_reps_low: low,
         suggested_reps_high: top,
-        reason: workingWeight != null
-          ? `${shortfall} of ${sets.length} sets below ${top} reps — stay at ${workingWeight}kg and add reps.${scope}`
-          : `Not all sets at ${top} reps yet — add reps before load.${scope}`,
+        suggested_reps_next: suggestedRepsNext,
+        // "Stay at 50kg" is a lie when only the last set was at 50 — it reads as though
+        // the whole session was there, which is how a ramped session gets mistaken for a
+        // jump in load. Say what was actually done at the working weight instead.
+        reason: workingWeight == null
+          ? `Not all sets at ${top} reps yet — add reps before load.${scope}`
+          : new Set(weights).size > 1
+            ? `Worked up to ${workingWeight}kg for ${Math.min(...atWeight.map((s) => s.reps))} last time — stay there and aim for ${suggestedRepsNext}.${scope}`
+            : `${shortfall} of ${sets.length} sets below ${top} reps — stay at ${workingWeight}kg and add reps.${scope}`,
       };
     });
 
