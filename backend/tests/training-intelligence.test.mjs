@@ -130,6 +130,25 @@ console.log('\n─── isolation gets a smaller jump ───');
   ok(lat.suggested_weight_kg === 11.25, 'isolation gets 1.25kg, not 2.5kg', `got ${lat.suggested_weight_kg}`);
 }
 
+// A session that ramps within the exercise. The working weight is the top set, but the
+// rep target has to come from the sets done AT that weight — pairing the heaviest load
+// with the first row's rep count ghosted "50kg x 12" for a lift he had only taken to 8.
+console.log('\n─── a ramped session targets reps at the working weight ───');
+{
+  await logSession({
+    squat: [{ reps: 8, weight_kg: 95 }, { reps: 5, weight_kg: 105 }],
+    lateral: [], daysAgo: 0,
+  });
+  const { body: s } = await api('GET', '/api/progress/suggestions');
+  const squat = s.find((x) => x.exercise_name === 'Squat');
+  ok(squat.action === 'hold', 'the top set is short of 8 → hold', `${squat.action}: ${squat.reason}`);
+  ok(squat.suggested_weight_kg === 105, 'working weight is the top set', `got ${squat.suggested_weight_kg}`);
+  ok(squat.suggested_reps_next === 6,
+    'next target is 5+1 at 105kg, not 8+1 from the 95kg set', `got ${squat.suggested_reps_next}`);
+  ok(/up to 105kg for 5/.test(squat.reason),
+    'reason names what was done at the working weight, not "stay at 105kg"', squat.reason);
+}
+
 console.log('\n─── estimated 1RM ───');
 {
   const { body: orm } = await api('GET', `/api/progress/one-rm/${ex['Squat']}`);

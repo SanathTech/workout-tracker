@@ -131,14 +131,26 @@ function SetRow({ set, previousSet, showPrev, targetRir, suggestion, onChange, o
   // prev-as-placeholder duplicated the PREV column one cell over). Increase: the
   // suggested weight at the bottom of the range. Hold: same weight, beat last time's
   // reps by one, capped at the top of the range. No suggestion: plain unit labels.
+  //
+  // "Last time" means the same row only when it was at the SAME load. A session that
+  // ramped (45x12, then 50x8) has a working weight of 50 and a first row of 12 reps, and
+  // pairing them ghosted "50 x 12" — a weight-and-rep combination taken from two
+  // different sets, and one he had never done. When the loads differ the row falls back
+  // to the engine's target at the working weight.
   const ghostWeight = suggestion?.suggested_weight_kg ?? null;
-  const ghostReps = suggestion == null
-    ? null
-    : suggestion.action === 'increase'
-      ? suggestion.suggested_reps_low ?? null
-      : previousSet?.reps != null
+  const prevAtGhostWeight = previousSet?.weight_kg != null && ghostWeight != null
+    && Number(previousSet.weight_kg) === ghostWeight;
+  // Only 'increase' and 'hold' carry a target. 'no_history' and 'no_target' are the
+  // engine saying it has nothing to progress against, and inventing "one more than last
+  // time" there would dress a guess up as a prescription — they get plain unit labels,
+  // matching the chip, which already hides itself for both.
+  const ghostReps = suggestion?.action === 'increase'
+    ? suggestion.suggested_reps_low ?? null
+    : suggestion?.action !== 'hold'
+      ? null
+      : prevAtGhostWeight && previousSet?.reps != null
         ? Math.min(previousSet.reps + 1, suggestion.suggested_reps_high ?? previousSet.reps + 1)
-        : suggestion.suggested_reps_low ?? null;
+        : suggestion.suggested_reps_next ?? suggestion.suggested_reps_low ?? null;
 
   const typeLabel = SET_TYPE_LABEL[set.set_type || 'working'];
   const cellInput = 'w-full h-11 bg-transparent border-0 p-0 text-center text-base tabular-nums text-neutral-900 dark:text-neutral-200 placeholder:text-neutral-400 dark:placeholder:text-neutral-600 focus:outline-none focus:bg-neutral-100 dark:focus:bg-neutral-800/70 rounded-md transition-colors';
