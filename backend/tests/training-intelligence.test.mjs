@@ -270,8 +270,11 @@ console.log('\n─── suggestions are scoped to the routine ───');
 // the routine's prescribed rest floor.
 console.log('\n─── short rest is not a plateau ───');
 {
+  // total_weeks × routines_per_cycle is the auto-complete threshold, and this block
+  // logs five sessions into a one-routine program — at 4 weeks the fourth session
+  // completed the program mid-test and every suggestion after it came back empty.
   const { body: prog } = await api('POST', '/api/programs', {
-    name: 'Rest Aware', total_weeks: 4,
+    name: 'Rest Aware', total_weeks: 12,
     routines: [{
       name: 'Day X',
       exercises: [{ exercise_id: ex['Squat'], target_sets: 3, rep_range_low: 5, rep_range_high: 8, rest_seconds: 180, rest_seconds_high: 300 }],
