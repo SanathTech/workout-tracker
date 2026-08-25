@@ -646,6 +646,12 @@ async function enduranceSessions(days = 42) {
                  ELSE ROUND(${num("raw->>'average_cadence'")}) END AS cadence,
             ROUND(${num("raw->>'total_elevation_gain'")}) AS elevation_m,
             ROUND(${num("raw->>'average_stride'")}, 2) AS stride_m,
+            -- Heart-rate recovery: bpm dropped in the 60s after the session's hardest
+            -- effort, computed by intervals when the file shows a clear peak-then-ease.
+            -- The cleanest aerobic-fitness marker in this list — it climbs as the base
+            -- builds, well before pace-at-HR moves. Mostly present on stride days;
+            -- absent on steady runs, which never give it a peak to measure from.
+            ROUND(${num("raw->'icu_hrr'->>'hrr'")}) AS hrr,
             (SELECT ROUND(SUM(z) / 60.0, 1)
                FROM unnest(hr_zone_times[3:]) AS z) AS minutes_over_hr_ceiling
        FROM activities

@@ -458,6 +458,14 @@ function Endurance({ sessions, ceiling }) {
                     {r.elevation_m != null && (
                       <span className="text-neutral-500 dark:text-neutral-400">↑{r.elevation_m}m</span>
                     )}
+                    {/* Bpm dropped in the minute after the run's hardest effort. Only
+                        present when the file has a clear peak — in practice, stride
+                        days. The number to watch rise as the base builds: it moves
+                        weeks before pace-at-HR does, so it gets the accent colour the
+                        other chips don't. */}
+                    {r.hrr != null && (
+                      <span className="text-sky-600 dark:text-sky-400">HRR {r.hrr}</span>
+                    )}
                   </div>
                   <p className={`text-[11px] tabular-nums ${overTone}`}>
                     {mins} min over {ceiling} bpm
@@ -469,7 +477,8 @@ function Endurance({ sessions, ceiling }) {
           <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1.5">
             An easy run should sit near zero minutes over. Cadence is a whole-session average
             and includes the walk breaks, so read it as a trend between similar sessions rather
-            than against a target.
+            than against a target. HRR is beats recovered in the minute after the hardest
+            effort — higher is fitter, and it usually only shows on stride days.
           </p>
         </>
       )}
