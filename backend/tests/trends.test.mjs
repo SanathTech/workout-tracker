@@ -54,7 +54,7 @@ await db.query(
                            distance, average_hr, hr_zone_times, raw)
         VALUES ('test-run-1', $1::date + TIME '07:00', $1, 'Run', 'Test Run',
                 2400, 6000, 148, ARRAY[600, 1560, 180, 60],
-                '{"average_cadence": 76.5, "total_elevation_gain": 41.2, "average_stride": 0.94}'::jsonb)
+                '{"average_cadence": 76.5, "total_elevation_gain": 41.2, "average_stride": 0.94, "icu_hrr": {"hrr": 22, "start_bpm": 174, "end_bpm": 152}}'::jsonb)
    ON CONFLICT (id) DO NOTHING`,
   [shift(today, -2)]
 );
@@ -80,7 +80,7 @@ await db.query(
                            distance, average_hr, hr_zone_times, raw)
         VALUES ('test-run-junk', $1::date + TIME '07:00', $1, 'Run', 'Junk Cadence Run',
                 1800, 5000, 140, ARRAY[900, 900, 0, 0],
-                '{"average_cadence": "", "total_elevation_gain": "n/a"}'::jsonb)
+                '{"average_cadence": "", "total_elevation_gain": "n/a", "icu_hrr": {"hrr": "junk"}}'::jsonb)
    ON CONFLICT (id) DO NOTHING`,
   [shift(today, -4)]
 );
@@ -118,6 +118,7 @@ ok(t?.low_cadence_spm === undefined, 'no cadence threshold is served');
 // Cadence is per-LEG on a run and per-minute strokes on a swim, so only runs double.
 ok(Number(run?.cadence) === 153, 'run cadence is doubled to steps per minute', `got ${run?.cadence}`);
 ok(Number(run?.elevation_m) === 41, 'elevation gain is read out of raw', `got ${run?.elevation_m}`);
+ok(Number(run?.hrr) === 22, 'heart-rate recovery is read out of the icu_hrr object', `got ${run?.hrr}`);
 
 const swim = t?.endurance?.find((r) => r.name === 'Test Swim');
 ok(swim != null, 'endurance includes swims, not just runs');
@@ -130,6 +131,7 @@ const junkRow = t?.endurance?.find((r) => r.name === 'Junk Cadence Run');
 ok(junkRow != null, 'a session with unparseable raw fields still returns');
 ok(junkRow?.cadence == null, 'an unparseable cadence comes back null rather than throwing');
 ok(junkRow?.elevation_m == null, 'an unparseable elevation comes back null rather than throwing');
+ok(junkRow?.hrr == null, 'an unparseable hrr comes back null rather than throwing');
 
 ok(t?.protocol?.bedtime != null && t?.protocol?.movement != null,
   'protocol block carries bedtime and movement');
