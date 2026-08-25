@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getCheckin, saveCheckin } from '../api/client';
+import { track } from '../util/telemetry';
 import RatingRow from './RatingRow';
 
 // The daily check-in. Three taps, and each tap saves on its own — the server upserts
@@ -28,7 +29,17 @@ export default function CheckinCard({ compact = false }) {
       qc.setQueryData(['checkin'], (old) => ({ ...(old || {}), ...patch }));
       return { previous };
     },
-    onError: (_err, _patch, ctx) => qc.setQueryData(['checkin'], ctx?.previous),
+    // The 25 Aug save failures were invisible in the event log — the whole struggle
+    // recorded as nav bounces because this form emitted nothing. Both outcomes now
+    // land in app_events, so the next "it wouldn't save" comes with evidence.
+    onSuccess: (_data, patch) => track('save', 'checkin-saved', { fields: Object.keys(patch) }),
+    onError: (err, patch, ctx) => {
+      qc.setQueryData(['checkin'], ctx?.previous);
+      track('error', 'checkin-save-failed', {
+        fields: Object.keys(patch),
+        message: String(err?.message || '').slice(0, 200),
+      });
+    },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ['checkin'] });
       qc.invalidateQueries({ queryKey: ['checkins'] });
@@ -75,9 +86,16 @@ export default function CheckinCard({ compact = false }) {
                 e.preventDefault();
                 // Send the trimmed value or an explicit null — submitting an empty field
                 // is how you clear a note, so an empty string can't be a no-op here.
-                save.mutate({ note: note.trim() || null });
-                setNote('');
-                setNoteOpen(false);
+                //
+                // The form closes on SUCCESS, not on submit. It used to clear and close
+                // optimistically, which combined with the silent rollback into the worst
+                // failure mode a text field has: a dead connection ate the note from the
+                // cache AND the input, with nothing on screen saying so — he typed the
+                // same note four times on 25 Aug before one request survived. Ratings
+                // can be optimistic because a lost tap costs a tap; prose cannot.
+                save.mutate({ note: note.trim() || null }, {
+                  onSuccess: () => { setNote(''); setNoteOpen(false); },
+                });
               }}
             >
               <input
@@ -87,7 +105,9 @@ export default function CheckinCard({ compact = false }) {
                 placeholder="Anything worth noting?"
                 className="input flex-1 py-1.5"
               />
-              <button type="submit" className="btn-secondary px-4">Save</button>
+              <button type="submit" className="btn-secondary px-4" disabled={save.isPending}>
+                {save.isPending ? 'Saving…' : 'Save'}
+              </button>
             </form>
           ) : (
             <button
