@@ -168,7 +168,15 @@ async function recentActivities(days = 14) {
     `SELECT date, type, name, moving_time, ROUND(distance) AS distance_m,
             average_hr, ROUND(training_load) AS training_load,
             (SELECT ROUND(SUM(z) / 60.0, 1)
-               FROM unnest(hr_zone_times[3:]) AS z) AS minutes_over_hr_ceiling
+               FROM unnest(hr_zone_times[3:]) AS z) AS minutes_over_hr_ceiling,
+            -- Per-effort figures from the streams, so the model can obey "judge the
+            -- reps, not the average" with data instead of discipline. Null on
+            -- pre-stream rows and non-run/swim types.
+            stream_summary->'run_only' AS run_only,
+            CASE WHEN jsonb_array_length(COALESCE(stream_summary->'efforts', '[]'::jsonb)) > 0
+                 THEN stream_summary->'efforts' END AS efforts,
+            (stream_summary->>'hrr_60')::int AS hrr_60,
+            stream_summary->'rest' AS swim_rest
        FROM activities WHERE date >= $1::date - $2::int ORDER BY start_date_local DESC`,
     [today(), days]
   );
@@ -646,12 +654,25 @@ async function enduranceSessions(days = 42) {
                  ELSE ROUND(${num("raw->>'average_cadence'")}) END AS cadence,
             ROUND(${num("raw->>'total_elevation_gain'")}) AS elevation_m,
             ROUND(${num("raw->>'average_stride'")}, 2) AS stride_m,
-            -- Heart-rate recovery: bpm dropped in the 60s after the session's hardest
-            -- effort, computed by intervals when the file shows a clear peak-then-ease.
-            -- The cleanest aerobic-fitness marker in this list — it climbs as the base
-            -- builds, well before pace-at-HR moves. Mostly present on stride days;
-            -- absent on steady runs, which never give it a peak to measure from.
-            ROUND(${num("raw->'icu_hrr'->>'hrr'")}) AS hrr,
+            -- Heart-rate recovery: bpm shed in the 60s after the session's HR peak. The
+            -- cleanest aerobic-fitness marker in this list — it climbs as the base
+            -- builds, well before pace-at-HR moves. Ours (from the stream) exists on
+            -- every run with a real peak; intervals' is the fallback for pre-stream rows.
+            COALESCE((stream_summary->>'hrr_60')::int,
+                     ROUND(${num("raw->'icu_hrr'->>'hrr'")})::int) AS hrr,
+            -- The per-effort figures, computed from the per-second streams at sync
+            -- time (see schema_hub on stream_summary). run_cadence/run_pace describe
+            -- the RUNNING, not the run/walk blend — the whole-session cadence above
+            -- stays served for trend continuity with pre-stream history, but these are
+            -- the honest numbers. No guards: our sync wrote this JSON, not a third party.
+            (stream_summary->'run_only'->>'cadence_spm')::int AS run_cadence,
+            (stream_summary->'run_only'->>'pace_s_per_km')::int AS run_pace_s,
+            (stream_summary->'run_only'->>'stride_m')::numeric AS run_stride_m,
+            (stream_summary->'run_only'->>'share')::numeric AS run_share,
+            CASE WHEN jsonb_array_length(COALESCE(stream_summary->'efforts', '[]'::jsonb)) > 0
+                 THEN stream_summary->'efforts' END AS efforts,
+            (stream_summary->'rest'->>'total_s')::int AS swim_rest_s,
+            (stream_summary->'moving'->>'pace_s_per_100m')::int AS swim_moving_pace_s,
             (SELECT ROUND(SUM(z) / 60.0, 1)
                FROM unnest(hr_zone_times[3:]) AS z) AS minutes_over_hr_ceiling
        FROM activities

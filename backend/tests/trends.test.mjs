@@ -58,6 +58,16 @@ await db.query(
    ON CONFLICT (id) DO NOTHING`,
   [shift(today, -2)]
 );
+// The per-effort figures the sync computes from the streams. The junk run below has
+// none, which is every pre-stream row — the fallback the UI labels "spm session".
+await db.query(
+  `UPDATE activities SET stream_summary = '{"kind":"run",
+      "run_only": {"cadence_spm": 158, "pace_s_per_km": 400, "stride_m": 0.95, "share": 0.9},
+      "efforts": [{"dur_s": 20, "peak_pace_s": 217, "avg_pace_s": 258, "cad_avg": 180, "cad_max": 186, "stride_m": 1.29, "hr_max": 169},
+                  {"dur_s": 18, "peak_pace_s": 290, "avg_pace_s": 312, "cad_avg": 170, "cad_max": 178, "stride_m": 1.13, "hr_max": 165}],
+      "hrr_60": 24}'::jsonb
+    WHERE id = 'test-run-1'`
+);
 
 // A swim alongside it. The endurance list carries both sports, and the two fields that
 // mean different things per sport (cadence per-leg vs per-stroke, stride as step length
@@ -118,7 +128,9 @@ ok(t?.low_cadence_spm === undefined, 'no cadence threshold is served');
 // Cadence is per-LEG on a run and per-minute strokes on a swim, so only runs double.
 ok(Number(run?.cadence) === 153, 'run cadence is doubled to steps per minute', `got ${run?.cadence}`);
 ok(Number(run?.elevation_m) === 41, 'elevation gain is read out of raw', `got ${run?.elevation_m}`);
-ok(Number(run?.hrr) === 22, 'heart-rate recovery is read out of the icu_hrr object', `got ${run?.hrr}`);
+ok(Number(run?.hrr) === 24, 'the stream-computed HRR beats the icu fallback', `got ${run?.hrr}`);
+ok(Number(run?.run_cadence) === 158, 'running-only cadence is served from the stream summary', `got ${run?.run_cadence}`);
+ok(Array.isArray(run?.efforts) && run.efforts.length === 2, 'detected efforts ride along', JSON.stringify(run?.efforts)?.slice(0, 80));
 
 const swim = t?.endurance?.find((r) => r.name === 'Test Swim');
 ok(swim != null, 'endurance includes swims, not just runs');
@@ -132,6 +144,8 @@ ok(junkRow != null, 'a session with unparseable raw fields still returns');
 ok(junkRow?.cadence == null, 'an unparseable cadence comes back null rather than throwing');
 ok(junkRow?.elevation_m == null, 'an unparseable elevation comes back null rather than throwing');
 ok(junkRow?.hrr == null, 'an unparseable hrr comes back null rather than throwing');
+ok(junkRow?.run_cadence == null, 'a pre-stream row has no running-only cadence — the UI falls back', `got ${junkRow?.run_cadence}`);
+ok(junkRow?.efforts == null, 'and no efforts array', `got ${junkRow?.efforts}`);
 
 ok(t?.protocol?.bedtime != null && t?.protocol?.movement != null,
   'protocol block carries bedtime and movement');

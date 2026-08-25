@@ -39,6 +39,18 @@ CREATE TABLE IF NOT EXISTS activities (
   synced_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Per-effort numbers computed from the per-second streams, by intervals-sync.py on
+-- nas-laptop. Every summary average over a run with walk breaks describes the blend,
+-- not the work (the 139spm cadence false alarm, the diluted stride length, the walk-
+-- flattered HR) — this column carries the running-only figures and the detected
+-- efforts so nothing downstream has to reason from a mixture. Compact by design: the
+-- 2,800-point streams themselves are fetched, summarised and discarded.
+--   runs:  {kind, run_only:{cadence_spm,pace_s_per_km,avg_hr,stride_m,share},
+--           efforts:[{dur_s,peak_pace_s,avg_pace_s,cad_avg,cad_max,stride_m,hr_max}],
+--           hrr_60}
+--   swims: {kind, moving:{pace_s_per_100m,share}, rest:{total_s,count}}
+ALTER TABLE activities ADD COLUMN IF NOT EXISTS stream_summary JSONB;
+
 CREATE INDEX IF NOT EXISTS idx_activities_date ON activities(date DESC);
 CREATE INDEX IF NOT EXISTS idx_activities_type ON activities(type);
 

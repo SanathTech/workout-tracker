@@ -437,23 +437,29 @@ function Endurance({ sessions, ceiling }) {
               const overTone = mins <= 3 ? 'text-emerald-600 dark:text-emerald-500'
                 : mins <= 12 ? 'text-amber-600 dark:text-amber-500'
                 : 'text-red-600 dark:text-red-400';
+              // The running-only cadence, from the per-second stream — walk breaks
+              // excluded, so it means what it says. The whole-session average (which
+              // once raised a false overstriding alarm on a hilly walk-break day) is
+              // the fallback for pre-stream history only, and is labelled as such.
+              const runCadence = r.run_cadence != null ? Number(r.run_cadence) : null;
               const cadence = r.cadence != null ? Number(r.cadence) : null;
+              const effortCount = Array.isArray(r.efforts) ? r.efforts.length : 0;
               return (
                 <SessionRow key={r.date + r.name} date={r.date}>
                   <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm tabular-nums">
                     <span className="font-medium">{(Number(r.distance_m) / 1000).toFixed(1)}km</span>
                     <span>{pacePerKm(r.moving_time, Number(r.distance_m))}/km</span>
                     {r.average_hr && <span className="text-neutral-500 dark:text-neutral-400">HR {r.average_hr}</span>}
-                    {/* Deliberately NOT flagged against a threshold. This is a whole-
-                        session average, and his runs follow a run/walk program — every
-                        walked minute at ~110spm drags it down, so a low number here is
-                        as likely to mean "more walk breaks" as "short turnover". Amber
-                        on it produced a false alarm on exactly the hilly session where
-                        he walked the climbs. The running-only figure needs the per-second
-                        cadence stream, which is not ingested. Same trap the persona
-                        already names for HR: judge the run reps, not the session mean. */}
-                    {cadence != null && (
-                      <span className="text-neutral-500 dark:text-neutral-400">{cadence} spm</span>
+                    {runCadence != null ? (
+                      <span className="text-neutral-500 dark:text-neutral-400">{runCadence} spm run</span>
+                    ) : cadence != null ? (
+                      <span className="text-neutral-500 dark:text-neutral-400">{cadence} spm session</span>
+                    ) : null}
+                    {/* Detected strides/surges. Two is the floor: one "effort" on an
+                        easy run is usually a downhill, six is a stride set, fourteen
+                        is a run that never settled. */}
+                    {effortCount >= 2 && (
+                      <span className="text-neutral-500 dark:text-neutral-400">{effortCount} efforts</span>
                     )}
                     {r.elevation_m != null && (
                       <span className="text-neutral-500 dark:text-neutral-400">↑{r.elevation_m}m</span>
@@ -475,10 +481,10 @@ function Endurance({ sessions, ceiling }) {
             })}
           </div>
           <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1.5">
-            An easy run should sit near zero minutes over. Cadence is a whole-session average
-            and includes the walk breaks, so read it as a trend between similar sessions rather
-            than against a target. HRR is beats recovered in the minute after the hardest
-            effort — higher is fitter, and it usually only shows on stride days.
+            An easy run should sit near zero minutes over. “spm run” is cadence over the
+            running samples only — walk breaks excluded; “spm session” is the old blended
+            average on pre-stream history. HRR is beats recovered in the minute after the
+            session’s peak — higher is fitter.
           </p>
         </>
       )}
@@ -499,6 +505,14 @@ function Endurance({ sessions, ceiling }) {
                   </span>
                   {w.stride_m != null && (
                     <span className="text-neutral-500 dark:text-neutral-400">{w.stride_m} m/stroke</span>
+                  )}
+                  {/* Wall rest from the stream. On a continuous-block swim this is the
+                      honest continuity figure — pace per 100m can hold steady while
+                      the rests quietly grow. */}
+                  {w.swim_rest_s != null && (
+                    <span className="text-neutral-500 dark:text-neutral-400">
+                      rest {Math.floor(w.swim_rest_s / 60)}:{String(w.swim_rest_s % 60).padStart(2, '0')}
+                    </span>
                   )}
                 </div>
               </SessionRow>
