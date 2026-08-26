@@ -393,7 +393,12 @@ async function bodyweight(days = 30) {
   const { rows } = await db.query(
     `SELECT d::date AS date,
             COALESCE(b.weight_kg, t.weight_kg) AS weight_kg,
-            CASE WHEN b.weight_kg IS NOT NULL THEN 'manual' ELSE 'garmin' END AS source
+            CASE WHEN b.weight_kg IS NOT NULL THEN 'manual' ELSE 'garmin' END AS source,
+            -- The scale's BIA estimate, reported since 2026-08-10. Guarded like every
+            -- third-party field, and served as-is: it is hydration-skewed and noisy
+            -- day to day, so it is a TREND instrument — the weekly drift arbitrates
+            -- fat vs muscle vs water in a way the weight number alone cannot.
+            ROUND(${num("t.raw->>'bodyFat'")}, 1) AS body_fat_pct
        FROM generate_series($1::date - $2::int, $1::date, '1 day') d
        LEFT JOIN bodyweight_logs b ON b.date = d::date
        LEFT JOIN training_load   t ON t.date = d::date

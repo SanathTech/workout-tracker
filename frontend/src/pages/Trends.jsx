@@ -246,6 +246,21 @@ function Protocol({ protocol, bodyweight }) {
             </span>
           </>
         )}
+        {(() => {
+          // Fat mass in kg, not the raw percentage: "23.3kg fat / 72.5kg lean" is the
+          // decomposition that answers whether a weight move is tissue or water, and
+          // percentages hide it (weight up + fat% flat still means fat up). BIA is a
+          // trend instrument — day-to-day wobble is hydration, so this shows the
+          // latest reading and lets the weekly eye do the smoothing.
+          const bf = weights.filter((b) => b.body_fat_pct != null).at(-1);
+          if (!bf) return null;
+          const fatKg = (Number(bf.weight_kg) * Number(bf.body_fat_pct)) / 100;
+          return (
+            <span className="text-neutral-500 dark:text-neutral-400">
+              {' · '}fat {fatKg.toFixed(1)}kg ({Number(bf.body_fat_pct).toFixed(1)}%)
+            </span>
+          );
+        })()}
       </p>
     </section>
   );
