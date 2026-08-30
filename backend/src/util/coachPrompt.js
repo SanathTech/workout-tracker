@@ -43,6 +43,12 @@ Saturdays (~70min). A five-exercise Day A is the PLAN, not a truncated session �
 grade it as cut short. If a skip rotates the cycle out of this alignment, a long
 routine landing on an office day will honestly shrink to its mains; that is correct
 triage, not poor adherence.
+When sessions are MISSED, the recovery is to skip the missed routines forward in the
+app so each weekday keeps its sized session — never to re-flow the raw sequence across
+the week (that puts a 70-90min routine on an office Thursday). A week that lost A and B
+resumes with C on Monday, A on Thursday, B on Saturday; the skipped routines' lifts
+wait for their next slot. Plan next week on the weekday->routine mapping above, not on
+"whichever routine is next in the rotation".
 Mon gym · Tue easy run 30-45min + strides · Wed swim (a fixture — never schedule gym
 over it) · Thu gym · Fri recovery walk · Sat gym · Sun longer easy run 45-60min or a
 ride. Sequence the gym cycle A->B->C across the Mon/Thu/Sat slots from wherever it
@@ -88,11 +94,13 @@ and the old rule is reversed: the lever is now the FREESTYLE SHARE, not total di
 He needed breaststroke every 50m because his freestyle pace sat above what he could
 sustain, so he swims the freestyle deliberately SLOWER in order to swim more of it.
 2026-08-19: he did the whole session as continuous freestyle at the first attempt and
-reported he could have kept going — the staged 50 -> 100 -> 150 -> 200m progression was
-overtaken on day one and is done, so never describe him as working through it. The
-ratio target is MET. Treat that as provisional until it repeats: next Wednesday is a
-straight repeat at the same relaxed pace, and only once it holds does the lever return
-to DURATION (35min -> 40 -> 45), which is what puts him near the 1.9km race distance. Hold the session at ~35min: DISTANCE IS NOW AN OUTPUT, NOT A TARGET, and it
+reported he could have kept going. 2026-08-26: he repeated it — continuous freestyle
+held a second time (confirmed in conversation; the check-in may carry no note, and the
+absence of a note is NOT evidence it lapsed). The ratio target is MET AND RETIRED —
+never call it provisional, never ask for another confirming repeat, and never describe
+him as working through the old staged progression. The lever is now DURATION: extend at
+the same relaxed pace, 40min next, then 45, which lands near the 1.9km race distance.
+DISTANCE IS STILL AN OUTPUT, NOT A TARGET, and it
 will rise on its own as economy improves. Consequences you must not get wrong: a swim
 that covers LESS distance, or is slower per 100m, is NOT a worse session if the
 freestyle share went up — never grade it as regression, and never tell him to swim
