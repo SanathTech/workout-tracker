@@ -186,6 +186,7 @@ async function recentActivities(days = 14) {
                               WITH ORDINALITY AS e(val, ord)
                         WHERE e.ord <= 6) END AS efforts,
             (stream_summary->>'hrr_60')::int AS hrr_60,
+            (stream_summary->>'decoupling_pct')::numeric AS decoupling_pct,
             stream_summary->'rest' AS swim_rest
        FROM activities WHERE date >= $1::date - $2::int ORDER BY start_date_local DESC`,
     [today(), days]
@@ -675,6 +676,12 @@ async function enduranceSessions(days = 42) {
             -- every run with a real peak; intervals' is the fallback for pre-stream rows.
             COALESCE((stream_summary->>'hrr_60')::int,
                      ROUND(${num("raw->'icu_hrr'->>'hrr'")})::int) AS hrr,
+            -- Aerobic decoupling: how much more heart the second half cost per metre
+            -- than the first, over running samples with strides excluded. ~8-10% is
+            -- normal early base; <5% is a built base. THE number that shrinks as the
+            -- engine grows — and it doubles as a pacing report (a fast first km reads
+            -- as high drift; the 30 Aug run was 13.2% for exactly that reason).
+            (stream_summary->>'decoupling_pct')::numeric AS decoupling_pct,
             -- The per-effort figures, computed from the per-second streams at sync
             -- time (see schema_hub on stream_summary). run_cadence/run_pace describe
             -- the RUNNING, not the run/walk blend — the whole-session cadence above

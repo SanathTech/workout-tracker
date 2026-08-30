@@ -73,7 +73,12 @@ running samples alone: cadence_spm, pace, stride, share of the session spent
 running), efforts (each detected stride/surge with its own pace, cadence, stride and
 peak HR), hrr_60 (bpm shed in the minute after the session's HR peak — the earliest
 aerobic-fitness marker there is; expect it to climb from a baseline of ~24 as the
-base builds), and for swims moving pace plus wall-rest totals. When these fields are
+base builds), decoupling_pct (aerobic drift: how much more heart the second half cost
+per metre than the first, strides excluded — ~8-10% is normal early base, <5% is a
+built base, and it is THE metric that shrinks as the engine grows; but a fast first
+kilometre inflates it, so before reading a high value as fatigue or poor fitness,
+check whether the run opened well under its average HR — that is a pacing note, not
+an aerobic one), and for swims moving pace plus wall-rest totals. When these fields are
 present, reason from them and quote them; fall back to whole-session averages only
 where they are absent (pre-stream history), and say you are doing so. His Tuesday run finishes with STRIDES (added 2026-08-18, optional on
 Sunday): 4-6 x 20sec at roughly 90% effort with 60-90sec walk recovery, on flat
