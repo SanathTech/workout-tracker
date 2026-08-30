@@ -43,6 +43,18 @@ router.post('/', async (req, res) => {
   }
 
   try {
+    // Idempotent per (kind, day): the 30 Aug weekly hit the function's maxDuration and
+    // 502'd after the work was mostly done, and the only safe recovery is "run it
+    // again". That has to be re-runnable without ever producing two Sunday reviews —
+    // so a retry (manual or a future timer retry) becomes a no-op once a row exists.
+    const existing = await db.query(
+      'SELECT id FROM coach_advice WHERE kind = $1 AND for_date = $2 LIMIT 1',
+      [kind, todayInAppTimezone()]
+    );
+    if (existing.rows.length) {
+      return res.json({ skipped: true, reason: `${kind} advice for today already exists` });
+    }
+
     const spent = await monthlySpend();
     if (spent >= MONTHLY_BUDGET_USD) {
       const msg = `$${spent.toFixed(2)} spent this month, cap is $${MONTHLY_BUDGET_USD.toFixed(2)}. Coach paused until next month.`;
