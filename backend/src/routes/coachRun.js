@@ -71,14 +71,20 @@ router.post('/', async (req, res) => {
 
     const params = {
       model,
-      max_tokens: kind === 'daily' ? 2000 : 8000,
+      // max_tokens covers the thinking too, and thinking scales with the bundle: when
+      // the per-effort stream fields landed (2026-08-30), the weekly's thinking grew
+      // until it exhausted 8000 before the JSON was done — stop_reason max_tokens,
+      // twice, ~100s each, indistinguishable from a timeout until the 502 body was
+      // read. 16000 leaves the answer room even on a fat week; unused budget costs
+      // nothing (billing is per token generated, not per token allowed).
+      max_tokens: kind === 'daily' ? 2000 : 16000,
       messages: [{ role: 'user', content: prompt }],
       output_config: {
         format: { type: 'json_schema', schema: kind === 'daily' ? DAILY_SCHEMA : WEEKLY_SCHEMA },
       },
     };
     // Sonnet 5 thinks adaptively by default; medium effort is the cost/quality balance
-    // for a once-a-week call, and max_tokens has to cover the thinking too.
+    // for a once-a-week call.
     if (kind === 'weekly') params.output_config.effort = 'medium';
 
     const response = await client.messages.create(params);
