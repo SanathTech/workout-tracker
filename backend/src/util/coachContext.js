@@ -172,9 +172,19 @@ async function recentActivities(days = 14) {
             -- Per-effort figures from the streams, so the model can obey "judge the
             -- reps, not the average" with data instead of discipline. Null on
             -- pre-stream rows and non-run/swim types.
+            --
+            -- Efforts are CAPPED at six, plus the true count. Full arrays fed every
+            -- surge of every run into the weekly prompt — a fortnight with one uneven
+            -- run (14 surges) fattened the input enough to push the generation past
+            -- the function's maxDuration, and the 30 Aug weekly 502'd. Six is enough
+            -- to grade a stride set; the count says what was trimmed (no silent caps).
             stream_summary->'run_only' AS run_only,
+            jsonb_array_length(COALESCE(stream_summary->'efforts', '[]'::jsonb)) AS efforts_count,
             CASE WHEN jsonb_array_length(COALESCE(stream_summary->'efforts', '[]'::jsonb)) > 0
-                 THEN stream_summary->'efforts' END AS efforts,
+                 THEN (SELECT jsonb_agg(e.val ORDER BY e.ord)
+                         FROM jsonb_array_elements(stream_summary->'efforts')
+                              WITH ORDINALITY AS e(val, ord)
+                        WHERE e.ord <= 6) END AS efforts,
             (stream_summary->>'hrr_60')::int AS hrr_60,
             stream_summary->'rest' AS swim_rest
        FROM activities WHERE date >= $1::date - $2::int ORDER BY start_date_local DESC`,
