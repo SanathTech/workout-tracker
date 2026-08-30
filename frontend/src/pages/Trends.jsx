@@ -487,6 +487,15 @@ function Endurance({ sessions, ceiling }) {
                     {r.hrr != null && (
                       <span className="text-sky-600 dark:text-sky-400">HRR {r.hrr}</span>
                     )}
+                    {/* Aerobic decoupling. Amber only from 10% — high drift is as often
+                        a fast first km as a fitness statement, so it flags, not scolds. */}
+                    {r.decoupling_pct != null && (
+                      <span className={Number(r.decoupling_pct) >= 10
+                        ? 'text-amber-600 dark:text-amber-500'
+                        : 'text-neutral-500 dark:text-neutral-400'}>
+                        drift {r.decoupling_pct}%
+                      </span>
+                    )}
                   </div>
                   <p className={`text-[11px] tabular-nums ${overTone}`}>
                     {mins} min over {ceiling} bpm
@@ -499,7 +508,9 @@ function Endurance({ sessions, ceiling }) {
             An easy run should sit near zero minutes over. “spm run” is cadence over the
             running samples only — walk breaks excluded; “spm session” is the old blended
             average on pre-stream history. HRR is beats recovered in the minute after the
-            session’s peak — higher is fitter.
+            session’s peak — higher is fitter. Drift is aerobic decoupling: how much more heart
+            the second half cost than the first (strides excluded) — under 5% is a built
+            base, and a fast first kilometre inflates it.
           </p>
         </>
       )}

@@ -65,7 +65,7 @@ await db.query(
       "run_only": {"cadence_spm": 158, "pace_s_per_km": 400, "stride_m": 0.95, "share": 0.9},
       "efforts": [{"dur_s": 20, "peak_pace_s": 217, "avg_pace_s": 258, "cad_avg": 180, "cad_max": 186, "stride_m": 1.29, "hr_max": 169},
                   {"dur_s": 18, "peak_pace_s": 290, "avg_pace_s": 312, "cad_avg": 170, "cad_max": 178, "stride_m": 1.13, "hr_max": 165}],
-      "hrr_60": 24}'::jsonb
+      "hrr_60": 24, "decoupling_pct": 7.5}'::jsonb
     WHERE id = 'test-run-1'`
 );
 
@@ -131,6 +131,7 @@ ok(Number(run?.elevation_m) === 41, 'elevation gain is read out of raw', `got ${
 ok(Number(run?.hrr) === 24, 'the stream-computed HRR beats the icu fallback', `got ${run?.hrr}`);
 ok(Number(run?.run_cadence) === 158, 'running-only cadence is served from the stream summary', `got ${run?.run_cadence}`);
 ok(Array.isArray(run?.efforts) && run.efforts.length === 2, 'detected efforts ride along', JSON.stringify(run?.efforts)?.slice(0, 80));
+ok(Number(run?.decoupling_pct) === 7.5, 'aerobic decoupling is served', `got ${run?.decoupling_pct}`);
 
 const swim = t?.endurance?.find((r) => r.name === 'Test Swim');
 ok(swim != null, 'endurance includes swims, not just runs');
