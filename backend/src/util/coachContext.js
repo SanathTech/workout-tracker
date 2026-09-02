@@ -538,11 +538,32 @@ const PROTOCOL_TARGETS = {
   daily_movement: '>=30 min deliberate movement every day; an evening walk counts; 8000+ steps also satisfies it (measured as >=25 recorded moving minutes — see MOVEMENT_MIN_SECONDS)',
   weekly_gym_cycle: 'complete Day A, Day B and Day C each week',
   weekly_endurance: '2 endurance sessions (swim/run/ride)',
-  weight_trend: 'flat or down (92 -> 95kg drift since late June is the thing being reversed)',
+  weight_trend: 'goal 93.5kg AS A WEEKLY MEAN, never a morning reading. Judge over a fortnight of weekly means; never faster than 0.4kg/week (quicker spends lean tissue); two consecutive flat weekly means is the signal to tighten a lever, and one high morning is noise.',
   watch_worn_nightly: 'sleep tracked every night — untracked nights blind the whole readiness picture',
 };
 
 const MOVEMENT_MIN_SECONDS = 25 * 60;
+
+// The weight goal is a WEEKLY MEAN, and that is the whole point rather than a detail:
+// the daily scale swung 94.79 -> 96.10 on consecutive days inside a fortnight that was,
+// on average, essentially flat. Computing "distance to goal" from the latest reading
+// would reproduce the exact failure the goal exists to prevent — talking him out of a
+// plan that is working, on the strength of one morning's hydration.
+//
+// 93.5 is where he actually sat through May and June. It is deliberately NOT the 92.03
+// of 16 June: the scale carried that single weigh-in forward for eight days, and my own
+// notes had mistaken the repetition for a weight he held. A target he has demonstrably
+// lived at also beats one derived from the BIA body-fat percentage, which wobbles a
+// full point on hydration alone.
+const WEIGHT_GOAL_KG = 93.5;
+
+// Above this rate he is spending lean tissue, which costs more on the bike and run legs
+// than the weight saves. It is a ceiling on loss, not a target.
+const MAX_LOSS_KG_PER_WEEK = 0.4;
+
+// A "mean" over one or two readings is not a mean, it is a reading wearing a disguise.
+// Below this the week reports null and the UI says nothing rather than something wrong.
+const MIN_READINGS_PER_WEEK = 3;
 
 // Minutes past noon, so a 01:30 bedtime sorts after 23:30 instead of before it.
 function bedMinutes(hm) {
@@ -555,11 +576,69 @@ function addDaysIso(iso, delta) {
   return new Date(Date.UTC(y, m - 1, d + delta)).toISOString().slice(0, 10);
 }
 
+// This week's mean against last week's, and both against the goal. Two 7-day windows
+// ending today, from the same COALESCE(manual, garmin) source the weight row uses, so
+// the goal line and the weight line can never disagree about what he weighs.
+//
+// Note the scale carries a reading forward between real weigh-ins, which drags a mean
+// toward a stale value on any week he skips days. He has weighed daily since 11 Aug so
+// it does not currently bite; the readings count is served alongside each mean so a
+// thin week is visible rather than silently averaged.
+async function weightGoal() {
+  const { rows } = await db.query(
+    `WITH src AS (
+       SELECT d::date AS date,
+              COALESCE(b.weight_kg, t.weight_kg)::numeric AS kg,
+              CASE WHEN d::date > $1::date - 7 THEN 0 ELSE 1 END AS bucket
+         FROM generate_series($1::date - 13, $1::date, '1 day') d
+         LEFT JOIN bodyweight_logs b ON b.date = d::date
+         LEFT JOIN training_load   t ON t.date = d::date
+        WHERE COALESCE(b.weight_kg, t.weight_kg) IS NOT NULL
+     )
+     SELECT bucket, COUNT(*)::int AS n, ROUND(AVG(kg), 2)::float8 AS mean
+       FROM src GROUP BY bucket`,
+    [today()]
+  );
+
+  const bucket = (b) => rows.find((r) => Number(r.bucket) === b) || null;
+  const meanOf = (b) => (b && b.n >= MIN_READINGS_PER_WEEK ? Number(b.mean) : null);
+  const thisWeek = bucket(0);
+  const prevWeek = bucket(1);
+  const week_mean = meanOf(thisWeek);
+  const prev_week_mean = meanOf(prevWeek);
+
+  const change_kg = week_mean != null && prev_week_mean != null
+    ? Number((week_mean - prev_week_mean).toFixed(2))
+    : null;
+
+  // Flat is a band, not a point: weekly means carry roughly +/-0.1kg of noise, so
+  // anything inside that is "no move" and must not be reported as progress either way.
+  let pace = null;
+  if (change_kg != null) {
+    if (change_kg < -MAX_LOSS_KG_PER_WEEK) pace = 'too_fast';
+    else if (change_kg <= -0.1) pace = 'losing';
+    else if (change_kg < 0.1) pace = 'flat';
+    else pace = 'gaining';
+  }
+
+  return {
+    goal_kg: WEIGHT_GOAL_KG,
+    week_mean,
+    week_readings: thisWeek ? thisWeek.n : 0,
+    prev_week_mean,
+    prev_week_readings: prevWeek ? prevWeek.n : 0,
+    change_kg,
+    to_goal_kg: week_mean != null ? Number((week_mean - WEIGHT_GOAL_KG).toFixed(2)) : null,
+    pace,
+    max_loss_kg_per_week: MAX_LOSS_KG_PER_WEEK,
+  };
+}
+
 async function protocolStatus() {
   const anchor = bedMinutes(PROTOCOL_TARGETS.bedtime_anchor);
   const tol = PROTOCOL_TARGETS.bedtime_tolerance_minutes;
 
-  const [beds, movement, endurance, gym] = await Promise.all([
+  const [beds, movement, endurance, gym, weight] = await Promise.all([
     db.query(
       `SELECT date, to_char(sleep_start, 'HH24:MI') AS bed, to_char(sleep_end, 'HH24:MI') AS wake
          FROM wellness_daily
@@ -593,6 +672,7 @@ async function protocolStatus() {
         WHERE status = 'completed' AND date >= $1::date ORDER BY date`,
       [currentWeekStart()]
     ),
+    weightGoal(),
   ]);
 
   const nights = beds.rows.map((r) => {
@@ -630,6 +710,7 @@ async function protocolStatus() {
       endurance_sessions: endurance.rows[0].n,
       gym_sessions: gym.rows.map((r) => r.routine_name),
     },
+    weight,
   };
 }
 
