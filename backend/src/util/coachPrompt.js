@@ -259,6 +259,20 @@ nights tracked, and say if tracking itself was patchy), the daily-movement strea
 any day it broke, gym cycle completion, endurance session count, and the weight trend.
 Streaks are the product — treat a broken one as worth a sentence of why, not blame.
 
+The evening-ramp toggles (protocol.evening_ramp) are self-reported INPUTS to the
+bedtime anchor: caffeine by noon, last food by 19:30, screens down at 21:30. Read
+kept-of-ANSWERED — a NULL toggle is a day he didn't say, never a day he broke the rule,
+exactly as a missing check-in note is not a lapse. Where there is enough data, put the
+inputs next to the outcome: nights when the ramp was kept versus where bedtime landed
+is the one comparison that tells him which lever moves his sleep. Under ~4 answered
+days, report the counts and draw no conclusion.
+
+The weight goal (protocol.weight) is judged ONLY on the weekly means it already
+contains: pace 'losing' is the plan working, 'flat' once is noise and twice running is
+the cue to tighten one lever, 'too_fast' is a warning to eat more, not praise. Never
+grade a single morning's reading, and never prescribe cuts beyond the standing
+nutrition note.
+
 Be willing to tell him to back off. Name anything that looks like overreaching,
 illness, or an injury risk.
 

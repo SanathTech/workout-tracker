@@ -264,6 +264,35 @@ function Protocol({ protocol, bodyweight }) {
       </p>
 
       {(() => {
+        // Ramp compliance per rule, kept-of-answered over the last 7 days. Answered is
+        // the denominator on purpose: an unanswered day is "didn't say", and folding it
+        // into the denominator would punish forgetting to log as if it were caffeine at
+        // 4pm. Rules with nothing answered are omitted; no answers at all, no line.
+        const ramp = protocol?.evening_ramp?.last_7_days;
+        const parts = [
+          ['caffeine', ramp?.no_caffeine_pm],
+          ['food', ramp?.food_by_cutoff],
+          ['screens', ramp?.screens_by_cutoff],
+        ].filter(([, t]) => t && t.answered > 0);
+        if (!parts.length) return null;
+        return (
+          <p className="text-sm mt-1 text-neutral-700 dark:text-neutral-300 tabular-nums">
+            Evening ramp
+            {parts.map(([label, t]) => (
+              <span key={label}>
+                {' · '}{label}{' '}
+                <span className={t.kept === t.answered
+                  ? 'font-medium text-emerald-600 dark:text-emerald-500'
+                  : 'font-medium'}>
+                  {t.kept}/{t.answered}
+                </span>
+              </span>
+            ))}
+          </p>
+        );
+      })()}
+
+      {(() => {
         // Distance to goal is deliberately computed from the WEEKLY MEAN, never from the
         // number on the scale this morning. Those are different instruments: inside this
         // very dataset he went 94.79 -> 96.10 on consecutive days across a fortnight that

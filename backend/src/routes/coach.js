@@ -238,7 +238,9 @@ router.get('/checkin', async (req, res) => {
   const date = resolveWorkoutDate(req.query.date);
   try {
     const { rows } = await db.query(
-      `SELECT date, mood, energy, soreness, note FROM checkins WHERE date = $1`,
+      `SELECT date, mood, energy, soreness, note,
+              no_caffeine_pm, food_by_cutoff, screens_by_cutoff
+         FROM checkins WHERE date = $1`,
       [date]
     );
     res.json(rows[0] || null);
@@ -252,7 +254,9 @@ router.get('/checkins', async (req, res) => {
   const days = Math.min(Number(req.query.days) || 14, 120);
   try {
     const { rows } = await db.query(
-      `SELECT date, mood, energy, soreness, note FROM checkins
+      `SELECT date, mood, energy, soreness, note,
+              no_caffeine_pm, food_by_cutoff, screens_by_cutoff
+         FROM checkins
         WHERE date >= $2::date - $1::int ORDER BY date DESC`,
       [days, anchor()]
     );
@@ -270,6 +274,11 @@ router.get('/checkins', async (req, res) => {
 // "he checked in and felt nothing".
 router.post('/checkin', async (req, res) => {
   const { mood, energy, soreness } = req.body;
+  // The evening-ramp toggles. Strict booleans: anything truthy-but-not-true (the string
+  // "false" above all) writing a kept-rule row would corrupt the very correlation the
+  // toggles exist to measure.
+  const { no_caffeine_pm, food_by_cutoff, screens_by_cutoff } = req.body;
+  const toggles = { no_caffeine_pm, food_by_cutoff, screens_by_cutoff };
   const note = readNote(req.body);
   const noteProvided = note !== undefined;
   const date = resolveWorkoutDate(req.body.date);
@@ -279,7 +288,13 @@ router.post('/checkin', async (req, res) => {
       return res.status(400).json({ error: `${name} must be an integer from 1 to 5` });
     }
   }
-  if (mood == null && energy == null && soreness == null && !noteProvided) {
+  for (const [name, value] of Object.entries(toggles)) {
+    if (value != null && typeof value !== 'boolean') {
+      return res.status(400).json({ error: `${name} must be true or false` });
+    }
+  }
+  const anyToggle = Object.values(toggles).some((v) => v != null);
+  if (mood == null && energy == null && soreness == null && !noteProvided && !anyToggle) {
     return res.status(400).json({ error: 'Nothing to save' });
   }
 
@@ -288,16 +303,24 @@ router.post('/checkin', async (req, res) => {
       // The ratings COALESCE on purpose — each one is saved by its own tap, so an
       // absent field means "not tapped this time", never "cleared". The note can't work
       // that way: it's the one field the user can deliberately empty.
-      `INSERT INTO checkins (date, mood, energy, soreness, note)
-            VALUES ($1, $2, $3, $4, $5)
+      // The toggles COALESCE like the ratings: each lands from its own tap, absent
+      // means "not answered this time", and an answer can be changed but not cleared.
+      `INSERT INTO checkins (date, mood, energy, soreness, note,
+                             no_caffeine_pm, food_by_cutoff, screens_by_cutoff)
+            VALUES ($1, $2, $3, $4, $5, $7, $8, $9)
        ON CONFLICT (date) DO UPDATE SET
              mood     = COALESCE(EXCLUDED.mood, checkins.mood),
              energy   = COALESCE(EXCLUDED.energy, checkins.energy),
              soreness = COALESCE(EXCLUDED.soreness, checkins.soreness),
              note     = CASE WHEN $6::boolean THEN EXCLUDED.note ELSE checkins.note END,
+             no_caffeine_pm    = COALESCE(EXCLUDED.no_caffeine_pm, checkins.no_caffeine_pm),
+             food_by_cutoff    = COALESCE(EXCLUDED.food_by_cutoff, checkins.food_by_cutoff),
+             screens_by_cutoff = COALESCE(EXCLUDED.screens_by_cutoff, checkins.screens_by_cutoff),
              updated_at = NOW()
-        RETURNING date, mood, energy, soreness, note`,
-      [date, mood ?? null, energy ?? null, soreness ?? null, note ?? null, noteProvided]
+        RETURNING date, mood, energy, soreness, note,
+                  no_caffeine_pm, food_by_cutoff, screens_by_cutoff`,
+      [date, mood ?? null, energy ?? null, soreness ?? null, note ?? null, noteProvided,
+       no_caffeine_pm ?? null, food_by_cutoff ?? null, screens_by_cutoff ?? null]
     );
     res.json(rows[0]);
   } catch (err) {

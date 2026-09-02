@@ -75,6 +75,58 @@ export default function CheckinCard({ compact = false }) {
             onPick={(n) => save.mutate({ soreness: n })}
           />
 
+          {/* The evening ramp — the three inputs to the one protocol metric that keeps
+              failing, the 22:30 anchor. Same contract as the ratings: a tap is a save,
+              an answer can be changed but not cleared, and unanswered stays unanswered —
+              the coach reads NULL as unknown, never as a broken rule. Best answered at
+              the 21:30 wind-down ping, when all three are known. */}
+          <div className="mt-1 pt-2 border-t border-neutral-100 dark:border-neutral-900">
+            <div className="text-[11px] text-neutral-500 dark:text-neutral-400 mb-1">
+              Evening ramp
+            </div>
+            {[
+              { field: 'no_caffeine_pm', label: 'Caffeine', hint: 'none after 12:00' },
+              { field: 'food_by_cutoff', label: 'Last food', hint: 'by 19:30' },
+              { field: 'screens_by_cutoff', label: 'Screens', hint: 'down by 21:30' },
+            ].map(({ field, label, hint }) => {
+              const value = checkin?.[field] ?? null;
+              return (
+                <div key={field} className="flex items-center gap-3 py-1">
+                  <div className="w-20 shrink-0">
+                    <div className="text-sm text-neutral-700 dark:text-neutral-300">{label}</div>
+                    <div className="text-[11px] text-neutral-500 dark:text-neutral-400">{hint}</div>
+                  </div>
+                  <div className="flex gap-1 flex-1">
+                    {[
+                      { val: true, text: 'Kept' },
+                      { val: false, text: 'Broke' },
+                    ].map(({ val, text }) => {
+                      const active = value === val;
+                      return (
+                        <button
+                          key={text}
+                          type="button"
+                          aria-pressed={active}
+                          aria-label={`${label}: ${text.toLowerCase()}`}
+                          onClick={() => save.mutate({ [field]: val })}
+                          className={`flex-1 min-h-11 md:min-h-9 rounded-md text-sm font-medium transition-colors ${
+                            active
+                              ? val
+                                ? 'bg-emerald-600 text-white dark:bg-emerald-500 dark:text-neutral-950'
+                                : 'bg-amber-600 text-white dark:bg-amber-500 dark:text-neutral-950'
+                              : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200 dark:bg-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800'
+                          }`}
+                        >
+                          {text}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
           {checkin?.note && !noteOpen ? (
             <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-2 italic">“{checkin.note}”</p>
           ) : null}
