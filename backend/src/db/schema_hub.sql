@@ -123,6 +123,14 @@ CREATE TABLE IF NOT EXISTS checkins (
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- The evening-ramp toggles (protocol v2, 2 Sep 2026): the three self-reported inputs
+-- to the one protocol metric that keeps failing, the 22:30 bedtime anchor. Booleans,
+-- and NULL means UNANSWERED — the coach must read a missing toggle as unknown, never
+-- as a broken rule, exactly as a missing check-in note is not a lapse.
+ALTER TABLE checkins ADD COLUMN IF NOT EXISTS no_caffeine_pm    BOOLEAN;  -- none after 12:00
+ALTER TABLE checkins ADD COLUMN IF NOT EXISTS food_by_cutoff    BOOLEAN;  -- last food by 19:30
+ALTER TABLE checkins ADD COLUMN IF NOT EXISTS screens_by_cutoff BOOLEAN;  -- screens down by 21:30
+
 -- How a single session felt, asked after "finish workout". Separate from checkins
 -- because the grain is a session, not a day.
 --

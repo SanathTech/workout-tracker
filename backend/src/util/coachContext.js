@@ -422,7 +422,9 @@ async function bodyweight(days = 30) {
 
 async function checkins(days = 14) {
   const { rows } = await db.query(
-    `SELECT date, mood, energy, soreness, note FROM checkins
+    `SELECT date, mood, energy, soreness, note,
+            no_caffeine_pm, food_by_cutoff, screens_by_cutoff
+       FROM checkins
       WHERE date >= $1::date - $2::int ORDER BY date DESC`,
     [today(), days]
   );
@@ -534,7 +536,9 @@ async function buildAdherence(days = 28) {
 const PROTOCOL_TARGETS = {
   bedtime_anchor: '22:30',
   bedtime_tolerance_minutes: 30,
-  last_meal_cutoff: '19:30 (3h before anchor; unmeasured — a commitment, not a metric)',
+  last_meal_cutoff: '19:30 (3h before anchor; self-reported via the food_by_cutoff check-in toggle — a missing toggle is UNKNOWN, never a lapse)',
+  caffeine_cutoff: 'none after 12:00 — decaf tea keeps the ritual (self-reported via no_caffeine_pm; missing = unknown)',
+  screen_cutoff: 'screens down at the 21:30 wind-down cue (self-reported via screens_by_cutoff; missing = unknown)',
   daily_movement: '>=30 min deliberate movement every day; an evening walk counts; 8000+ steps also satisfies it (measured as >=25 recorded moving minutes — see MOVEMENT_MIN_SECONDS)',
   weekly_gym_cycle: 'complete Day A, Day B and Day C each week',
   weekly_endurance: '2 endurance sessions (swim/run/ride)',
@@ -638,7 +642,7 @@ async function protocolStatus() {
   const anchor = bedMinutes(PROTOCOL_TARGETS.bedtime_anchor);
   const tol = PROTOCOL_TARGETS.bedtime_tolerance_minutes;
 
-  const [beds, movement, endurance, gym, weight] = await Promise.all([
+  const [beds, movement, endurance, gym, weight, ramp] = await Promise.all([
     db.query(
       `SELECT date, to_char(sleep_start, 'HH24:MI') AS bed, to_char(sleep_end, 'HH24:MI') AS wake
          FROM wellness_daily
@@ -673,6 +677,19 @@ async function protocolStatus() {
       [currentWeekStart()]
     ),
     weightGoal(),
+    // The evening-ramp toggles, last 14 days. Kept/answered per rule — answered is the
+    // denominator, because NULL is "didn't say", not "broke it". The 7-day counts are
+    // what the weekly review grades against the bedtime dots: the whole point of the
+    // toggles is learning WHICH input actually moves the anchor.
+    db.query(
+      `SELECT date, no_caffeine_pm, food_by_cutoff, screens_by_cutoff
+         FROM checkins
+        WHERE date >= $1::date - 13
+          AND (no_caffeine_pm IS NOT NULL OR food_by_cutoff IS NOT NULL
+               OR screens_by_cutoff IS NOT NULL)
+        ORDER BY date DESC`,
+      [today()]
+    ),
   ]);
 
   const nights = beds.rows.map((r) => {
@@ -711,6 +728,22 @@ async function protocolStatus() {
       gym_sessions: gym.rows.map((r) => r.routine_name),
     },
     weight,
+    evening_ramp: (() => {
+      const rows = ramp.rows;
+      const last7 = rows.filter((r) => r.date >= addDaysIso(today(), -6));
+      const tally = (field) => ({
+        kept: last7.filter((r) => r[field] === true).length,
+        answered: last7.filter((r) => r[field] != null).length,
+      });
+      return {
+        last_7_days: {
+          no_caffeine_pm: tally('no_caffeine_pm'),
+          food_by_cutoff: tally('food_by_cutoff'),
+          screens_by_cutoff: tally('screens_by_cutoff'),
+        },
+        last_14_days: rows.map((r) => ({ ...r, when: whenLabel(String(r.date)) })),
+      };
+    })(),
   };
 }
 
