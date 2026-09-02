@@ -262,6 +262,65 @@ function Protocol({ protocol, bodyweight }) {
           );
         })()}
       </p>
+
+      {(() => {
+        // Distance to goal is deliberately computed from the WEEKLY MEAN, never from the
+        // number on the scale this morning. Those are different instruments: inside this
+        // very dataset he went 94.79 -> 96.10 on consecutive days across a fortnight that
+        // averaged out nearly flat, and a "2.8kg to go" that swings by a kilo overnight
+        // would talk him out of a plan that is working. The server owns the arithmetic so
+        // the coach reasons over the same two numbers this line shows.
+        const g = protocol?.weight;
+        if (!g || g.week_mean == null) return null;
+
+        // Week-on-week is the signal the guardrails are written against, so it is
+        // coloured and the raw distance is not: losing at a sane rate is the only green.
+        // Flat stays neutral because ONE flat week is noise — it is two in a row that
+        // mean something, and colouring the first amber would manufacture an alarm.
+        const paceClass = {
+          losing: 'text-emerald-600 dark:text-emerald-500',
+          gaining: 'text-amber-600 dark:text-amber-500',
+          too_fast: 'text-amber-600 dark:text-amber-500',
+          flat: 'text-neutral-500 dark:text-neutral-400',
+        }[g.pace] || 'text-neutral-500 dark:text-neutral-400';
+        const paceTitle = {
+          losing: 'On plan — a sane rate that keeps lean tissue',
+          gaining: 'Weekly mean is up on last week',
+          too_fast: `Faster than ${g.max_loss_kg_per_week}kg/week — that rate spends lean tissue`,
+          flat: 'No move this week. Two flat weeks in a row is the signal to tighten a lever.',
+        }[g.pace];
+
+        const reached = g.to_goal_kg != null && g.to_goal_kg <= 0;
+
+        return (
+          <p className="text-sm mt-1 text-neutral-700 dark:text-neutral-300 tabular-nums">
+            Goal <span className="font-medium">{g.goal_kg.toFixed(1)}kg</span>
+            {' · '}week mean{' '}
+            <span className="font-medium">{g.week_mean.toFixed(1)}</span>
+            {g.change_kg != null && (
+              <span className={paceClass} title={paceTitle}>
+                {' '}{g.change_kg > 0 ? '+' : ''}{g.change_kg.toFixed(1)} vs last wk
+              </span>
+            )}
+            <span className="text-neutral-500 dark:text-neutral-400">
+              {reached
+                ? ' · at goal'
+                : ` · ${g.to_goal_kg.toFixed(1)}kg to go`}
+            </span>
+            {/* A thin week is shown rather than silently averaged: three readings is the
+                floor for calling something a mean, and a week that scrapes it should say
+                so next to the number it produced. */}
+            {g.week_readings < 5 && (
+              <span
+                className="text-neutral-400 dark:text-neutral-500"
+                title="Weekly mean over fewer than five weigh-ins"
+              >
+                {' '}({g.week_readings} weigh-in{g.week_readings === 1 ? '' : 's'})
+              </span>
+            )}
+          </p>
+        );
+      })()}
     </section>
   );
 }
