@@ -1,7 +1,6 @@
 import { lazy, Suspense, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getCoachLatest, getReadiness, getTrends } from '../api/client';
-import CheckinCard from '../components/CheckinCard';
 import Sparkline from '../components/Sparkline';
 import { Skeleton } from '../components/Skeleton';
 import { formatDay, formatKg } from '../utils/format';
@@ -350,43 +349,6 @@ function Protocol({ protocol, bodyweight }) {
           </p>
         );
       })()}
-    </section>
-  );
-}
-
-// The standing weekly template against what the week actually contained. Today is
-// marked but not scored — it hasn't finished yet.
-function Week({ week }) {
-  if (!week?.days?.length) return null;
-  return (
-    <section className="border-t border-neutral-200 dark:border-neutral-800 pt-4">
-      <div className="flex items-baseline justify-between mb-2">
-        <h2 className="section-label">This week</h2>
-        <span className="text-[11px] text-neutral-500 dark:text-neutral-400 tabular-nums">
-          {week.slots_met} of {week.slots_scored} slots
-        </span>
-      </div>
-      <div className="grid grid-cols-7 gap-1 text-center">
-        {week.days.map((d) => (
-          <div key={d.date} className={d.is_today ? 'rounded-md bg-neutral-100 dark:bg-neutral-800/70 py-1' : 'py-1'}>
-            <div className="text-[10px] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-              {formatDay(d.date, { weekday: 'short' })}
-            </div>
-            <div className="text-base leading-5 mt-0.5">
-              {d.met ? (
-                <span className="text-emerald-600 dark:text-emerald-500">✓</span>
-              ) : d.upcoming || d.is_today ? (
-                <span className="text-neutral-400 dark:text-neutral-600">·</span>
-              ) : (
-                <span className="text-neutral-300 dark:text-neutral-700">—</span>
-              )}
-            </div>
-            <div className="text-[10px] text-neutral-500 dark:text-neutral-400 truncate" title={d.did.join(', ') || d.slot}>
-              {d.did.length ? d.did[0].split(' — ')[0].replace('Day ', '') : ''}
-            </div>
-          </div>
-        ))}
-      </div>
     </section>
   );
 }
@@ -766,7 +728,6 @@ export default function Trends() {
       ) : (
         <>
           <Protocol protocol={trends?.protocol} bodyweight={trends?.bodyweight} />
-          <Week week={trends?.week} />
 
           <section className="border-t border-neutral-200 dark:border-neutral-800 pt-4">
             <h2 className="section-label mb-2">Fitness · 90 days</h2>
@@ -805,7 +766,8 @@ export default function Trends() {
         </>
       )}
 
-      <CheckinCard />
+      {/* The check-in moved to Home on 2026-09-05: it was the most-used control in the
+          app and it sat at the bottom of its longest page. The week plan went with it. */}
       <WeeklyReview entry={coach?.weekly} />
     </div>
   );

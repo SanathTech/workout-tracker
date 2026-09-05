@@ -7,6 +7,8 @@ import {
 } from '../api/client';
 import { Skeleton } from '../components/Skeleton';
 import StatusBadge from '../components/StatusBadge';
+import CheckinCard from '../components/CheckinCard';
+import WeekPlan from '../components/WeekPlan';
 import { formatDay } from '../utils/format';
 
 function WorkoutRow({ workout }) {
@@ -197,7 +199,7 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Today</h1>
         <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
           {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
           {/* The four totals live on Progress; the only one that changes what you do
@@ -221,6 +223,14 @@ export default function Dashboard() {
       ) : (
         !inProgress && <NextWorkoutCard program={active} />
       )}
+
+      {/* Layout consolidation, 2026-09-05. Two weeks of app_events said the nightly visit
+          was Home (2.5s) -> Week (4s) -> Trends, scroll to the bottom, check in — three
+          taps to reach the one thing done every day. So the check-in and the week live
+          here, directly under the session you're about to start. Trends keeps the
+          reading; Home keeps the doing. */}
+      <CheckinCard />
+      <WeekPlan />
 
       <section className="border-t border-neutral-200 dark:border-neutral-800 pt-4">
         <div className="flex items-center justify-between mb-1">

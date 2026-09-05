@@ -1,5 +1,4 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
 import { getWeek } from '../api/client';
 
 // What's on, every day, Monday to Sunday — so the answer to "what am I doing today"
@@ -7,8 +6,12 @@ import { getWeek } from '../api/client';
 // forward through the A->B->C cycle, which is the part that couldn't be worked out by
 // looking: knowing Thursday is Day A means the bag gets packed on Wednesday night.
 //
-// Everything on this page is computed server-side. No model writes it. A plan you
-// prepare around has to be right, and the cycle position is a modulo, not a judgement.
+// Everything here is computed server-side. No model writes it. A plan you prepare
+// around has to be right, and the cycle position is a modulo, not a judgement.
+//
+// This was its own tab until 2026-09-05. Two weeks of telemetry showed it got a
+// 4-second glance on the way from Home to the check-in, every night — a stop on a
+// corridor, not a destination — so it lives on Home now, under the thing you start.
 
 const KIND_STYLES = {
   gym: 'bg-emerald-500',
@@ -29,7 +32,7 @@ function DayRow({ day }) {
 
   return (
     <div
-      className={`flex gap-3 py-3 ${isToday ? 'bg-emerald-50/60 dark:bg-emerald-950/20 -mx-3 px-3' : ''}`}
+      className={`flex gap-3 py-2.5 ${isToday ? 'bg-emerald-50/60 dark:bg-emerald-950/20 -mx-3 px-3' : ''}`}
     >
       {/* Fixed-width date gutter keeps every title on the same left edge. */}
       <div className="w-12 shrink-0 pt-0.5">
@@ -112,7 +115,7 @@ function DayRow({ day }) {
   );
 }
 
-export default function Week() {
+export default function WeekPlan() {
   const { data, isLoading, isError } = useQuery({
     queryKey: ['week'],
     queryFn: getWeek,
@@ -120,50 +123,61 @@ export default function Week() {
   });
 
   if (isLoading) {
-    return <p className="text-sm text-neutral-500 dark:text-neutral-400 py-8">Loading the week…</p>;
+    return (
+      <section className="border-t border-neutral-200 dark:border-neutral-800 pt-4">
+        <p className="section-label">This week</p>
+        <p className="text-sm text-neutral-500 dark:text-neutral-400 py-4">Loading the week…</p>
+      </section>
+    );
   }
   if (isError || !data) {
-    return <p className="text-sm text-red-600 dark:text-red-400 py-8">Couldn’t load the week.</p>;
+    return (
+      <section className="border-t border-neutral-200 dark:border-neutral-800 pt-4">
+        <p className="section-label">This week</p>
+        <p className="text-sm text-red-600 dark:text-red-400 py-4">Couldn’t load the week.</p>
+      </section>
+    );
   }
 
   const todayRow = data.days.find((d) => d.state === 'today');
   const nextGym = data.days.find((d) => d.state !== 'past' && d.planned.kind === 'gym');
 
   return (
-    <div className="space-y-6">
-      <section>
+    <section className="border-t border-neutral-200 dark:border-neutral-800 pt-4 space-y-3">
+      <div>
         <p className="section-label">This week</p>
-        <h1 className="text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-100 mt-0.5">
+        {/* Today's slot in words, because the "Up next" card above only knows about gym
+            days — on a Wednesday the answer is the swim, and the program can't say so. */}
+        <p className="text-base font-semibold tracking-tight text-neutral-900 dark:text-neutral-100 mt-0.5">
           {todayRow ? todayRow.planned.title : 'Rest'}
-        </h1>
+          <span className="text-xs font-normal text-neutral-500 dark:text-neutral-400 ml-2">today</span>
+        </p>
         {todayRow?.planned.detail && (
-          <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
+          <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-0.5">
             {todayRow.planned.detail}
           </p>
         )}
-        {nextGym && (
-          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-2">
+        {nextGym && nextGym.state !== 'today' && (
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
             Next gym:{' '}
             <span className="text-neutral-700 dark:text-neutral-300">
-              {nextGym.state === 'today' ? 'today' : nextGym.weekday} — {nextGym.planned.title}
+              {nextGym.weekday} — {nextGym.planned.title}
             </span>
           </p>
         )}
-      </section>
+      </div>
 
-      <section className="border-t border-neutral-200 dark:border-neutral-800 pt-1">
-        <div className="divide-y divide-neutral-200 dark:divide-neutral-800">
-          {data.days.map((d) => (
-            <DayRow key={d.date} day={d} />
-          ))}
-        </div>
-      </section>
+      <div className="divide-y divide-neutral-200 dark:divide-neutral-800 border-t border-neutral-200 dark:border-neutral-800">
+        {data.days.map((d) => (
+          <DayRow key={d.date} day={d} />
+        ))}
+      </div>
 
       {/* The newest thing he wrote about his body, and nothing older. Whether an older
           niggle has resolved is exactly the judgement the daily brief kept getting
           wrong, so the app shows what is unsuperseded and leaves the reading to him. */}
       {data.latest_notes?.length > 0 && (
-        <section className="border-t border-neutral-200 dark:border-neutral-800 pt-3">
+        <div className="border-t border-neutral-200 dark:border-neutral-800 pt-3">
           <p className="section-label">Latest notes</p>
           <ul className="mt-1.5 space-y-2">
             {data.latest_notes.map((n, i) => (
@@ -175,14 +189,8 @@ export default function Week() {
               </li>
             ))}
           </ul>
-        </section>
+        </div>
       )}
-
-      <section className="border-t border-neutral-200 dark:border-neutral-800 pt-3">
-        <Link to="/trends" className="btn-ghost text-xs -ml-1">
-          How it’s tracking →
-        </Link>
-      </section>
-    </div>
+    </section>
   );
 }
