@@ -514,9 +514,12 @@ router.post('/:id/default-exercise', async (req, res) => {
     const previousId = slot.exercise_id;
     if (previousId !== exerciseId) {
       await client.query('UPDATE routine_exercises SET exercise_id = $2 WHERE id = $1', [reId, exerciseId]);
+      // Nothing enforces substitute uniqueness, so clear both before re-inserting the
+      // old default at the top — otherwise a default that was also listed as its own
+      // substitute would show up twice.
       await client.query(
-        'DELETE FROM routine_exercise_subs WHERE routine_exercise_id = $1 AND exercise_id = $2',
-        [reId, exerciseId]
+        'DELETE FROM routine_exercise_subs WHERE routine_exercise_id = $1 AND exercise_id = ANY($2::int[])',
+        [reId, [exerciseId, previousId]]
       );
       await client.query(
         'UPDATE routine_exercise_subs SET sort_order = sort_order + 1 WHERE routine_exercise_id = $1',

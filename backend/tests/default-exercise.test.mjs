@@ -39,7 +39,8 @@ const { body: prog } = await api('POST', '/api/programs', {
         {
           exercise_id: ex['Lateral Raise'], target_sets: 3, rep_range_low: 10, rep_range_high: 15,
           notes: 'lead with the elbows',
-          substitutes: [ex['Cable Lateral Raise'], ex['Bench Press']],
+          // The default listed as its own substitute: promotion must not duplicate it.
+          substitutes: [ex['Cable Lateral Raise'], ex['Lateral Raise'], ex['Bench Press']],
         },
       ],
     },
