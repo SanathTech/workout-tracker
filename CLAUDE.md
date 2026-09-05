@@ -31,13 +31,17 @@ frontend/
   src/
     api/client.js            All HTTP calls (axios). Single source for endpoint URLs.
     components/
-      Layout.jsx / Navbar.jsx
+      Layout.jsx / Navbar.jsx  Bottom bar = FOUR tabs: Home, Trends, Lifts, More (desktop flattens More)
+      CheckinCard.jsx        Daily check-in (mood/energy/soreness + evening-ramp toggles) — on Home
+      WeekPlan.jsx           Mon–Sun plan from /api/coach/week — on Home (was its own tab)
     pages/
-      Dashboard.jsx          "Up next" card + recent workouts + stats
+      Dashboard.jsx          Home: in-progress/"Up next" card, check-in, week plan, recent workouts
+      Trends.jsx             Read-only recovery + endurance data, weight goal, weekly review
+      Progress.jsx           "Lifts" tab: volume charts + exercise progress + PRs (Recharts)
+      More.jsx               Overflow: Program, Exercises, History
       Program.jsx            View/edit active program; switch between programs
       WorkoutSession.jsx     /session/:id — log sets, swap exercises, finish
       WorkoutDetail.jsx      /workouts/:id — read-only past workout
-      Progress.jsx           Charts + PRs (Recharts)
       ExerciseLibrary.jsx    Browse/add exercises
     index.css                Tailwind layers + dark-mode CSS overrides
   tailwind.config.js         `darkMode: 'class'`
@@ -173,6 +177,10 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
   API stays public and logs a warning; `GET /health` reports `auth: "on" | "off"`. That's
   deliberate — refusing everything would brick the live app on deploy, before there's any way
   to log in. Check `/health` after changing env vars.
+- **Layout is decided by `app_events`, not by taste.** The 2026-09-05 consolidation (6 tabs → 4;
+  check-in + week plan onto Home) came from two weeks of nav dwell times: sub-2s visits mean
+  the tab was passed through, not used. Query telemetry before moving anything again.
+  `/week` and `/coach` stay as redirects — installed PWAs keep old routes in their history.
 - Locale is never hardcoded. Pass `undefined` to `toLocale*String` so it follows the device.
 - **Back buttons use `useSmartBack(fallback)`**, never a hard-coded Link — a workout opened
   from History must return to History. The hook falls back when the tab has no in-app
