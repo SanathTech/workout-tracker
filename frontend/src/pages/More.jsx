@@ -15,7 +15,7 @@ export default function More() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold tracking-tight">More</h1>
-      <nav className="divide-y divide-neutral-200 dark:divide-neutral-800 border-y border-neutral-200 dark:border-neutral-800">
+      <nav aria-label="More pages" className="divide-y divide-neutral-200 dark:divide-neutral-800 border-y border-neutral-200 dark:border-neutral-800">
         {ITEMS.map((it) => (
           <Link key={it.to} to={it.to} className="flex items-center justify-between py-3.5 group">
             <div>
