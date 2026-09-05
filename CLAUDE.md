@@ -56,6 +56,7 @@ Program → Routines → Workouts (logged sessions). Set up once, follow forever
 - **routines** — ordered children of a program (e.g. Upper 1, Lower 1, Upper 2, Lower 2, Arms/Delts). Same template every week; progression is driven by the user lifting heavier over time, not by per-week template variation.
 - **routine_exercises** — per-exercise targets: `target_sets`, `rep_range_low/high`, `target_rir`, `rest_seconds`, `notes`.
 - **routine_exercise_subs** — preset substitutes (per exercise), shown first; users can also pick from the full library mid-workout.
+- **workout_exercises.routine_exercise_id** — the prescription slot a logged row came from. Targets attach **by slot first**, by `exercise_id` second, so a mid-session swap keeps its rep range/RIR/how-to, and `POST /api/workouts/:id/default-exercise` can promote the swapped-in exercise to the routine's default in place (old default → first substitute). Ad-hoc rows are `NULL`.
 - **workouts** — `status: in_progress | completed | skipped`. Snapshots `routine_name` and `program_week` at start so they survive routine renames/deletes. `POST /api/workouts` with `{ routine_id }` pre-fills `workout_exercises` and empty target sets from the routine template.
 - **workout_exercises** + **workout_sets** — the logged data. `POST /api/workouts/:id/complete` marks done and may auto-complete the program.
 
@@ -81,7 +82,7 @@ npm run db:seed                              # seed exercise library
 npm run db:backfill-dates                    # one-shot date repair; dry run. add `-- --apply` to write
 npm run auth:hash                            # generate AUTH_PASSWORD_HASH + SESSION_SECRET (reads stdin)
 npm run db:apply-muscles                     # populate exercise_muscles from muscles.js; dry run. add `-- --apply`
-npm test                                     # 5 suites, 101 assertions. DATABASE_URL must be LOCAL — it truncates
+npm test                                     # 11 suites. DATABASE_URL must be LOCAL — it truncates
 npm run test:setup                           # schema + seed + muscle mapping for a fresh test database
 
 # Frontend

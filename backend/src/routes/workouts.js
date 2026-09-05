@@ -112,6 +112,7 @@ async function writeWorkoutExercises(client, workoutId, exercises) {
     idx: i,
     exercise_id: ex.exercise_id,
     notes: ex.notes || null,
+    routine_exercise_id: Number.isInteger(ex.routine_exercise_id) ? ex.routine_exercise_id : null,
   }));
   const setPayload = [];
   exercises.forEach((ex, i) => {
@@ -136,9 +137,9 @@ async function writeWorkoutExercises(client, workoutId, exercises) {
   // there are no sets to join to; sets attach by matching sort_order to ex_idx.
   await client.query(
     `WITH ins_ex AS (
-       INSERT INTO workout_exercises (workout_id, exercise_id, sort_order, notes)
-       SELECT $1, exercise_id, idx, notes
-         FROM jsonb_to_recordset($2::jsonb) AS x(idx int, exercise_id int, notes text)
+       INSERT INTO workout_exercises (workout_id, exercise_id, sort_order, notes, routine_exercise_id)
+       SELECT $1, exercise_id, idx, notes, routine_exercise_id
+         FROM jsonb_to_recordset($2::jsonb) AS x(idx int, exercise_id int, notes text, routine_exercise_id int)
        RETURNING id, sort_order
      )
      INSERT INTO workout_sets (workout_exercise_id, set_number, reps, weight_kg, rir, set_type, logged_at)
@@ -186,9 +187,11 @@ async function fetchWorkout(id) {
       : Promise.resolve([]),
     workout.routine_id
       ? db.query(
-          `SELECT id, exercise_id, target_sets, rep_range_low, rep_range_high, target_rir_per_set, rest_seconds, rest_seconds_high, notes, warmup_sets_low, warmup_sets_high, is_main
-             FROM routine_exercises
-            WHERE routine_id = $1`,
+          `SELECT re.id, re.exercise_id, e.name AS exercise_name, re.target_sets, re.rep_range_low, re.rep_range_high,
+                  re.target_rir_per_set, re.rest_seconds, re.rest_seconds_high, re.notes, re.warmup_sets_low, re.warmup_sets_high, re.is_main
+             FROM routine_exercises re
+             JOIN exercises e ON e.id = re.exercise_id
+            WHERE re.routine_id = $1`,
           [workout.routine_id]
         ).then((r) => r.rows)
       : Promise.resolve([]),
@@ -200,7 +203,12 @@ async function fetchWorkout(id) {
   }
 
   const targetsByEx = {};
-  for (const t of targetRows) targetsByEx[t.exercise_id] = { ...t, substitutes: [] };
+  const targetsById = {};
+  for (const t of targetRows) {
+    const target = { ...t, substitutes: [] };
+    targetsByEx[t.exercise_id] = target;
+    targetsById[t.id] = target;
+  }
   const reIds = targetRows.map((r) => r.id);
   if (reIds.length) {
     const subRes = await db.query(
@@ -228,7 +236,9 @@ async function fetchWorkout(id) {
     ...workout,
     exercises: exRows.map((e) => ({
       ...e,
-      target: targetsByEx[e.exercise_id] || null,
+      // By slot when the row knows its slot — that's what keeps the prescription on a
+      // swapped-in substitute — else by exercise, which is all older rows have.
+      target: targetsById[e.routine_exercise_id] || targetsByEx[e.exercise_id] || null,
       sets: (setsByEx[e.id] || []).map((s) => ({
         id: s.id,
         set_number: s.set_number,
@@ -379,7 +389,7 @@ router.post('/', async (req, res) => {
 
       if (!templateExercises) {
         const teRes = await client.query(
-          `SELECT exercise_id, target_sets, sort_order
+          `SELECT id, exercise_id, target_sets, sort_order
              FROM routine_exercises
             WHERE routine_id = $1
             ORDER BY sort_order, id`,
@@ -387,6 +397,7 @@ router.post('/', async (req, res) => {
         );
         templateExercises = teRes.rows.map((t) => ({
           exercise_id: t.exercise_id,
+          routine_exercise_id: t.id,
           sets: Array.from({ length: t.target_sets || 3 }, (_, i) => ({
             set_number: i + 1,
             reps: null,
@@ -463,6 +474,74 @@ router.post('/skip', async (req, res) => {
     serverError(res, err);
   } finally {
     client.release();
+  }
+});
+
+// POST /api/workouts/:id/default-exercise — promote a swapped-in exercise to the
+// routine's prescription, from inside the session where the preference showed up.
+// Body: { routine_exercise_id, exercise_id }. The old default drops to the top of the
+// slot's substitutes so it stays one tap away; the new one leaves the substitute list.
+// Only a slot of the routine this workout was started from can be edited this way.
+router.post('/:id/default-exercise', async (req, res) => {
+  const workoutId = Number(req.params.id);
+  const reId = Number(req.body?.routine_exercise_id);
+  const exerciseId = Number(req.body?.exercise_id);
+  if (!Number.isInteger(reId) || !Number.isInteger(exerciseId)) {
+    return res.status(400).json({ error: 'routine_exercise_id and exercise_id are required' });
+  }
+  const client = await db.pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows: found } = await client.query(
+      `SELECT re.exercise_id, r.deleted_at
+         FROM workout_exercises we
+         JOIN workouts w ON w.id = we.workout_id
+         JOIN routine_exercises re ON re.id = we.routine_exercise_id AND re.routine_id = w.routine_id
+         JOIN routines r ON r.id = re.routine_id
+        WHERE we.workout_id = $1 AND we.routine_exercise_id = $2 AND we.exercise_id = $3
+        FOR UPDATE OF re`,
+      [workoutId, reId, exerciseId]
+    );
+    if (!found.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'That exercise is not in this workout, or its slot is not from this routine' });
+    }
+    const slot = found[0];
+    if (slot.deleted_at) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'This routine has been edited since the workout started — change it in Program' });
+    }
+    const previousId = slot.exercise_id;
+    if (previousId !== exerciseId) {
+      await client.query('UPDATE routine_exercises SET exercise_id = $2 WHERE id = $1', [reId, exerciseId]);
+      await client.query(
+        'DELETE FROM routine_exercise_subs WHERE routine_exercise_id = $1 AND exercise_id = $2',
+        [reId, exerciseId]
+      );
+      await client.query(
+        'UPDATE routine_exercise_subs SET sort_order = sort_order + 1 WHERE routine_exercise_id = $1',
+        [reId]
+      );
+      await client.query(
+        'INSERT INTO routine_exercise_subs (routine_exercise_id, exercise_id, sort_order) VALUES ($1, $2, 0)',
+        [reId, previousId]
+      );
+    }
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    return serverError(res, err);
+  } finally {
+    client.release();
+  }
+  try {
+    // Return the block's refreshed target so the client patches its local copy rather
+    // than refetching the whole workout underneath an in-flight autosave.
+    const full = await fetchWorkout(workoutId);
+    const block = full.exercises.find((e) => e.routine_exercise_id === reId && e.exercise_id === exerciseId);
+    res.json({ target: block?.target || null });
+  } catch (err) {
+    serverError(res, err);
   }
 });
 
