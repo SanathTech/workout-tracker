@@ -334,6 +334,9 @@ router.get('/last-by-exercise/:exerciseId', async (req, res) => {
          JOIN workout_exercises we ON we.workout_id = w.id
         WHERE we.exercise_id = $1
           AND w.status = 'completed'
+          -- A session that was finished without logging this exercise (ran out of
+          -- time, skipped it) carries no history — fall through to the one before.
+          AND EXISTS (SELECT 1 FROM workout_sets ws WHERE ws.workout_exercise_id = we.id)
           ${exclude ? 'AND w.id <> $2' : ''}
         ORDER BY w.date DESC, w.created_at DESC
         LIMIT 1`,
