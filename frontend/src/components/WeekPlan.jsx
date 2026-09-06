@@ -48,9 +48,10 @@ function DayRow({ day }) {
   return (
     <button
       type="button"
-      onClick={() => expandable && setOpen((v) => !v)}
+      disabled={!expandable}
+      onClick={() => setOpen((v) => !v)}
       aria-expanded={expandable ? open : undefined}
-      className={`w-full text-left flex gap-3 py-2 ${isToday ? 'bg-emerald-50/60 dark:bg-emerald-950/20 -mx-3 px-3' : ''} ${expandable ? '' : 'cursor-default'}`}
+      className={`w-full text-left flex gap-3 py-2 ${isToday ? 'bg-emerald-50/60 dark:bg-emerald-950/20 -mx-3 px-3' : ''}`}
     >
       {/* Fixed-width date gutter keeps every title on the same left edge. */}
       <div className="w-12 shrink-0 flex items-baseline gap-1">

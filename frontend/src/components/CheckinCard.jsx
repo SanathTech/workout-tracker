@@ -59,9 +59,9 @@ export default function CheckinCard({ compact = false }) {
     { field: 'screens_by_cutoff', label: 'Screens', hint: 'down by 21:30' },
   ];
   const rampDone = checkin && RAMP.every(({ field }) => checkin[field] != null);
-  const editLink = (onClick) => (
+  const foldLink = (text, onClick) => (
     <button type="button" onClick={onClick} className="text-xs text-neutral-500 dark:text-neutral-400 underline-offset-2 hover:underline min-h-11 md:min-h-0 pl-3 shrink-0">
-      edit
+      {text}
     </button>
   );
 
@@ -81,7 +81,7 @@ export default function CheckinCard({ compact = false }) {
               <p className="text-sm text-neutral-700 dark:text-neutral-300 tabular-nums">
                 Mood {checkin.mood} · Energy {checkin.energy} · Soreness {checkin.soreness}
               </p>
-              {editLink(() => setRatingsOpen(true))}
+              {foldLink('edit', () => setRatingsOpen(true))}
             </div>
           ) : (
             <>
@@ -100,6 +100,7 @@ export default function CheckinCard({ compact = false }) {
                 value={checkin?.soreness ?? null}
                 onPick={(n) => save.mutate({ soreness: n })}
               />
+              {ratingsDone && <div className="flex justify-end">{foldLink('done', () => setRatingsOpen(false))}</div>}
             </>
           )}
 
@@ -119,7 +120,7 @@ export default function CheckinCard({ compact = false }) {
                     </span>
                   ))}
                 </p>
-                {editLink(() => setRampOpen(true))}
+                {foldLink('edit', () => setRampOpen(true))}
               </div>
             ) : (
             <>
@@ -163,6 +164,7 @@ export default function CheckinCard({ compact = false }) {
                 </div>
               );
             })}
+            {rampDone && <div className="flex justify-end">{foldLink('done', () => setRampOpen(false))}</div>}
             </>
             )}
           </div>
