@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate, Navigate } from 'react-router-dom';
-import { getWorkout, updateWorkout, completeWorkout, skipWorkout, getLastByExercise, getSuggestions, getCoachNotes } from '../api/client';
+import { getWorkout, updateWorkout, completeWorkout, skipWorkout, getLastByExercise, getSuggestions, getCoachNotes, makeDefaultExercise } from '../api/client';
 import { Skeleton } from '../components/Skeleton';
 import ExercisePickerSheet from '../components/ExercisePickerSheet';
 import MainBadge from '../components/MainBadge';
@@ -284,7 +284,8 @@ function useSwipeToReveal(width = 80) {
   return { offset, revealed, close, handlers };
 }
 
-function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove, suggestion, coachNote }) {
+function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onTargetChange, onRemove, suggestion, coachNote }) {
+  const qc = useQueryClient();
   const [showNote, setShowNote] = useState(false);
   const [showReason, setShowReason] = useState(false);
   // Open the editor whenever a note already exists, so an existing note is never
@@ -307,6 +308,19 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove, sug
 
   const target = block.target;
   const isMain = target?.is_main === true;
+  // A swapped-in exercise still sits in its routine slot (routine_exercise_id), so the
+  // preference can be promoted from here instead of a detour through Program.
+  const isSwapped = !!block.routine_exercise_id && !!target && target.exercise_id !== block.exercise_id;
+  const makeDefault = useMutation({
+    mutationFn: () => makeDefaultExercise(workoutId, { routine_exercise_id: block.routine_exercise_id, exercise_id: block.exercise_id }),
+    onSuccess: (data) => {
+      onTargetChange(data.target);
+      qc.invalidateQueries({ queryKey: ['suggestions'] });
+      qc.invalidateQueries({ queryKey: ['active-program'] });
+      qc.invalidateQueries({ queryKey: ['program'] });
+    },
+    onError: (err) => alert(err?.response?.data?.error || 'Could not update the routine'),
+  });
   const repRange = target && (target.rep_range_low || target.rep_range_high)
     ? `${target.rep_range_low || '?'}–${target.rep_range_high || '?'}`
     : null;
@@ -389,6 +403,11 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onRemove, sug
             // (workout_exercises.notes, editable below).
             target?.notes && { label: showNote ? 'Hide how-to' : 'How to do this', onSelect: () => { track('tap', 'how-to-toggle'); setShowNote((v) => !v); } },
             { label: block.notes ? 'Edit my note' : 'Add my note', onSelect: () => { track('tap', 'exercise-note'); setEditingNote(true); } },
+            isSwapped && {
+              label: 'Make this the default',
+              confirm: 'Update routine — sure?',
+              onSelect: () => { track('tap', 'make-default', { exercise_id: block.exercise_id }); makeDefault.mutate(); },
+            },
             { label: 'Remove exercise', confirm: 'Remove — sure?', danger: true, onSelect: () => { track('tap', 'remove-exercise'); onRemove(); } },
           ]}
         />
@@ -528,6 +547,7 @@ function serializePayload(exercises, notes) {
         const targetRir = Array.isArray(ex.target?.target_rir_per_set) ? ex.target.target_rir_per_set : [];
         return {
           exercise_id: ex.exercise_id,
+          routine_exercise_id: ex.routine_exercise_id ?? null,
           notes: ex.notes || null,
           sets: ex.sets
             .map((s, i) => {
@@ -731,6 +751,7 @@ export default function WorkoutSession() {
       return {
         client_id: crypto.randomUUID(),
         exercise_id: e.exercise_id,
+        routine_exercise_id: e.routine_exercise_id ?? null,
         exercise_name: e.exercise_name,
         muscle_group: e.muscle_group,
         notes: e.notes || '',
@@ -953,6 +974,7 @@ export default function WorkoutSession() {
       setExercises((prev) => [...prev, {
         client_id: crypto.randomUUID(),
         exercise_id: ex.id,
+        routine_exercise_id: null,
         exercise_name: ex.name,
         muscle_group: ex.muscle_group,
         notes: '',
@@ -1070,6 +1092,7 @@ export default function WorkoutSession() {
             workoutId={id}
             onOpenPicker={() => setPicker({ mode: 'replace', forIndex: i })}
             onChange={(u) => setExercises(exercises.map((x, j) => j === i ? u : x))}
+            onTargetChange={(target) => setExercises((prev) => prev.map((x) => x.client_id === ex.client_id ? { ...x, target } : x))}
             onRemove={() => setExercises(exercises.filter((_, j) => j !== i))}
             suggestion={suggestionByExercise[ex.exercise_id]}
             coachNote={noteByExercise[ex.exercise_id]}

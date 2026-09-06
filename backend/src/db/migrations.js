@@ -37,6 +37,33 @@ END $$`,
   // Retire routines instead of deleting them, so editing a program stops nulling
   // workouts.routine_id and wiping the prescriptions off past workouts.
   'ALTER TABLE routines ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ',
+  // Which prescription slot a logged exercise came from (2026-09-05). Backfilled by
+  // direct match first, then via the slot's substitutes — a swapped-in substitute
+  // gets its slot back — so past workouts keep their targets after the read path
+  // switched to preferring the slot id.
+  'ALTER TABLE workout_exercises ADD COLUMN IF NOT EXISTS routine_exercise_id INTEGER REFERENCES routine_exercises(id) ON DELETE SET NULL',
+  // A routine may hold the same exercise twice, so each row picks one candidate
+  // slot: the one at its own position first (sort_order was copied from the routine
+  // at start), else the earliest — never whichever row the planner happened upon.
+  `UPDATE workout_exercises we
+      SET routine_exercise_id = m.re_id
+     FROM (SELECT DISTINCT ON (we.id) we.id AS we_id, re.id AS re_id
+             FROM workout_exercises we
+             JOIN workouts w ON w.id = we.workout_id
+             JOIN routine_exercises re ON re.routine_id = w.routine_id AND re.exercise_id = we.exercise_id
+            WHERE we.routine_exercise_id IS NULL
+            ORDER BY we.id, (re.sort_order = we.sort_order) DESC, re.sort_order, re.id) m
+    WHERE we.id = m.we_id`,
+  `UPDATE workout_exercises we
+      SET routine_exercise_id = m.re_id
+     FROM (SELECT DISTINCT ON (we.id) we.id AS we_id, re.id AS re_id
+             FROM workout_exercises we
+             JOIN workouts w ON w.id = we.workout_id
+             JOIN routine_exercises re ON re.routine_id = w.routine_id
+             JOIN routine_exercise_subs s ON s.routine_exercise_id = re.id AND s.exercise_id = we.exercise_id
+            WHERE we.routine_exercise_id IS NULL
+            ORDER BY we.id, (re.sort_order = we.sort_order) DESC, re.sort_order, re.id) m
+    WHERE we.id = m.we_id`,
   'DROP INDEX IF EXISTS idx_routines_program',
   'CREATE INDEX IF NOT EXISTS idx_routines_program ON routines(program_id) WHERE deleted_at IS NULL',
   // Phase 3: per-muscle volume + bodyweight

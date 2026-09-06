@@ -72,6 +72,8 @@ export const startWorkout = (data) =>
 export const updateWorkout = (id, data, config) =>
   api.put(`/workouts/${id}`, data, config).then((r) => r.data);
 export const completeWorkout = (id) => api.post(`/workouts/${id}/complete`).then((r) => r.data);
+export const makeDefaultExercise = (id, data) =>
+  api.post(`/workouts/${id}/default-exercise`, data).then((r) => r.data);
 export const skipUpcomingWorkout = (data) =>
   api.post('/workouts/skip', { date: localDate(), ...data }).then((r) => r.data);
 export const skipWorkout = (id) => api.post(`/workouts/${id}/skip`).then((r) => r.data);

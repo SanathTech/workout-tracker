@@ -99,7 +99,11 @@ CREATE TABLE workout_exercises (
   workout_id INTEGER NOT NULL REFERENCES workouts(id) ON DELETE CASCADE,
   exercise_id INTEGER NOT NULL REFERENCES exercises(id) ON DELETE RESTRICT,
   sort_order INTEGER NOT NULL DEFAULT 0,
-  notes TEXT
+  notes TEXT,
+  -- The prescription slot this row was created from. Survives a swap: the exercise
+  -- changes, the slot doesn't, so the rep range / RIR / how-to stay attached and
+  -- "make this the default" knows which routine row to rewrite. NULL for ad-hoc rows.
+  routine_exercise_id INTEGER REFERENCES routine_exercises(id) ON DELETE SET NULL
 );
 
 CREATE INDEX idx_workout_exercises_workout ON workout_exercises(workout_id);
