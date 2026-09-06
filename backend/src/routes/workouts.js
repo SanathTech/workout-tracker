@@ -336,7 +336,10 @@ router.get('/last-by-exercise/:exerciseId', async (req, res) => {
           AND w.status = 'completed'
           -- A session that was finished without logging this exercise (ran out of
           -- time, skipped it) carries no history — fall through to the one before.
-          AND EXISTS (SELECT 1 FROM workout_sets ws WHERE ws.workout_exercise_id = we.id)
+          -- Template placeholders are real rows with NULL numbers, so test for data.
+          AND EXISTS (SELECT 1 FROM workout_sets ws
+                       WHERE ws.workout_exercise_id = we.id
+                         AND (ws.reps IS NOT NULL OR ws.weight_kg IS NOT NULL))
           ${exclude ? 'AND w.id <> $2' : ''}
         ORDER BY w.date DESC, w.created_at DESC
         LIMIT 1`,
