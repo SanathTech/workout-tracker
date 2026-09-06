@@ -12,6 +12,11 @@ export default function CheckinCard({ compact = false }) {
   const qc = useQueryClient();
   const [noteOpen, setNoteOpen] = useState(false);
   const [note, setNote] = useState('');
+  // Each half folds to a one-line summary once it's fully answered — the ratings in
+  // the morning, the ramp at night — so a finished check-in costs one line of Home,
+  // not a screen. "Edit" reopens it; the answers can be changed but never cleared.
+  const [ratingsOpen, setRatingsOpen] = useState(false);
+  const [rampOpen, setRampOpen] = useState(false);
 
   const { data: checkin, isLoading } = useQuery({
     queryKey: ['checkin'],
@@ -47,6 +52,18 @@ export default function CheckinCard({ compact = false }) {
   });
 
   const done = checkin && (checkin.mood != null || checkin.energy != null || checkin.soreness != null);
+  const ratingsDone = checkin && checkin.mood != null && checkin.energy != null && checkin.soreness != null;
+  const RAMP = [
+    { field: 'no_caffeine_pm', label: 'Caffeine', hint: 'none after 12:00' },
+    { field: 'food_by_cutoff', label: 'Last food', hint: 'by 19:30' },
+    { field: 'screens_by_cutoff', label: 'Screens', hint: 'down by 21:30' },
+  ];
+  const rampDone = checkin && RAMP.every(({ field }) => checkin[field] != null);
+  const editLink = (onClick) => (
+    <button type="button" onClick={onClick} className="text-xs text-neutral-500 dark:text-neutral-400 underline-offset-2 hover:underline min-h-11 md:min-h-0 pl-3 shrink-0">
+      edit
+    </button>
+  );
 
   return (
     <section className={compact ? '' : 'border-t border-neutral-200 dark:border-neutral-800 pt-4'}>
@@ -59,21 +76,32 @@ export default function CheckinCard({ compact = false }) {
         <div className="h-40" />
       ) : (
         <>
-          <RatingRow
-            label="Mood" hint="1 flat · 5 great"
-            value={checkin?.mood ?? null}
-            onPick={(n) => save.mutate({ mood: n })}
-          />
-          <RatingRow
-            label="Energy" hint="1 empty · 5 full"
-            value={checkin?.energy ?? null}
-            onPick={(n) => save.mutate({ energy: n })}
-          />
-          <RatingRow
-            label="Soreness" hint="1 none · 5 wrecked"
-            value={checkin?.soreness ?? null}
-            onPick={(n) => save.mutate({ soreness: n })}
-          />
+          {ratingsDone && !ratingsOpen ? (
+            <div className="flex items-center justify-between py-1.5">
+              <p className="text-sm text-neutral-700 dark:text-neutral-300 tabular-nums">
+                Mood {checkin.mood} · Energy {checkin.energy} · Soreness {checkin.soreness}
+              </p>
+              {editLink(() => setRatingsOpen(true))}
+            </div>
+          ) : (
+            <>
+              <RatingRow
+                label="Mood" hint="1 flat · 5 great"
+                value={checkin?.mood ?? null}
+                onPick={(n) => save.mutate({ mood: n })}
+              />
+              <RatingRow
+                label="Energy" hint="1 empty · 5 full"
+                value={checkin?.energy ?? null}
+                onPick={(n) => save.mutate({ energy: n })}
+              />
+              <RatingRow
+                label="Soreness" hint="1 none · 5 wrecked"
+                value={checkin?.soreness ?? null}
+                onPick={(n) => save.mutate({ soreness: n })}
+              />
+            </>
+          )}
 
           {/* The evening ramp — the three inputs to the one protocol metric that keeps
               failing, the 22:30 anchor. Same contract as the ratings: a tap is a save,
@@ -81,14 +109,24 @@ export default function CheckinCard({ compact = false }) {
               the coach reads NULL as unknown, never as a broken rule. Best answered at
               the 21:30 wind-down ping, when all three are known. */}
           <div className="mt-1 pt-2 border-t border-neutral-100 dark:border-neutral-900">
+            {rampDone && !rampOpen ? (
+              <div className="flex items-center justify-between py-1.5">
+                <p className="text-sm text-neutral-700 dark:text-neutral-300">
+                  <span className="text-[11px] text-neutral-500 dark:text-neutral-400 mr-2">Evening ramp</span>
+                  {RAMP.map(({ field, label }) => (
+                    <span key={field} className={`mr-2 ${checkin[field] ? '' : 'text-amber-700 dark:text-amber-500'}`}>
+                      {label} {checkin[field] ? '✓' : '✗'}
+                    </span>
+                  ))}
+                </p>
+                {editLink(() => setRampOpen(true))}
+              </div>
+            ) : (
+            <>
             <div className="text-[11px] text-neutral-500 dark:text-neutral-400 mb-1">
               Evening ramp
             </div>
-            {[
-              { field: 'no_caffeine_pm', label: 'Caffeine', hint: 'none after 12:00' },
-              { field: 'food_by_cutoff', label: 'Last food', hint: 'by 19:30' },
-              { field: 'screens_by_cutoff', label: 'Screens', hint: 'down by 21:30' },
-            ].map(({ field, label, hint }) => {
+            {RAMP.map(({ field, label, hint }) => {
               const value = checkin?.[field] ?? null;
               return (
                 <div key={field} className="flex items-center gap-3 py-1">
@@ -125,6 +163,8 @@ export default function CheckinCard({ compact = false }) {
                 </div>
               );
             })}
+            </>
+            )}
           </div>
 
           {checkin?.note && !noteOpen ? (

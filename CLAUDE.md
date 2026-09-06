@@ -32,11 +32,12 @@ frontend/
     api/client.js            All HTTP calls (axios). Single source for endpoint URLs.
     components/
       Layout.jsx / Navbar.jsx  Bottom bar = FOUR tabs: Home, Trends, Lifts, More (desktop flattens More)
-      CheckinCard.jsx        Daily check-in (mood/energy/soreness + evening-ramp toggles) — on Home
-      WeekPlan.jsx           Mon–Sun plan from /api/coach/week — on Home (was its own tab)
+      CheckinCard.jsx        Daily check-in (mood/energy/soreness + evening-ramp toggles) — on Home; each half folds to one line once answered
+      WeekPlan.jsx           Mon–Sun plan from /api/coach/week — on Home; one line per day, tap to expand
+      LatestNotes.jsx        Newest body notes (from /api/coach/week) — on Trends
     pages/
       Dashboard.jsx          Home: in-progress/"Up next" card, check-in, week plan, recent workouts
-      Trends.jsx             Read-only recovery + endurance data, weight goal, weekly review
+      Trends.jsx             Read-only recovery + endurance data, latest notes, weight goal, weekly review
       Progress.jsx           "Lifts" tab: volume charts + exercise progress + PRs (Recharts)
       More.jsx               Overflow: Program, Exercises, History
       Program.jsx            View/edit active program; switch between programs

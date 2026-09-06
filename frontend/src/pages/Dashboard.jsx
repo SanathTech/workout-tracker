@@ -249,7 +249,7 @@ export default function Dashboard() {
           <p className="text-sm text-neutral-500 dark:text-neutral-400 py-4">No workouts logged yet.</p>
         ) : (
           <div className="divide-y divide-neutral-200 dark:divide-neutral-800">
-            {recent?.map((w) => <WorkoutRow key={w.id} workout={w} />)}
+            {recent?.slice(0, 3).map((w) => <WorkoutRow key={w.id} workout={w} />)}
           </div>
         )}
       </section>
