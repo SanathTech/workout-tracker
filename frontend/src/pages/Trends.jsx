@@ -2,6 +2,7 @@ import { lazy, Suspense, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getCoachLatest, getReadiness, getTrends } from '../api/client';
 import Sparkline from '../components/Sparkline';
+import LatestNotes from '../components/LatestNotes';
 import { Skeleton } from '../components/Skeleton';
 import { formatDay, formatKg } from '../utils/format';
 
@@ -728,6 +729,7 @@ export default function Trends() {
       ) : (
         <>
           <Protocol protocol={trends?.protocol} bodyweight={trends?.bodyweight} />
+          <LatestNotes />
 
           <section className="border-t border-neutral-200 dark:border-neutral-800 pt-4">
             <h2 className="section-label mb-2">Fitness · 90 days</h2>
