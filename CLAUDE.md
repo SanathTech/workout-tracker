@@ -83,7 +83,7 @@ npm run db:seed                              # seed exercise library
 npm run db:backfill-dates                    # one-shot date repair; dry run. add `-- --apply` to write
 npm run auth:hash                            # generate AUTH_PASSWORD_HASH + SESSION_SECRET (reads stdin)
 npm run db:apply-muscles                     # populate exercise_muscles from muscles.js; dry run. add `-- --apply`
-npm test                                     # 11 suites. DATABASE_URL must be LOCAL — it truncates
+npm test                                     # 12 suites. DATABASE_URL must be LOCAL — it truncates
 npm run test:setup                           # schema + seed + muscle mapping for a fresh test database
 
 # Frontend
