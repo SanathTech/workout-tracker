@@ -263,6 +263,64 @@ console.log('\n─── suggestions are scoped to the routine ───');
   ok(Array.isArray(noRoutine.body), 'a call without a routine still returns');
 }
 
+// The range is per routine; the WEIGHT is per exercise. On 2026-09-07 Day C's own last
+// Weighted Pull-Up session (31 Aug, -23kg × 9/9/9) produced "hold -23, aim 10" while
+// Day A had already moved the load to -18kg on 3 Sep — the coach note and PREV in the
+// same card said -18. A newer session in another routine at a DIFFERENT working weight
+// is the load he is actually on, so it is graded against this routine's range; at the
+// same weight the same-routine session still wins, exactly as above.
+console.log('\n─── a moved-on weight in another routine is not ignored ───');
+{
+  // Bench Press: history is per exercise across every program, and the blocks above
+  // have already logged Squat sessions dated today.
+  const { body: prog } = await api('POST', '/api/programs', {
+    name: 'Stale weight',
+    total_weeks: 12,
+    routines: [
+      { name: 'Day A', exercises: [{ exercise_id: ex['Bench Press'], target_sets: 3, rep_range_low: 6, rep_range_high: 8 }] },
+      { name: 'Day C', exercises: [{ exercise_id: ex['Bench Press'], target_sets: 3, rep_range_low: 6, rep_range_high: 10 }] },
+    ],
+  });
+  await api('POST', `/api/programs/${prog.id}/start`);
+  const dayA = prog.routines.find((r) => r.name === 'Day A');
+  const dayC = prog.routines.find((r) => r.name === 'Day C');
+
+  const log = async (routine, weight, reps, daysAgo) => {
+    const { body: w } = await api('POST', '/api/workouts', { routine_id: routine.id });
+    await api('PUT', `/api/workouts/${w.id}`, {
+      exercises: [{ exercise_id: ex['Bench Press'], sets: reps.map((r, i) => ({ set_number: i + 1, reps: r, weight_kg: weight })) }],
+    });
+    await api('POST', `/api/workouts/${w.id}/complete`);
+    await db.query(
+      `UPDATE workouts SET date = CURRENT_DATE - $1::int, created_at = NOW() - ($1 || ' days')::interval WHERE id = $2`,
+      [daysAgo, w.id]
+    );
+  };
+
+  // Three Day C sessions fill the same-routine picks; the newest Day A must still arrive.
+  await log(dayC, 100, [8, 8, 8], 21);
+  await log(dayC, 100, [9, 9, 9], 14);
+  await log(dayC, 100, [9, 9, 9], 7);
+  await log(dayA, 105, [6, 6, 6], 4);
+
+  let { body } = await api('GET', `/api/progress/suggestions?routine_id=${dayC.id}`);
+  let sq = body.find((x) => x.exercise_name === 'Bench Press');
+  ok(sq.rep_range_high === 10, "Day C's own range still applies", `got ${sq.rep_range_high}`);
+  ok(sq.suggested_weight_kg === 105, 'the weight comes from the newer Day A session', `got ${sq.suggested_weight_kg}`);
+  ok(sq.action === 'hold' && sq.suggested_reps_next === 7, '6/6/6 at 105 against 6-10 → hold, aim 7', `${sq.action} next=${sq.suggested_reps_next}`);
+  ok(sq.last_same_routine === false && /last done on Day A/.test(sq.reason), 'the caller is told the numbers crossed routines', sq.reason);
+
+  // Same weight on the newer Day A: Day C keeps its own history (the PR #90 rule).
+  await log(dayA, 105, [8, 8, 8], 3);
+  await log(dayC, 105, [7, 7, 7], 2);
+  await log(dayA, 105, [8, 8, 8], 1);
+  ({ body } = await api('GET', `/api/progress/suggestions?routine_id=${dayC.id}`));
+  sq = body.find((x) => x.exercise_name === 'Bench Press');
+  ok(sq.last_same_routine === true && sq.suggested_weight_kg === 105 && sq.action === 'hold',
+    'same weight elsewhere → own routine still judged', `${sq.action} same=${sq.last_same_routine} w=${sq.suggested_weight_kg}`);
+  ok(sq.suggested_reps_next === 8, "aim comes from Day C's 7s, not Day A's 8s", `next=${sq.suggested_reps_next}`);
+}
+
 // Rest-aware progression. On a short-on-time day the plan is: cut rest, hold the
 // weight, let the reps fall. The engine has to know that, or every compressed office
 // Thursday reads as a plateau and a weight full-rest days already cleared is held

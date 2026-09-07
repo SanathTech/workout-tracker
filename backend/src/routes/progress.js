@@ -308,6 +308,12 @@ router.get('/suggestions', async (req, res) => {
                   ORDER BY ($1::int IS NOT NULL AND w.routine_id = $1::int) DESC,
                            w.date DESC, w.id DESC
                 ) AS pick,
+                -- Recency regardless of routine. The load ladder is per exercise, not
+                -- per routine, so the newest session anywhere always rides along even
+                -- when three same-routine sessions fill the picks (see below).
+                ROW_NUMBER() OVER (
+                  PARTITION BY we.exercise_id ORDER BY w.date DESC, w.id DESC
+                ) AS recency,
                 json_agg(json_build_object(
                   'reps', ws.reps, 'weight_kg', ws.weight_kg::float, 'rir', ws.rir,
                   'logged_at', ws.logged_at
@@ -323,12 +329,12 @@ router.get('/suggestions', async (req, res) => {
               COALESCE(
                 json_agg(json_build_object(
                   'date', s.date, 'routine_name', s.routine_name,
-                  'same_routine', s.same_routine, 'sets', s.sets
+                  'same_routine', s.same_routine, 'newest', s.recency = 1, 'sets', s.sets
                 ) ORDER BY s.pick) FILTER (WHERE s.workout_id IS NOT NULL),
                 '[]'
               ) AS sessions
          FROM prescribed p
-         LEFT JOIN sessions s ON s.exercise_id = p.exercise_id AND s.pick <= 3
+         LEFT JOIN sessions s ON s.exercise_id = p.exercise_id AND (s.pick <= 3 OR s.recency = 1)
         GROUP BY p.exercise_id, p.rep_range_low, p.rep_range_high, p.target_sets,
                  p.rest_seconds, p.exercise_name, p.is_bodyweight, p.primary_muscle
         ORDER BY p.exercise_name`,
@@ -364,7 +370,23 @@ router.get('/suggestions', async (req, res) => {
 
     const suggestions = rows.map((r) => {
       const sessions = r.sessions || [];
-      const latest = sessions[0] || null;
+      // Same-routine history first — but the range is per routine while the WEIGHT is
+      // per exercise. On 2026-09-07 Day C's own last pull-up session (31 Aug, -23kg)
+      // said "hold -23, aim 10" while Day A had already moved him to -18kg on 3 Sep:
+      // the chip contradicted the coach note and the PREV column in the same card. So
+      // when the newest session anywhere sits at a different working weight, that is
+      // the load he is actually on, and it is what gets graded — against THIS
+      // routine's range, with the scope suffix saying where the numbers came from. At
+      // the same weight the same-routine session still wins (PR #90).
+      const maxWeight = (sess) => {
+        const ws = (sess?.sets || []).map((s) => s.weight_kg).filter((w) => w != null);
+        return ws.length ? Math.max(...ws) : null;
+      };
+      const own = sessions[0] || null;
+      const newest = sessions.find((sess) => sess.newest) || null;
+      const movedOn = own && newest && newest !== own && !newest.same_routine
+        && maxWeight(newest) !== maxWeight(own);
+      const latest = movedOn ? newest : own;
       const sets = latest?.sets || [];
       const top = r.rep_range_high;
       const low = r.rep_range_low;
@@ -433,8 +455,9 @@ router.get('/suggestions', async (req, res) => {
       // against another routine's day would smuggle back the cross-routine bug.
       const latestCompressed = compressed(latest);
       const judged = (latestCompressed && workingWeight != null)
-        ? sessions.slice(1).find((sess) =>
-            sess.same_routine === latest.same_routine
+        ? sessions.find((sess) =>
+            sess !== latest
+            && sess.same_routine === latest.same_routine
             && !compressed(sess)
             && (sess.sets || []).some((s) => s.weight_kg === workingWeight)) || null
         : null;
