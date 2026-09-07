@@ -105,6 +105,19 @@ const newerId = await note({ exercise_id: ex['Squat'], note: 'Stay at 100, RIR 1
   ok(squat.cues.length === 1 && squat.cues[0].id === cueId, 'the older call is not demoted to a cue', JSON.stringify(squat.cues));
 }
 
+console.log('\n─── a call without a weight keeps the engine load ───');
+{
+  await db.query('UPDATE coach_notes SET resolved_at = NOW() WHERE id = ANY($1)', [[callId, newerId]]);
+  const rirOnly = await note({ exercise_id: ex['Squat'], note: 'Last set to RIR 0.', aim_rir: 0 });
+  const squat = (await suggestions()).find((x) => x.exercise_name === 'Squat');
+  ok(squat.aim?.source === 'coach' && squat.aim?.note_id === rirOnly, 'the RIR-only call is the aim', JSON.stringify(squat.aim));
+  ok(squat.aim?.weight_kg === 100, 'engine weight is kept when the coach does not name one', `got ${squat.aim?.weight_kg}`);
+  ok(squat.aim?.reps === 6, 'same load → engine reps borrowed', `got ${squat.aim?.reps}`);
+  ok(squat.aim?.rir === 0, 'coach RIR applies', `got ${squat.aim?.rir}`);
+  await db.query('UPDATE coach_notes SET resolved_at = NULL WHERE id = ANY($1)', [[callId, newerId]]);
+  await db.query('UPDATE coach_notes SET resolved_at = NOW() WHERE id = $1', [rirOnly]);
+}
+
 console.log('\n─── scope: internal memos and other-routine notes never show ───');
 await note({ exercise_id: ex['Squat'], note: 'Do not prescribe above 100 this block.', aim_weight_kg: 60, internal: true });
 await note({ exercise_id: ex['Squat'], routine_id: dayB, note: 'Day B squats are light.', aim_weight_kg: 70 });

@@ -21,7 +21,8 @@ const SOURCE_TAG = {
 export function formatAim(aim) {
   if (!aim) return '';
   const parts = [];
-  if (aim.weight_kg != null) {
+  // 0 kg is bodyweight (dead hang, dips at nothing added) — say the reps, not "0 kg × 45".
+  if (aim.weight_kg != null && Number(aim.weight_kg) !== 0) {
     const w = `${Math.round(aim.weight_kg * 100) / 100} kg`;
     parts.push(aim.reps != null ? `${w} × ${aim.reps}` : w);
   } else if (aim.reps != null) {

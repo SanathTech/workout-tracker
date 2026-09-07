@@ -30,12 +30,16 @@ function resolveAim(engine, notes, targetRirPerSet) {
   const cues = notes.filter((n) => !hasCall(n)).map((n) => ({ id: n.id, note: n.note }));
 
   if (call) {
-    const weight = call.aim_weight_kg != null ? Number(call.aim_weight_kg) : null;
+    // A call that leaves the weight alone ("take the last set to RIR 1") keeps the
+    // engine's load — the coach changed the effort, not the bar, and the kg ghosts must
+    // not vanish because of it. Only a named weight replaces the engine's.
+    const engineWeight = engine.suggested_weight_kg ?? null;
+    const weight = call.aim_weight_kg != null ? Number(call.aim_weight_kg) : engineWeight;
     // A coach call that names the weight but not the reps ("stay at -18") still gets a
     // rep target when the engine's number is for that same load — the engine's rung is
     // the right rung then. At a different load the engine's reps belong to a different
     // bar, so they are left off rather than guessed.
-    const sameLoad = weight == null || engine.suggested_weight_kg == null || engine.suggested_weight_kg === weight;
+    const sameLoad = weight == null || engineWeight == null || engineWeight === weight;
     return {
       aim: {
         source: 'coach',

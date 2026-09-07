@@ -450,9 +450,9 @@ function ExerciseBlock({ block, workoutId, state, onToggle, onOpenPicker, onChan
     );
   }
   if (state === 'next') {
-    const aimWeight = aim?.weight_kg != null
+    const aimWeight = aim?.weight_kg != null && Number(aim.weight_kg) !== 0
       ? `${aim.action === 'increase' ? '↑ ' : ''}${Math.round(aim.weight_kg * 100) / 100} kg`
-      : null;
+      : aim?.reps != null ? `${aim.reps} reps` : null;
     return (
       <button
         type="button"
