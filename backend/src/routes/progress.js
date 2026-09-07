@@ -453,7 +453,9 @@ router.get('/suggestions', async (req, res) => {
       // verdict comes from the most recent normal-rest session at the same weight and
       // scope instead, and says so. Same-scope only: a same-routine session judged
       // against another routine's day would smuggle back the cross-routine bug.
-      const latestCompressed = compressed(latest);
+      // The rest floor is this routine's; a session lifted from another routine was
+      // paced to that routine's floor, so it is never read as short-rest here.
+      const latestCompressed = (routineId == null || latest.same_routine) && compressed(latest);
       const judged = (latestCompressed && workingWeight != null)
         ? sessions.find((sess) =>
             sess !== latest
