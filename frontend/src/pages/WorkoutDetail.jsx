@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
-import { getWorkout, deleteWorkout, getPersonalBests } from '../api/client';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { getWorkout, deleteWorkout } from '../api/client';
 import { Skeleton } from '../components/Skeleton';
 import MainBadge from '../components/MainBadge';
 import StatusBadge from '../components/StatusBadge';
@@ -13,8 +13,6 @@ export default function WorkoutDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const goBack = useSmartBack();
-  const location = useLocation();
-  const justFinished = location.state?.justFinished === true;
   const qc = useQueryClient();
 
   const { data: workout, isLoading } = useQuery({
@@ -34,16 +32,6 @@ export default function WorkoutDetail() {
       qc.invalidateQueries({ queryKey: ['programs'] });
       navigate('/dashboard');
     },
-  });
-
-  // PRs set in this workout, derived from the personal-bests list — a best whose date is
-  // this workout's day, for an exercise this workout contains, was set here. No new
-  // backend surface needed.
-  const { data: pbs = [] } = useQuery({
-    queryKey: ['personal-bests'],
-    queryFn: getPersonalBests,
-    enabled: justFinished,
-    staleTime: 0,
   });
 
   if (isLoading) return <WorkoutDetailSkeleton />;
@@ -96,24 +84,6 @@ export default function WorkoutDetail() {
         <p className="text-sm text-neutral-400">
           You skipped this session. It holds its place in the program sequence but counts toward no stats.
         </p>
-      )}
-
-      {justFinished && !isSkipped && (
-        <section className="border-l-2 border-l-emerald-500 pl-3 py-1.5">
-          <p className="section-label text-emerald-400">Workout complete</p>
-          {(() => {
-            const ids = new Set((workout.exercises || []).map((e) => e.exercise_id));
-            const prs = pbs.filter((pb) => pb.date === workout.date && ids.has(pb.exercise_id));
-            return prs.length > 0 ? (
-              <p className="text-sm mt-0.5">
-                {prs.length === 1 ? 'New personal best' : `${prs.length} new personal bests`}:{' '}
-                {prs.map((pr) => `${pr.exercise_name} ${formatKg(pr.best_weight)} × ${pr.reps}`).join(', ')}
-              </p>
-            ) : (
-              <p className="text-sm text-neutral-400 mt-0.5">Logged and saved. See you next session.</p>
-            );
-          })()}
-        </section>
       )}
 
       {/* The rating is asked for on Finish now, in a sheet that cannot be scrolled past.

@@ -25,7 +25,8 @@ backend/
       exercises.js           Library CRUD + groups
       programs.js            Programs CRUD + /start /end /active
       workouts.js            Workouts (start from routine, update, complete, history)
-      progress.js            Stats, weekly volume, per-exercise progress, PRs
+      progress.js            Stats, weekly volume, per-exercise progress, PRs, /suggestions
+    util/aim.js              Aim precedence for /suggestions: coach load-call beats the engine
   vercel.json                Legacy v2 config (see Deployment — don't "modernize")
 frontend/
   src/
@@ -35,13 +36,15 @@ frontend/
       CheckinCard.jsx        Daily check-in (mood/energy/soreness + evening-ramp toggles) — on Home; each half folds to one line once answered
       WeekPlan.jsx           Mon–Sun plan from /api/coach/week — on Home; one line per day, tap to expand
       LatestNotes.jsx        Newest body notes (from /api/coach/week) — on Trends
+      AimLine.jsx            The ONE "Aim 52.5 kg × 6 · RIR 1 · ENGINE|COACH · why ›" line + sheets
+      FinishSheet.jsx        Post-Finish summary (duration/sets/volume/↑/★) + RPE grid
     pages/
       Dashboard.jsx          Home: in-progress/"Up next" card, check-in, week plan, recent workouts
       Trends.jsx             Read-only recovery + endurance data, latest notes, weight goal, weekly review
       Progress.jsx           "Lifts" tab: volume charts + exercise progress + PRs (Recharts)
       More.jsx               Overflow: Program, Exercises, History
       Program.jsx            View/edit active program; switch between programs
-      WorkoutSession.jsx     /session/:id — log sets, swap exercises, finish
+      WorkoutSession.jsx     /session/:id — sticky header + progress bar, 3-state exercise list, ledger
       WorkoutDetail.jsx      /workouts/:id — read-only past workout
       ExerciseLibrary.jsx    Browse/add exercises
     components/ui.jsx        Page / Section / Disclosure / Sheet primitives (2026-09-08)
@@ -200,9 +203,26 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
 - **Back buttons use `useSmartBack(fallback)`**, never a hard-coded Link — a workout opened
   from History must return to History. The hook falls back when the tab has no in-app
   history (deep link / PWA cold start).
-- **The Detail page's completion band keys off `location.state.justFinished`**, set only by
-  the session's Finish navigation. PRs-today are derived client-side from
-  `/progress/personal-bests` dates — don't add a dedicated endpoint for it.
+- **Finish ends in a sheet, not a banner.** `FinishSheet` (duration · sets · volume,
+  progressions ↑ from the cached `last-by-exercise` rows, PRs ★ from `/progress/personal-bests`
+  filtered to today's date, RPE grid) is built client-side in `buildSummary` and shown over
+  the session; Done navigates to the detail page. There is no `location.state.justFinished`
+  any more and no dedicated PR endpoint — don't add either back.
+- **The session has ONE aim line per exercise, resolved server-side.** `/suggestions` returns
+  the engine verdict plus `aim {source: 'engine'|'coach', weight_kg, reps, reps_high, rir, why,
+  action, engine_reason, note_id}` and `cues [{id, note}]` (`backend/src/util/aim.js`). A coach
+  note with any of `aim_weight_kg / aim_reps / aim_rir` set IS the aim and suppresses the engine
+  number (its reason rides along as `engine_reason` for the why-sheet); notes without numbers
+  are cues. Newest aim-carrying note wins. The ledger ghosts come from `aim`, so a coach call
+  changes what the empty cells show. `coach_notes.internal = true` hides coach-to-coach memos
+  from both `/coach/notes` and `/suggestions` — set it rather than deleting the memo.
+- **Exercise blocks have three states, decided by the page, not the block.** `done` (every
+  set has reps) collapses to `✓ name · 40 × 8 · 7 · 6`; `next` is a muted one-liner with the
+  prescription and aim weight; exactly one block is `open` — the pinned one if the user tapped,
+  otherwise the first not-done. The pin clears itself when that exercise becomes done, so
+  logging flows down the list without taps. `+ Add exercise`, workout notes and Skip live in
+  the header's ⋯ menu; there is no bottom bar and no save sentence in the body (the dot in the
+  header sub-line is the save status; a red one is a retry button).
 - **The session's unsaved edits live in `localStorage`, not the query cache.** `util/draft.js`
   writes the pending payload *and* a snapshot of the workout shape on every edit, and clears
   it only when the server confirms that exact payload. A surviving draft therefore means
