@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { saveSessionFeel } from '../api/client';
 import { Sheet } from './ui';
@@ -40,13 +40,6 @@ export default function FinishSheet({ workoutId, title, facts, progressions = []
     closedRef.current = true;
     onDone();
   };
-
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') close(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const pick = (n) => {
     setPicked(n);
