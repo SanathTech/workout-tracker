@@ -24,11 +24,11 @@ export default class ErrorBoundary extends Component {
       <div className="min-h-screen flex items-center justify-center px-4">
         <div className="card w-full max-w-md space-y-3">
           <h1 className="text-lg font-semibold tracking-tight">Something broke</h1>
-          <p className="text-sm text-neutral-500 dark:text-neutral-400">
+          <p className="text-sm text-neutral-400">
             The page failed to render. Anything you logged is saved on this device and will
             sync once you’re back online.
           </p>
-          <p className="text-xs font-mono text-red-600 dark:text-red-400 break-words">
+          <p className="text-xs font-mono text-red-400 break-words">
             {this.state.error?.message || String(this.state.error)}
           </p>
           <div className="flex gap-2 pt-1">

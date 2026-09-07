@@ -35,7 +35,7 @@ export default function Program() {
   if (editing) {
     return (
       <div className="space-y-3">
-        <button onClick={() => setEditing(null)} className="text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 inline-flex items-center min-h-11 md:min-h-0 -ml-1 pl-1">← Back</button>
+        <button onClick={() => setEditing(null)} className="text-sm text-neutral-400 hover:text-neutral-200 inline-flex items-center min-h-11 md:min-h-0 -ml-1 pl-1">← Back</button>
         <h1 className="text-2xl font-semibold tracking-tight">{editing === 'new' ? 'New program' : 'Edit program'}</h1>
         <ProgramEditor
           initial={editing === 'new' ? null : editing}
@@ -69,7 +69,7 @@ export default function Program() {
       {noPrograms && (
         <section>
           <p className="font-semibold">No programs yet</p>
-          <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">Create one to get started.</p>
+          <p className="text-sm text-neutral-400 mt-1">Create one to get started.</p>
           <button onClick={() => setEditing('new')} className="btn-primary mt-4">Create your first program</button>
         </section>
       )}
@@ -105,7 +105,7 @@ function ProgramSkeleton() {
         <Skeleton className="h-11 w-full" />
       </div>
       {[0, 1, 2].map((i) => (
-        <div key={i} className="space-y-2 pt-3 border-t border-neutral-200 dark:border-neutral-800">
+        <div key={i} className="space-y-2 pt-3 border-t border-neutral-800">
           <Skeleton className="h-4 w-32" />
           <Skeleton className="h-3 w-48" />
           <Skeleton className="h-3 w-44" />

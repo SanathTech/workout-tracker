@@ -60,16 +60,16 @@ export default function CheckinCard({ compact = false }) {
   ];
   const rampDone = checkin && RAMP.every(({ field }) => checkin[field] != null);
   const foldLink = (text, onClick) => (
-    <button type="button" onClick={onClick} className="text-xs text-neutral-500 dark:text-neutral-400 underline-offset-2 hover:underline min-h-11 md:min-h-0 pl-3 shrink-0">
+    <button type="button" onClick={onClick} className="text-xs text-neutral-400 underline-offset-2 hover:underline min-h-11 md:min-h-0 pl-3 shrink-0">
       {text}
     </button>
   );
 
   return (
-    <section className={compact ? '' : 'border-t border-neutral-200 dark:border-neutral-800 pt-4'}>
+    <section className={compact ? '' : 'border-t border-neutral-800 pt-4'}>
       <div className="flex items-baseline justify-between mb-1">
         <h2 className="section-label">Today’s check-in</h2>
-        {done && <span className="text-[11px] text-emerald-700 dark:text-emerald-400">Saved</span>}
+        {done && <span className="text-[11px] text-emerald-400">Saved</span>}
       </div>
 
       {isLoading ? (
@@ -78,7 +78,7 @@ export default function CheckinCard({ compact = false }) {
         <>
           {ratingsDone && !ratingsOpen ? (
             <div className="flex items-center justify-between py-1.5">
-              <p className="text-sm text-neutral-700 dark:text-neutral-300 tabular-nums">
+              <p className="text-sm text-neutral-300 tabular-nums">
                 Mood {checkin.mood} · Energy {checkin.energy} · Soreness {checkin.soreness}
               </p>
               {foldLink('edit', () => setRatingsOpen(true))}
@@ -109,13 +109,13 @@ export default function CheckinCard({ compact = false }) {
               an answer can be changed but not cleared, and unanswered stays unanswered —
               the coach reads NULL as unknown, never as a broken rule. Best answered at
               the 21:30 wind-down ping, when all three are known. */}
-          <div className="mt-1 pt-2 border-t border-neutral-100 dark:border-neutral-900">
+          <div className="mt-1 pt-2 border-t border-neutral-800">
             {rampDone && !rampOpen ? (
               <div className="flex items-center justify-between py-1.5">
-                <p className="text-sm text-neutral-700 dark:text-neutral-300">
-                  <span className="text-[11px] text-neutral-500 dark:text-neutral-400 mr-2">Evening ramp</span>
+                <p className="text-sm text-neutral-300">
+                  <span className="text-[11px] text-neutral-400 mr-2">Evening ramp</span>
                   {RAMP.map(({ field, label }) => (
-                    <span key={field} className={`mr-2 ${checkin[field] ? '' : 'text-amber-700 dark:text-amber-500'}`}>
+                    <span key={field} className={`mr-2 ${checkin[field] ? '' : 'text-amber-400'}`}>
                       {label} {checkin[field] ? '✓' : '✗'}
                     </span>
                   ))}
@@ -124,7 +124,7 @@ export default function CheckinCard({ compact = false }) {
               </div>
             ) : (
             <>
-            <div className="text-[11px] text-neutral-500 dark:text-neutral-400 mb-1">
+            <div className="text-[11px] text-neutral-400 mb-1">
               Evening ramp
             </div>
             {RAMP.map(({ field, label, hint }) => {
@@ -132,8 +132,8 @@ export default function CheckinCard({ compact = false }) {
               return (
                 <div key={field} className="flex items-center gap-3 py-1">
                   <div className="w-20 shrink-0">
-                    <div className="text-sm text-neutral-700 dark:text-neutral-300">{label}</div>
-                    <div className="text-[11px] text-neutral-500 dark:text-neutral-400">{hint}</div>
+                    <div className="text-sm text-neutral-300">{label}</div>
+                    <div className="text-[11px] text-neutral-400">{hint}</div>
                   </div>
                   <div className="flex gap-1 flex-1">
                     {[
@@ -151,9 +151,9 @@ export default function CheckinCard({ compact = false }) {
                           className={`flex-1 min-h-11 md:min-h-9 rounded-md text-sm font-medium transition-colors ${
                             active
                               ? val
-                                ? 'bg-emerald-600 text-white dark:bg-emerald-500 dark:text-neutral-950'
-                                : 'bg-amber-600 text-white dark:bg-amber-500 dark:text-neutral-950'
-                              : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200 dark:bg-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800'
+                                ? 'bg-emerald-500 text-neutral-950'
+                                : 'bg-amber-500 text-neutral-950'
+                              : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800'
                           }`}
                         >
                           {text}
@@ -170,7 +170,7 @@ export default function CheckinCard({ compact = false }) {
           </div>
 
           {checkin?.note && !noteOpen ? (
-            <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-2 italic">“{checkin.note}”</p>
+            <p className="text-sm text-neutral-400 mt-2 italic">“{checkin.note}”</p>
           ) : null}
 
           {noteOpen ? (
@@ -214,7 +214,7 @@ export default function CheckinCard({ compact = false }) {
           )}
 
           {save.isError && (
-            <p className="text-xs text-red-600 dark:text-red-400 mt-1">Couldn’t save that — try again.</p>
+            <p className="text-xs text-red-400 mt-1">Couldn’t save that — try again.</p>
           )}
         </>
       )}

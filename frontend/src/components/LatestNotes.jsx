@@ -10,13 +10,13 @@ export default function LatestNotes() {
   const notes = data?.latest_notes || [];
   if (!notes.length) return null;
   return (
-    <section className="border-t border-neutral-200 dark:border-neutral-800 pt-4">
+    <section className="border-t border-neutral-800 pt-4">
       <h2 className="section-label">Latest notes</h2>
       <ul className="mt-1.5 space-y-2">
         {notes.map((n, i) => (
           <li key={`${n.date}-${i}`}>
-            <p className="text-sm text-neutral-800 dark:text-neutral-200">“{n.note}”</p>
-            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+            <p className="text-sm text-neutral-200">“{n.note}”</p>
+            <p className="text-xs text-neutral-400 mt-0.5">
               {n.when} · {n.source}
             </p>
           </li>

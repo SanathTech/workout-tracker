@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -8,32 +8,12 @@ import { getStats, getVolumeProgress, getExerciseProgress, getPersonalBests, get
 import { Skeleton } from '../components/Skeleton';
 import ExercisePickerSheet from '../components/ExercisePickerSheet';
 import { ChevronIcon } from '../components/icons';
-import { formatDay, formatKg } from '../utils/format';
+import { formatDay, formatKg } from '../util/format';
 import MuscleVolume from '../components/MuscleVolume';
 import BodyweightCard from '../components/BodyweightCard';
 
-const ACCENT_LIGHT = '#171717';   // neutral-900
-const ACCENT_DARK = '#e5e5e5';    // neutral-200
-const GRID_LIGHT = '#e5e5e5';
-const GRID_DARK = '#262626';
-
-function useChartTheme() {
-  const [dark, setDark] = useState(
-    () => typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
-  );
-  useEffect(() => {
-    const el = document.documentElement;
-    const obs = new MutationObserver(() => setDark(el.classList.contains('dark')));
-    obs.observe(el, { attributes: true, attributeFilter: ['class'] });
-    return () => obs.disconnect();
-  }, []);
-  return {
-    accent: dark ? ACCENT_DARK : ACCENT_LIGHT,
-    accentAlt: dark ? '#a3a3a3' : '#737373',
-    grid: dark ? GRID_DARK : GRID_LIGHT,
-    text: dark ? '#a3a3a3' : '#737373',
-  };
-}
+// Chart ink for the one (dark) theme: neutral-200 line, neutral-400 text, neutral-800 grid.
+const CHART = { accent: '#e5e5e5', accentAlt: '#a3a3a3', grid: '#262626', text: '#a3a3a3' };
 
 function StatCard({ label, value, unit, loading }) {
   return (
@@ -44,7 +24,7 @@ function StatCard({ label, value, unit, loading }) {
       ) : (
         <p className="text-2xl font-semibold mt-0.5 tabular-nums">
           {value}
-          {unit && <span className="text-sm font-normal text-neutral-500 dark:text-neutral-400 ml-1">{unit}</span>}
+          {unit && <span className="text-sm font-normal text-neutral-400 ml-1">{unit}</span>}
         </p>
       )}
     </div>
@@ -55,7 +35,7 @@ export default function Progress() {
   const [weeks, setWeeks] = useState(12);
   const [selectedExerciseId, setSelectedExerciseId] = useState('');
   const [pickerOpen, setPickerOpen] = useState(false);
-  const theme = useChartTheme();
+  const theme = CHART;
 
   const { data: stats, isLoading: statsLoading } = useQuery({ queryKey: ['stats'], queryFn: getStats, staleTime: 10 * 60_000 });
   const { data: volumeData = [], isLoading: volumeLoading } = useQuery({
@@ -104,12 +84,12 @@ export default function Progress() {
         />
       </div>
 
-      <section className="border-t border-neutral-200 dark:border-neutral-800 pt-4">
+      <section className="border-t border-neutral-800 pt-4">
         <h2 className="section-label mb-4">Weekly training volume (kg)</h2>
         {volumeLoading ? (
           <Skeleton className="h-[240px] w-full" />
         ) : volumeData.length === 0 ? (
-          <p className="text-center text-neutral-500 dark:text-neutral-400 py-12 text-sm">Log workouts to see volume trends.</p>
+          <p className="text-center text-neutral-400 py-12 text-sm">Log workouts to see volume trends.</p>
         ) : (
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={volumeData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
@@ -127,28 +107,28 @@ export default function Progress() {
         )}
       </section>
 
-      <section className="border-t border-neutral-200 dark:border-neutral-800 pt-4 space-y-4">
+      <section className="border-t border-neutral-800 pt-4 space-y-4">
         <div className="flex items-center justify-between gap-3">
           <h2 className="section-label shrink-0">Exercise progress</h2>
           <button
             type="button"
             onClick={() => setPickerOpen(true)}
-            className="flex items-center gap-1.5 text-left min-w-0 max-w-[60%] px-3 min-h-11 md:min-h-0 md:py-1.5 rounded border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
+            className="flex items-center gap-1.5 text-left min-w-0 max-w-[60%] px-3 min-h-11 md:min-h-0 md:py-1.5 rounded border border-neutral-800 hover:bg-neutral-900 transition-colors"
           >
-            <span className={`flex-1 min-w-0 truncate text-sm ${selectedExerciseId ? 'text-neutral-900 dark:text-neutral-200' : 'text-neutral-500 dark:text-neutral-400'}`}>
+            <span className={`flex-1 min-w-0 truncate text-sm ${selectedExerciseId ? 'text-neutral-200' : 'text-neutral-400'}`}>
               {selectedExerciseId
                 ? allExercises.find((e) => String(e.id) === String(selectedExerciseId))?.name || 'Pick an exercise'
                 : 'Pick an exercise'}
             </span>
-            <span className="text-neutral-400 dark:text-neutral-400 shrink-0"><ChevronIcon /></span>
+            <span className="text-neutral-400 shrink-0"><ChevronIcon /></span>
           </button>
         </div>
         {!selectedExerciseId ? (
-          <p className="text-center text-neutral-500 dark:text-neutral-400 py-12 text-sm">Select an exercise to see your progress.</p>
+          <p className="text-center text-neutral-400 py-12 text-sm">Select an exercise to see your progress.</p>
         ) : exerciseProgressLoading ? (
           <Skeleton className="h-[240px] w-full" />
         ) : exerciseProgress.length === 0 ? (
-          <p className="text-center text-neutral-500 dark:text-neutral-400 py-12 text-sm">No data for this exercise in the selected period.</p>
+          <p className="text-center text-neutral-400 py-12 text-sm">No data for this exercise in the selected period.</p>
         ) : (
           <ResponsiveContainer width="100%" height={240}>
             <LineChart data={exerciseProgress} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
@@ -169,19 +149,19 @@ export default function Progress() {
         )}
       </section>
 
-      <section className="border-t border-neutral-200 dark:border-neutral-800 pt-4">
+      <section className="border-t border-neutral-800 pt-4">
         <h2 className="section-label mb-2">Personal bests</h2>
         {pbsLoading ? (
           <div className="space-y-2 py-2">
             {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-7 w-full" />)}
           </div>
         ) : pbs.length === 0 ? (
-          <p className="text-center text-neutral-500 dark:text-neutral-400 py-8 text-sm">Log workouts to see your personal bests.</p>
+          <p className="text-center text-neutral-400 py-8 text-sm">Log workouts to see your personal bests.</p>
         ) : (
           <>
             {/* Six columns don't fit a phone, and `w-full` meant the overflow container
                 never scrolled — it just squashed every cell into a two-line wrap. */}
-            <ul className="md:hidden divide-y divide-neutral-200 dark:divide-neutral-800">
+            <ul className="md:hidden divide-y divide-neutral-800">
               {pbs.map((pb) => (
                 <li key={pb.exercise_id} className="py-2.5">
                   <div className="flex items-baseline justify-between gap-3">
@@ -190,7 +170,7 @@ export default function Progress() {
                       {pb.best_weight != null ? formatKg(pb.best_weight) : 'BW'} × {pb.reps}
                     </span>
                   </div>
-                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+                  <p className="text-xs text-neutral-400 mt-0.5">
                     {pb.muscle_group}
                     {pb.est_1rm != null && ` · ${formatKg(pb.est_1rm)} e1RM`}
                     {' · '}
@@ -202,7 +182,7 @@ export default function Progress() {
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400 border-b border-neutral-200 dark:border-neutral-800">
+                  <tr className="text-left text-xs uppercase tracking-wide text-neutral-400 border-b border-neutral-800">
                     <th className="pb-2 font-medium">Exercise</th>
                     <th className="pb-2 font-medium">Muscle</th>
                     <th className="pb-2 font-medium">Best</th>
@@ -213,13 +193,13 @@ export default function Progress() {
                 </thead>
                 <tbody>
                   {pbs.map((pb) => (
-                    <tr key={pb.exercise_id} className="border-t border-neutral-200 dark:border-neutral-800">
+                    <tr key={pb.exercise_id} className="border-t border-neutral-800">
                       <td className="py-2 font-medium">{pb.exercise_name}</td>
-                      <td className="py-2 text-neutral-500 dark:text-neutral-400">{pb.muscle_group}</td>
+                      <td className="py-2 text-neutral-400">{pb.muscle_group}</td>
                       <td className="py-2 font-semibold">{pb.best_weight != null ? formatKg(pb.best_weight) : 'BW'}</td>
                       <td className="py-2">{pb.reps}</td>
-                      <td className="py-2 text-neutral-500 dark:text-neutral-400">{formatKg(pb.est_1rm)}</td>
-                      <td className="py-2 text-neutral-500 dark:text-neutral-400">
+                      <td className="py-2 text-neutral-400">{formatKg(pb.est_1rm)}</td>
+                      <td className="py-2 text-neutral-400">
                         {formatDay(pb.date, { month: 'short', day: 'numeric', year: 'numeric' })}
                       </td>
                     </tr>

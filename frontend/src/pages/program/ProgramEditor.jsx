@@ -129,13 +129,13 @@ export default function ProgramEditor({ initial, onCancel, onSaved }) {
           <input type="number" min="1" step="1" className="input" value={totalWeeks}
             placeholder="ongoing"
             onChange={(e) => setTotalWeeks(e.target.value)} />
-          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">Leave blank for an ongoing program.</p>
+          <p className="text-xs text-neutral-400 mt-1">Leave blank for an ongoing program.</p>
         </div>
       </section>
 
       <div>
         <h2 className="section-label mb-1">Routines</h2>
-        <div className="divide-y divide-neutral-200 dark:divide-neutral-800 border-t border-neutral-200 dark:border-neutral-800">
+        <div className="divide-y divide-neutral-800 border-t border-neutral-800">
         {routines.map((r, i) => (
           <RoutineEditor
             key={r.client_id}
@@ -158,10 +158,10 @@ export default function ProgramEditor({ initial, onCancel, onSaved }) {
       </div>
 
       <div className="h-20" aria-hidden="true" />
-      <div className="fixed bottom-0 inset-x-0 z-20 bg-white dark:bg-neutral-950 border-t border-neutral-200 dark:border-neutral-900 pb-[env(safe-area-inset-bottom)]">
+      <div className="fixed bottom-0 inset-x-0 z-20 bg-neutral-950 border-t border-neutral-800 pb-[env(safe-area-inset-bottom)]">
         <div className="max-w-2xl mx-auto px-4">
           {(error || save.isError) && (
-            <p className="pt-2 text-xs text-red-600 dark:text-red-400" role="alert">
+            <p className="pt-2 text-xs text-red-400" role="alert">
               {error || 'Could not save the program — try again.'}
             </p>
           )}

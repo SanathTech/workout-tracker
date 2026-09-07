@@ -32,7 +32,7 @@ export default function MoreMenu({ label, items }) {
         onClick={() => setOpen((v) => !v)}
         aria-label={label}
         aria-expanded={open}
-        className="w-11 h-11 -mr-2 flex items-center justify-center rounded text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
+        className="w-11 h-11 -mr-2 flex items-center justify-center rounded text-neutral-400 hover:text-neutral-200"
       >
         <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
           <circle cx="12" cy="5" r="1.6" />
@@ -43,7 +43,7 @@ export default function MoreMenu({ label, items }) {
       {open && (
         <>
           <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} aria-hidden="true" />
-          <div className="absolute right-0 top-11 z-30 w-48 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-lg py-1 text-sm">
+          <div className="absolute right-0 top-11 z-30 w-48 rounded-lg border border-neutral-800 bg-neutral-900 shadow-lg py-1 text-sm">
             {visible.map((item, i) => (
               <button
                 key={item.label}
@@ -51,8 +51,8 @@ export default function MoreMenu({ label, items }) {
                 onClick={() => pick(item, i)}
                 className={`w-full text-left px-3 h-11 ${
                   item.danger
-                    ? 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40'
-                    : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                    ? 'text-red-400 hover:bg-red-950/40'
+                    : 'text-neutral-300 hover:bg-neutral-800'
                 }`}
               >
                 {item.confirm && armed === i ? item.confirm : item.label}

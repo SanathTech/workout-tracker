@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { startProgram, endProgram, deleteProgram, startWorkout, skipUpcomingWorkout } from '../../api/client';
-import { formatRestRange, formatWarmup } from '../../utils/format';
+import { formatRestRange, formatWarmup } from '../../util/format';
 import { ChevronIcon } from '../../components/icons';
 import MainBadge from '../../components/MainBadge';
 import MoreMenu from '../../components/MoreMenu';
@@ -82,7 +82,7 @@ export default function ProgramView({ program, onEdit, onDeleted }) {
             <span className="tag">{program.total_weeks ? `${program.total_weeks} weeks` : 'Ongoing'}</span>
             <span className="tag">{program.routines.length} routines</span>
             <span className={isActive
-              ? 'tag !bg-emerald-100 !text-emerald-800 dark:!bg-emerald-500/15 dark:!text-emerald-400'
+              ? 'tag !bg-emerald-500/15 !text-emerald-400'
               : 'tag'}>{program.status}</span>
           </div>
           {program.description && <ClampedDescription text={program.description} />}
@@ -117,11 +117,11 @@ export default function ProgramView({ program, onEdit, onDeleted }) {
           </button>
         )}
         {(endMut.isPending || deleteMut.isPending) && (
-          <p className="text-xs text-neutral-500 dark:text-neutral-400">{endMut.isPending ? 'Ending…' : 'Deleting…'}</p>
+          <p className="text-xs text-neutral-400">{endMut.isPending ? 'Ending…' : 'Deleting…'}</p>
         )}
       </section>
 
-      <div className="divide-y divide-neutral-200 dark:divide-neutral-800 border-t border-neutral-200 dark:border-neutral-800">
+      <div className="divide-y divide-neutral-800 border-t border-neutral-800">
       {program.routines.map((r, i) => {
         const open = openRoutines.has(r.id);
         const isNext = nextRoutine?.id === r.id;
@@ -136,26 +136,26 @@ export default function ProgramView({ program, onEdit, onDeleted }) {
               aria-expanded={open}
               className="flex items-center gap-2 w-full text-left min-h-11"
             >
-              <span className="text-sm text-neutral-500 dark:text-neutral-400 w-6 shrink-0">{String(i + 1).padStart(2, '0')}</span>
+              <span className="text-sm text-neutral-400 w-6 shrink-0">{String(i + 1).padStart(2, '0')}</span>
               <span className="flex-1 min-w-0">
                 <span className="flex items-center gap-2">
                   <h2 className="font-semibold truncate">{r.name}</h2>
                   {isNext && <span className="badge-solid shrink-0">Next</span>}
                 </span>
-                <span className="block text-xs text-neutral-500 dark:text-neutral-400">
+                <span className="block text-xs text-neutral-400">
                   {r.exercises.length} exercises
                 </span>
               </span>
-              <span className="text-neutral-400 dark:text-neutral-400 shrink-0"><ChevronIcon open={open} /></span>
+              <span className="text-neutral-400 shrink-0"><ChevronIcon open={open} /></span>
             </button>
             {open && (
               <div className="space-y-2 mt-1 mb-3">
                 {r.exercises.map((ex) => {
                   const warmup = formatWarmup(ex.warmup_sets_low, ex.warmup_sets_high);
                   return (
-                  <div key={ex.id} className={`flex items-start gap-3 text-sm border-t border-neutral-200 dark:border-neutral-800 pt-2 ${ex.is_main ? 'pl-2 border-l-2 border-l-amber-400 dark:border-l-amber-500/60' : ''}`}>
+                  <div key={ex.id} className={`flex items-start gap-3 text-sm border-t border-neutral-800 pt-2 ${ex.is_main ? 'pl-2 border-l-2 border-l-amber-500/60' : ''}`}>
                     <div className="flex-1">
-                      <p className="font-medium text-neutral-900 dark:text-neutral-100 flex items-center gap-1.5">
+                      <p className="font-medium text-neutral-200 flex items-center gap-1.5">
                         <span className="truncate">{ex.exercise_name}</span>
                         {ex.is_main && <MainBadge className="shrink-0" />}
                       </p>
@@ -171,9 +171,9 @@ export default function ProgramView({ program, onEdit, onDeleted }) {
                         )}
                         {warmup && <span className="tag">{warmup}</span>}
                       </div>
-                      {ex.notes && <p className="text-xs text-neutral-500 dark:text-neutral-400 italic mt-0.5">{ex.notes}</p>}
+                      {ex.notes && <p className="text-xs text-neutral-400 italic mt-0.5">{ex.notes}</p>}
                       {ex.substitutes?.length > 0 && (
-                        <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+                        <p className="text-xs text-neutral-400 mt-0.5">
                           Subs: {ex.substitutes.map((s) => s.exercise_name).join(', ')}
                         </p>
                       )}
@@ -207,7 +207,7 @@ function ClampedDescription({ text }) {
     <div>
       <p
         ref={ref}
-        className={`text-sm text-neutral-500 dark:text-neutral-400 whitespace-pre-line ${expanded ? '' : 'line-clamp-2'}`}
+        className={`text-sm text-neutral-400 whitespace-pre-line ${expanded ? '' : 'line-clamp-2'}`}
       >
         {text}
       </p>
@@ -215,7 +215,7 @@ function ClampedDescription({ text }) {
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="text-xs font-medium text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 inline-flex items-center min-h-11 md:min-h-0"
+          className="text-xs font-medium text-neutral-400 hover:text-neutral-200 inline-flex items-center min-h-11 md:min-h-0"
         >
           {expanded ? 'Show less' : 'Show more'}
         </button>

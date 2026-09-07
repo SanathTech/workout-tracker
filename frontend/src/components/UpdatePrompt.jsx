@@ -16,7 +16,7 @@ export default function UpdatePrompt() {
 
   return (
     <div className="fixed inset-x-0 top-0 z-50 px-4 pt-[calc(env(safe-area-inset-top)+0.5rem)] pointer-events-none">
-      <div className="max-w-2xl mx-auto rounded-lg border border-neutral-700 bg-neutral-900 text-white shadow-lg flex items-center gap-3 px-3 py-2 pointer-events-auto">
+      <div className="max-w-2xl mx-auto rounded-lg border border-neutral-800 bg-neutral-900 text-white shadow-lg flex items-center gap-3 px-3 py-2 pointer-events-auto">
         <span className="text-sm flex-1">A new version is ready.</span>
         <button
           type="button"

@@ -7,7 +7,7 @@ import StatusBadge from '../components/StatusBadge';
 import MoreMenu from '../components/MoreMenu';
 import SessionFeel from '../components/SessionFeel';
 import { useSmartBack } from '../hooks/useSmartBack';
-import { formatDay, formatKg } from '../utils/format';
+import { formatDay, formatKg } from '../util/format';
 
 export default function WorkoutDetail() {
   const { id } = useParams();
@@ -47,7 +47,7 @@ export default function WorkoutDetail() {
   });
 
   if (isLoading) return <WorkoutDetailSkeleton />;
-  if (!workout) return <p className="text-center text-neutral-500 dark:text-neutral-400 py-20">Workout not found.</p>;
+  if (!workout) return <p className="text-center text-neutral-400 py-20">Workout not found.</p>;
 
   const isSkipped = workout.status === 'skipped';
   const isCompleted = workout.status === 'completed';
@@ -58,15 +58,15 @@ export default function WorkoutDetail() {
   );
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <button type="button" onClick={goBack} className="text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 inline-flex items-center min-h-11 md:min-h-0 -ml-1 pl-1">← Back</button>
+          <button type="button" onClick={goBack} className="text-sm text-neutral-400 hover:text-neutral-200 inline-flex items-center min-h-11 md:min-h-0 -ml-1 pl-1">← Back</button>
           <h1 className="text-2xl font-semibold tracking-tight mt-1">
             {workout.routine_name || 'Workout'}
             <StatusBadge status={workout.status} className="ml-2 align-middle" />
           </h1>
-          <p className="text-sm text-neutral-500 dark:text-neutral-400">
+          <p className="text-sm text-neutral-400">
             {formatDay(workout.date, {
               weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
             })}
@@ -93,14 +93,14 @@ export default function WorkoutDetail() {
       </div>
 
       {isSkipped && (
-        <p className="text-sm text-neutral-600 dark:text-neutral-400">
+        <p className="text-sm text-neutral-400">
           You skipped this session. It holds its place in the program sequence but counts toward no stats.
         </p>
       )}
 
       {justFinished && !isSkipped && (
         <section className="border-l-2 border-l-emerald-500 pl-3 py-1.5">
-          <p className="section-label text-emerald-700 dark:text-emerald-400">Workout complete</p>
+          <p className="section-label text-emerald-400">Workout complete</p>
           {(() => {
             const ids = new Set((workout.exercises || []).map((e) => e.exercise_id));
             const prs = pbs.filter((pb) => pb.date === workout.date && ids.has(pb.exercise_id));
@@ -110,7 +110,7 @@ export default function WorkoutDetail() {
                 {prs.map((pr) => `${pr.exercise_name} ${formatKg(pr.best_weight)} × ${pr.reps}`).join(', ')}
               </p>
             ) : (
-              <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-0.5">Logged and saved. See you next session.</p>
+              <p className="text-sm text-neutral-400 mt-0.5">Logged and saved. See you next session.</p>
             );
           })()}
         </section>
@@ -139,11 +139,11 @@ export default function WorkoutDetail() {
       {workout.notes && (
         <section>
           <p className="section-label mb-1">Notes</p>
-          <p className="text-sm text-neutral-700 dark:text-neutral-300">{workout.notes}</p>
+          <p className="text-sm text-neutral-300">{workout.notes}</p>
         </section>
       )}
 
-      <div className="divide-y divide-neutral-200 dark:divide-neutral-800 border-t border-neutral-200 dark:border-neutral-800">
+      <div className="divide-y divide-neutral-800 border-t border-neutral-800">
         {workout.exercises?.map((ex) => (
           <section key={ex.exercise_id} className="py-3 space-y-2">
             <div>
@@ -155,11 +155,11 @@ export default function WorkoutDetail() {
             </div>
             {ex.sets.length === 0 ? (
               // A full table header over zero rows read as a rendering fault. Say it plainly.
-              <p className="text-sm text-neutral-500 dark:text-neutral-400">Not logged.</p>
+              <p className="text-sm text-neutral-400">Not logged.</p>
             ) : (
             <table className="w-full text-sm tabular-nums">
               <thead>
-                <tr className="text-left text-[11px] font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                <tr className="text-left text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
                   <th className="pb-1 font-semibold w-8">Set</th>
                   <th className="pb-1 font-semibold">Weight</th>
                   <th className="pb-1 font-semibold">Reps</th>
@@ -187,12 +187,12 @@ export default function WorkoutDetail() {
                     : null;
                   return (
                     <tr key={set.id}>
-                      <td className="py-1.5 text-xs text-neutral-500 dark:text-neutral-400">{set.set_number}</td>
+                      <td className="py-1.5 text-xs text-neutral-400">{set.set_number}</td>
                       <td className="py-1.5">{formatKg(set.weight_kg)}</td>
                       <td className="py-1.5">{set.reps ?? '—'}</td>
                       <td className="py-1.5">{rir ?? '—'}</td>
-                      <td className="py-1.5 text-xs text-neutral-500 dark:text-neutral-400">{rest ?? '—'}</td>
-                      <td className="py-1.5 text-right text-neutral-500 dark:text-neutral-400">
+                      <td className="py-1.5 text-xs text-neutral-400">{rest ?? '—'}</td>
+                      <td className="py-1.5 text-right text-neutral-400">
                         {set.weight_kg && set.reps ? formatKg(set.weight_kg * set.reps) : '—'}
                       </td>
                     </tr>
@@ -210,7 +210,7 @@ export default function WorkoutDetail() {
 
 function WorkoutDetailSkeleton() {
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="space-y-6">
       <div className="space-y-2">
         <Skeleton className="h-3 w-12" />
         <Skeleton className="h-7 w-48" />

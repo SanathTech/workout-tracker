@@ -49,9 +49,9 @@ export default function SessionFeel({ workoutId, workoutNotes }) {
   const unrated = feel !== undefined && feel?.rpe == null;
 
   return (
-    <section className="border-t border-neutral-200 dark:border-neutral-800 pt-3">
+    <section className="border-t border-neutral-800 pt-3">
       {unrated && (
-        <p className="text-xs text-amber-700 dark:text-amber-500 mb-1">
+        <p className="text-xs text-amber-400 mb-1">
           Not rated yet — how hard was this one?
         </p>
       )}
@@ -90,7 +90,7 @@ export default function SessionFeel({ workoutId, workoutNotes }) {
         </button>
       )}
       {(saveRpe.isError || saveNote.isError) && (
-        <p className="text-xs text-red-600 dark:text-red-400 mt-1">Couldn’t save that — try again.</p>
+        <p className="text-xs text-red-400 mt-1">Couldn’t save that — try again.</p>
       )}
     </section>
   );

@@ -7,10 +7,10 @@ import ExercisePickerSheet from '../components/ExercisePickerSheet';
 import MainBadge from '../components/MainBadge';
 import { ChevronIcon } from '../components/icons';
 import { selectOnFocus, handleEditorEnter } from './program/helpers';
-import { formatRestRange, formatWarmup, formatDay } from '../utils/format';
+import { formatRestRange, formatWarmup, formatDay } from '../util/format';
 import { createSaveLoop } from '../util/saveLoop';
 import FinishRatingSheet from '../components/FinishRatingSheet';
-import { saveDraft, saveSnapshot, readDraft, clearDraft, pruneDrafts } from '../utils/draft';
+import { saveDraft, saveSnapshot, readDraft, clearDraft, pruneDrafts } from '../util/draft';
 import MoreMenu from '../components/MoreMenu';
 import { track } from '../util/telemetry';
 
@@ -21,7 +21,7 @@ function TargetChip({ children }) {
 }
 
 const SAVE_TONE = {
-  saving: 'bg-neutral-400 dark:bg-neutral-500 animate-pulse',
+  saving: 'bg-neutral-500 animate-pulse',
   saved: 'bg-emerald-500',
   unsaved: 'bg-amber-500',
   error: 'bg-red-500',
@@ -49,7 +49,7 @@ function SaveStatusDot({ status }) {
       <span className={`shrink-0 w-2.5 h-2.5 rounded-full ${SAVE_TONE[status]}`} />
       {word && (
         <span className={`text-[11px] font-medium whitespace-nowrap ${
-          status === 'error' ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-500'
+          status === 'error' ? 'text-red-400' : 'text-amber-400'
         }`}>
           {word}
         </span>
@@ -153,7 +153,7 @@ function SetRow({ set, previousSet, showPrev, targetRir, suggestion, onChange, o
         : suggestion.suggested_reps_next ?? suggestion.suggested_reps_low ?? null;
 
   const typeLabel = SET_TYPE_LABEL[set.set_type || 'working'];
-  const cellInput = 'w-full h-11 bg-transparent border-0 p-0 text-center text-base tabular-nums text-neutral-900 dark:text-neutral-200 placeholder:text-neutral-400 dark:placeholder:text-neutral-600 focus:outline-none focus:bg-neutral-100 dark:focus:bg-neutral-800/70 rounded-md transition-colors';
+  const cellInput = 'w-full h-11 bg-transparent border-0 p-0 text-center text-base tabular-nums text-neutral-200 placeholder:text-neutral-600 focus:outline-none focus:bg-neutral-800/70 rounded-md transition-colors';
 
   return (
     <div className="relative overflow-hidden rounded-lg">
@@ -174,7 +174,7 @@ function SetRow({ set, previousSet, showPrev, targetRir, suggestion, onChange, o
         {...handlers}
         style={{ transform: offset ? `translateX(${offset}px)` : undefined, touchAction: 'pan-y' }}
         className={`${LEDGER_COLS} relative h-11 transition-transform duration-150 ${
-          done ? 'bg-emerald-50 dark:bg-emerald-500/10 rounded-lg' : 'bg-white dark:bg-neutral-950'
+          done ? 'bg-emerald-500/10 rounded-lg' : 'bg-neutral-950'
         }`}
       >
         <button
@@ -184,10 +184,10 @@ function SetRow({ set, previousSet, showPrev, targetRir, suggestion, onChange, o
           aria-label={`Set ${set.set_number}: ${set.set_type || 'working'} — tap to change type`}
           className={`h-11 text-xs tabular-nums text-left pl-2 rounded-md font-medium ${
             set.set_type === 'warmup'
-              ? 'text-amber-600 dark:text-amber-500'
+              ? 'text-amber-400'
               : set.set_type === 'drop' || set.set_type === 'failure'
-                ? 'text-purple-600 dark:text-purple-400'
-                : 'text-neutral-500 dark:text-neutral-400'
+                ? 'text-purple-400'
+                : 'text-neutral-400'
           }`}
         >
           {typeLabel ?? set.set_number}
@@ -198,7 +198,7 @@ function SetRow({ set, previousSet, showPrev, targetRir, suggestion, onChange, o
           disabled={!showPrev}
           title={showPrev ? prevTitle : undefined}
           aria-label={showPrev ? prevTitle : 'No previous session for this exercise'}
-          className="h-11 min-w-0 truncate text-left text-xs tabular-nums text-neutral-500 dark:text-neutral-400 disabled:text-neutral-400 dark:disabled:text-neutral-600 rounded-md"
+          className="h-11 min-w-0 truncate text-left text-xs tabular-nums text-neutral-400 disabled:text-neutral-600 rounded-md"
         >
           {showPrev ? prevLabel : '—'}
         </button>
@@ -381,15 +381,15 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onTargetChang
         <button
           type="button"
           onClick={onOpenPicker}
-          className="flex items-center gap-1.5 text-left flex-1 min-w-0 -mx-2 px-2 min-h-11 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+          className="flex items-center gap-1.5 text-left flex-1 min-w-0 -mx-2 px-2 min-h-11 rounded hover:bg-neutral-800 transition-colors"
         >
           {/* Wraps rather than truncates: "Barbell Overhead Press" cut to "Barbell
               Overhea…" is worse than a second line. */}
-          <span className="font-semibold text-neutral-900 dark:text-neutral-200 min-w-0">
+          <span className="font-semibold text-neutral-200 min-w-0">
             {block.exercise_name || 'Pick an exercise'}
           </span>
           {isMain && <MainBadge className="shrink-0" />}
-          <span className="text-neutral-400 dark:text-neutral-400 shrink-0">
+          <span className="text-neutral-400 shrink-0">
             <ChevronIcon open={false} />
           </span>
         </button>
@@ -419,7 +419,7 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onTargetChang
           this is the one that wins, and the two need to be visible together for that
           to be legible. Amber, always visible, no tap required. */}
       {coachNote && (
-        <p className="text-xs text-amber-700 dark:text-amber-500 mt-1 mb-0.5">
+        <p className="text-xs text-amber-400 mt-1 mb-0.5">
           Coach: {coachNote.note}
         </p>
       )}
@@ -435,8 +435,8 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onTargetChang
             >
               <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] uppercase tracking-wide font-medium ${
                 suggestion.action === 'increase'
-                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-400'
-                  : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300'
+                  ? 'bg-emerald-500/15 text-emerald-400'
+                  : 'bg-neutral-800 text-neutral-300'
               }`}>
                 {suggestionLabel}
               </span>
@@ -446,7 +446,7 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onTargetChang
       )}
 
       {showReason && hasSuggestion && (
-        <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-1.5">
+        <p className="text-xs text-neutral-400 mb-1.5">
           {suggestion.suggested_weight_kg != null && (
             <>{suggestion.suggested_weight_kg} kg × {suggestion.suggested_reps_low}–{suggestion.suggested_reps_high} · </>
           )}
@@ -455,7 +455,7 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onTargetChang
       )}
 
       {target?.notes && showNote && (
-        <p className="text-xs text-neutral-600 dark:text-neutral-400 mb-1.5 whitespace-pre-line">
+        <p className="text-xs text-neutral-400 mb-1.5 whitespace-pre-line">
           <span className="section-label mr-1.5">How to</span>{target.notes}
         </p>
       )}
@@ -477,7 +477,7 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onTargetChang
       ) : null}
 
       {block.sets.length > 0 && (
-        <div className={`${LEDGER_COLS} h-6 text-[11px] font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400`} aria-hidden="true">
+        <div className={`${LEDGER_COLS} h-6 text-[11px] font-semibold uppercase tracking-wider text-neutral-400`} aria-hidden="true">
           <span className="pl-2">Set</span>
           {/* "Prev · RIR" rather than "Prev": the column now carries kg × reps AND the
               RIR that came with them, and an unlabelled trailing number reads as noise. */}
@@ -504,7 +504,7 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onTargetChang
       <button
         type="button"
         onClick={addSet}
-        className="h-11 pl-2 pr-4 -ml-2 text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 rounded transition-colors"
+        className="h-11 pl-2 pr-4 -ml-2 text-sm text-neutral-400 hover:text-neutral-200 rounded transition-colors"
       >
         + Add set
       </button>
@@ -935,8 +935,8 @@ export default function WorkoutSession() {
 
   if (isError && !workout) {
     return (
-      <div className="max-w-2xl mx-auto py-20 text-center space-y-3">
-        <p className="text-neutral-500 dark:text-neutral-400">Couldn’t load this workout. Check your connection and try again.</p>
+      <div className="py-20 text-center space-y-3">
+        <p className="text-neutral-400">Couldn’t load this workout. Check your connection and try again.</p>
         <button onClick={() => navigate(-1)} className="btn-secondary">← Back</button>
       </div>
     );
@@ -998,7 +998,7 @@ export default function WorkoutSession() {
     : { title: '', presetSubstitutes: [], currentExerciseId: null };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-4">
+    <div className="space-y-4">
       {ratingOpen && (
         <FinishRatingSheet
           workoutId={id}
@@ -1012,19 +1012,19 @@ export default function WorkoutSession() {
       {/* Replaces the global header on mobile (hidden by Navbar during a session): the
           pinned strip carries the routine, how far through you are and the save state,
           rather than the app's own name. */}
-      <div className="md:hidden sticky top-0 z-10 -mx-4 px-4 h-12 flex items-center gap-3 bg-white dark:bg-neutral-950 border-b border-neutral-200 dark:border-neutral-900">
+      <div className="md:hidden sticky top-0 z-10 -mx-4 px-4 h-12 flex items-center gap-3 bg-neutral-950 border-b border-neutral-800">
         <button
           onClick={() => navigate(-1)}
           aria-label="Back"
-          className="shrink-0 -ml-2 w-11 h-11 flex items-center justify-center text-neutral-500 dark:text-neutral-400"
+          className="shrink-0 -ml-2 w-11 h-11 flex items-center justify-center text-neutral-400"
         >
           ←
         </button>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium truncate text-neutral-900 dark:text-neutral-200">
+          <p className="text-sm font-medium truncate text-neutral-200">
             {workout.routine_name || 'Workout'}
           </p>
-          <p className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate">
+          <p className="text-[11px] text-neutral-400 truncate">
             {loggedSets} of {plannedSets} sets logged
           </p>
         </div>
@@ -1033,33 +1033,33 @@ export default function WorkoutSession() {
 
       <div>
         <div className="hidden md:flex items-center justify-between gap-3">
-          <button onClick={() => navigate(-1)} className="text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200">← Back</button>
+          <button onClick={() => navigate(-1)} className="text-sm text-neutral-400 hover:text-neutral-200">← Back</button>
         </div>
         {/* The pinned strip already names the routine on mobile. */}
         <h1 className="hidden md:block text-2xl font-semibold tracking-tight mt-1">{workout.routine_name || 'Workout'}</h1>
-        <p className="text-sm text-neutral-500 dark:text-neutral-400">
+        <p className="text-sm text-neutral-400">
           {workout.program_name && `${workout.program_name} · `}
           {workout.program_week && `Week ${workout.program_week} · `}
           {formatDay(workout.date, { weekday: 'long', month: 'short', day: 'numeric' })}
         </p>
         {isCompleted && (
-          <p className="text-xs mt-0.5 text-neutral-500 dark:text-neutral-400">Editing a completed workout — changes save automatically.</p>
+          <p className="text-xs mt-0.5 text-neutral-400">Editing a completed workout — changes save automatically.</p>
         )}
         {usingSnapshot && (
-          <p className="text-xs mt-1 text-amber-700 dark:text-amber-500">
+          <p className="text-xs mt-1 text-amber-400">
             Offline — showing this session from your device. Keep logging; it saves when you reconnect.
           </p>
         )}
         {recovered && !usingSnapshot && autosave !== 'saved' && (
-          <p className="text-xs mt-1 text-amber-700 dark:text-amber-500">
+          <p className="text-xs mt-1 text-amber-400">
             Restored sets that hadn’t reached the server. They’ll save once you’re back online.
           </p>
         )}
         {autosave !== 'idle' && (
           <p className={`text-xs mt-0.5 ${
-            autosave === 'error' ? 'text-red-600 dark:text-red-400'
-              : autosave === 'unsaved' ? 'text-amber-600 dark:text-amber-500'
-              : 'text-neutral-400 dark:text-neutral-400'
+            autosave === 'error' ? 'text-red-400'
+              : autosave === 'unsaved' ? 'text-amber-400'
+              : 'text-neutral-400'
           }`}>
             {autosave === 'saving' ? 'Saving…'
               : autosave === 'saved' ? 'All changes saved'
@@ -1076,7 +1076,7 @@ export default function WorkoutSession() {
       {generalNotes.length > 0 && (
         <div className="mb-2">
           {generalNotes.map((n) => (
-            <p key={n.id} className="text-xs text-amber-700 dark:text-amber-500 mt-0.5">
+            <p key={n.id} className="text-xs text-amber-400 mt-0.5">
               Coach: {n.note}
             </p>
           ))}
@@ -1084,7 +1084,7 @@ export default function WorkoutSession() {
       )}
       {/* Hairline dividers between exercises instead of card borders — the ledger gets
           its structure from alignment, not boxes. */}
-      <div className="divide-y divide-neutral-200 dark:divide-neutral-800" data-editor-root onKeyDown={handleEditorEnter}>
+      <div className="divide-y divide-neutral-800" data-editor-root onKeyDown={handleEditorEnter}>
         {exercises.map((ex, i) => (
           <ExerciseBlock
             key={ex.client_id}
@@ -1103,7 +1103,7 @@ export default function WorkoutSession() {
       <button
         type="button"
         onClick={() => setPicker({ mode: 'add' })}
-        className="w-full h-12 text-sm font-medium text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 border border-dashed border-neutral-200 dark:border-neutral-800 rounded hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
+        className="w-full h-12 text-sm font-medium text-neutral-400 hover:text-neutral-200 border border-dashed border-neutral-800 rounded hover:bg-neutral-900 transition-colors"
       >
         + Add exercise
       </button>
@@ -1139,12 +1139,12 @@ export default function WorkoutSession() {
       <div style={{ height: barHeight }} aria-hidden="true" />
       <div
         ref={barRef}
-        className="fixed bottom-0 inset-x-0 z-20 bg-white dark:bg-neutral-950 border-t border-neutral-200 dark:border-neutral-900 pb-[env(safe-area-inset-bottom)]"
+        className="fixed bottom-0 inset-x-0 z-20 bg-neutral-950 border-t border-neutral-800 pb-[env(safe-area-inset-bottom)]"
       >
         <div className="max-w-2xl mx-auto px-4">
           {(finish.isError || skip.isError || doneError) && (
             <div className="pt-2">
-              <p className="text-xs text-red-600 dark:text-red-400">
+              <p className="text-xs text-red-400">
                 {doneError
                   || (skip.isError ? 'Could not skip the workout.' : null)
                   || finish.error?.message
@@ -1213,14 +1213,14 @@ export default function WorkoutSession() {
 
 function WorkoutSessionSkeleton() {
   return (
-    <div className="max-w-2xl mx-auto space-y-4">
+    <div className="space-y-4">
       <div className="space-y-2">
         <Skeleton className="h-3 w-12" />
         <Skeleton className="h-7 w-48" />
         <Skeleton className="h-3 w-64" />
       </div>
       {[0, 1, 2].map((i) => (
-        <div key={i} className="space-y-3 pt-3 border-t border-neutral-200 dark:border-neutral-800">
+        <div key={i} className="space-y-3 pt-3 border-t border-neutral-800">
           <Skeleton className="h-5 w-40" />
           <Skeleton className="h-3 w-32" />
           <div className="space-y-2">

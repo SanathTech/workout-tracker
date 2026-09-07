@@ -25,7 +25,7 @@ function LoginScreen({ onSignedIn }) {
       >
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Workout Tracker</h1>
-          <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">Sign in to continue.</p>
+          <p className="text-sm text-neutral-400 mt-1">Sign in to continue.</p>
         </div>
 
         <div>
@@ -42,7 +42,7 @@ function LoginScreen({ onSignedIn }) {
         </div>
 
         {message && (
-          <p role="alert" className="text-sm text-red-600 dark:text-red-400">{message}</p>
+          <p role="alert" className="text-sm text-red-400">{message}</p>
         )}
 
         <button

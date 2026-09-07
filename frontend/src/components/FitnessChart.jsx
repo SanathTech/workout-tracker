@@ -4,7 +4,7 @@ import {
 } from 'recharts';
 import { getLoadHistory } from '../api/client';
 import { Skeleton } from './Skeleton';
-import { formatDay } from '../utils/format';
+import { formatDay } from '../util/format';
 
 // The intervals.icu view, which is the one chart in endurance training worth the space:
 // fitness (CTL, a 42-day weighted average of training stress) against fatigue (ATL, the
@@ -27,7 +27,7 @@ export default function FitnessChart({ days = 90 }) {
   if (isLoading) return <Skeleton className="h-40 w-full" />;
   if (data.length < 2) {
     return (
-      <p className="text-sm text-neutral-500 dark:text-neutral-400">
+      <p className="text-sm text-neutral-400">
         Not enough training-load history yet — intervals.icu needs a few days of activities.
       </p>
     );
@@ -52,19 +52,19 @@ export default function FitnessChart({ days = 90 }) {
       <div className="h-40 -ml-2">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={rows} margin={{ top: 4, right: 6, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="2 4" stroke="currentColor" className="text-neutral-200 dark:text-neutral-800" vertical={false} />
+            <CartesianGrid strokeDasharray="2 4" stroke="currentColor" className="text-neutral-800" vertical={false} />
             <XAxis
               dataKey="date"
               tick={{ fontSize: 10 }}
               stroke="currentColor"
-              className="text-neutral-400 dark:text-neutral-600"
+              className="text-neutral-600"
               tickFormatter={(d) => formatDay(d, { month: 'short', day: 'numeric' })}
               minTickGap={40}
             />
             <YAxis
               tick={{ fontSize: 10 }}
               stroke="currentColor"
-              className="text-neutral-400 dark:text-neutral-600"
+              className="text-neutral-600"
               width={28}
             />
             <Tooltip
@@ -84,10 +84,10 @@ export default function FitnessChart({ days = 90 }) {
           </ComposedChart>
         </ResponsiveContainer>
       </div>
-      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 tabular-nums">
-        <span className="text-teal-600 dark:text-teal-400">● Fitness {latest.ctl}</span>
+      <p className="text-[11px] text-neutral-400 mt-1 tabular-nums">
+        <span className="text-teal-400">● Fitness {latest.ctl}</span>
         {' · '}
-        <span className="text-violet-500 dark:text-violet-400">● Fatigue {latest.atl}</span>
+        <span className="text-violet-400">● Fatigue {latest.atl}</span>
         {' · '}
         Form {latest.tsb > 0 ? '+' : ''}{latest.tsb}
       </p>

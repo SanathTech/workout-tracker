@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import ExercisePickerSheet from '../../components/ExercisePickerSheet';
 import MainBadge from '../../components/MainBadge';
 import { CloseIcon, ChevronIcon } from '../../components/icons';
-import { parseIntOrNull } from '../../utils/format';
+import { parseIntOrNull } from '../../util/format';
 import { dashedAddBtn, iconBtn, selectOnFocus, summarizeExercise, handleEditorEnter } from './helpers';
 
 export default function ExerciseEditor({ ex, allExercises, expanded, onToggle, onChange, onRemove }) {
@@ -36,13 +36,13 @@ export default function ExerciseEditor({ ex, allExercises, expanded, onToggle, o
         <button
           type="button"
           onClick={onToggle}
-          className="flex items-start gap-2 flex-1 min-w-0 min-h-11 text-left -mx-1 px-1 py-1 rounded hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
+          className="flex items-start gap-2 flex-1 min-w-0 min-h-11 text-left -mx-1 px-1 py-1 rounded hover:bg-neutral-900 transition-colors"
         >
-          <span className="text-neutral-400 dark:text-neutral-400 shrink-0 mt-1">
+          <span className="text-neutral-400 shrink-0 mt-1">
             <ChevronIcon open={expanded} />
           </span>
           <div className="flex-1 min-w-0">
-            <div className={`flex items-center gap-1.5 ${primary ? 'font-medium text-neutral-900 dark:text-neutral-200' : 'text-neutral-500 dark:text-neutral-400'}`}>
+            <div className={`flex items-center gap-1.5 ${primary ? 'font-medium text-neutral-200' : 'text-neutral-400'}`}>
               <span className="truncate">{primary ? primary.name : 'Pick an exercise'}</span>
               {ex.is_main && <MainBadge className="shrink-0" />}
             </div>
@@ -64,12 +64,12 @@ export default function ExerciseEditor({ ex, allExercises, expanded, onToggle, o
           <button
             type="button"
             onClick={() => setPicker({ kind: 'primary' })}
-            className="flex items-center gap-1.5 text-left w-full min-w-0 min-h-11 px-3 py-2 rounded border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
+            className="flex items-center gap-1.5 text-left w-full min-w-0 min-h-11 px-3 py-2 rounded border border-neutral-800 hover:bg-neutral-900 transition-colors"
           >
-            <span className={`flex-1 min-w-0 truncate ${primary ? 'text-neutral-900 dark:text-neutral-200' : 'text-neutral-500 dark:text-neutral-400'}`}>
+            <span className={`flex-1 min-w-0 truncate ${primary ? 'text-neutral-200' : 'text-neutral-400'}`}>
               {primary ? primary.name : 'Pick an exercise'}
             </span>
-            <span className="text-neutral-400 dark:text-neutral-400 shrink-0"><ChevronIcon /></span>
+            <span className="text-neutral-400 shrink-0"><ChevronIcon /></span>
           </button>
 
           <div className="grid grid-cols-3 gap-2">
@@ -148,24 +148,24 @@ export default function ExerciseEditor({ ex, allExercises, expanded, onToggle, o
             <label className="flex items-center gap-2 min-h-11 cursor-pointer select-none">
               <input
                 type="checkbox"
-                className="w-4 h-4 rounded border-neutral-300 dark:border-neutral-700 accent-amber-500"
+                className="w-4 h-4 rounded border-neutral-800 accent-amber-500"
                 checked={ex.is_main === true}
                 onChange={(e) => onChange({ ...ex, is_main: e.target.checked })}
               />
-              <span className="text-sm text-neutral-700 dark:text-neutral-300">Main lift</span>
+              <span className="text-sm text-neutral-300">Main lift</span>
             </label>
           </div>
 
           <div className="space-y-1.5">
-            <span className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">RIR per set</span>
+            <span className="text-xs uppercase tracking-wide text-neutral-400">RIR per set</span>
             {!ex.target_sets ? (
-              <p className="text-xs text-neutral-500 dark:text-neutral-400">Set the number of sets to define per-set RIR.</p>
+              <p className="text-xs text-neutral-400">Set the number of sets to define per-set RIR.</p>
             ) : (
               <div className="flex flex-wrap gap-2">
                 {Array.from({ length: ex.target_sets }, (_, i) => {
                   const value = ex.target_rir_per_set?.[i];
                   return (
-                    <label key={i} className="flex items-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-400">
+                    <label key={i} className="flex items-center gap-1.5 text-xs text-neutral-400">
                       <span className="w-9 text-right">Set {i + 1}</span>
                       <input
                         data-editor-input="true"
@@ -196,7 +196,7 @@ export default function ExerciseEditor({ ex, allExercises, expanded, onToggle, o
           />
 
           <div className="space-y-2">
-            <span className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Preset substitutes</span>
+            <span className="text-xs uppercase tracking-wide text-neutral-400">Preset substitutes</span>
             {ex.substitutes.map((sub, i) => {
               const subEx = sub.exercise_id ? byId[String(sub.exercise_id)] : null;
               return (
@@ -204,12 +204,12 @@ export default function ExerciseEditor({ ex, allExercises, expanded, onToggle, o
                   <button
                     type="button"
                     onClick={() => setPicker({ kind: 'sub', subIndex: i })}
-                    className="flex items-center gap-1.5 text-left flex-1 min-w-0 min-h-11 px-3 py-1.5 rounded border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
+                    className="flex items-center gap-1.5 text-left flex-1 min-w-0 min-h-11 px-3 py-1.5 rounded border border-neutral-800 hover:bg-neutral-900 transition-colors"
                   >
-                    <span className={`flex-1 min-w-0 truncate text-sm ${subEx ? 'text-neutral-900 dark:text-neutral-200' : 'text-neutral-500 dark:text-neutral-400'}`}>
+                    <span className={`flex-1 min-w-0 truncate text-sm ${subEx ? 'text-neutral-200' : 'text-neutral-400'}`}>
                       {subEx ? subEx.name : 'Pick substitute'}
                     </span>
-                    <span className="text-neutral-400 dark:text-neutral-400 shrink-0"><ChevronIcon /></span>
+                    <span className="text-neutral-400 shrink-0"><ChevronIcon /></span>
                   </button>
                   <button
                     type="button"

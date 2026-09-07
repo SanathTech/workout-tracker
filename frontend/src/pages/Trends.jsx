@@ -4,7 +4,8 @@ import { getCoachLatest, getReadiness, getTrends } from '../api/client';
 import Sparkline from '../components/Sparkline';
 import LatestNotes from '../components/LatestNotes';
 import { Skeleton } from '../components/Skeleton';
-import { formatDay, formatKg } from '../utils/format';
+import { ChevronIcon } from '../components/icons';
+import { formatDay, formatKg } from '../util/format';
 
 // This tab used to print a paragraph of generated coaching every morning. It reports
 // the numbers instead, for a structural reason: the figures the system computes have
@@ -31,13 +32,13 @@ function Metric({ label, value, unit, baseline, goodDirection }) {
   const good = diff == null || diff === 0 ? null : goodDirection === 'up' ? diff > 0 : diff < 0;
   return (
     <div className="flex-1 min-w-[5.5rem]">
-      <div className="text-[11px] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">{label}</div>
+      <div className="text-[11px] uppercase tracking-wide text-neutral-400">{label}</div>
       <div className="text-lg font-semibold tabular-nums">
         {value}
-        {unit && <span className="text-xs font-normal text-neutral-500 dark:text-neutral-400 ml-0.5">{unit}</span>}
+        {unit && <span className="text-xs font-normal text-neutral-400 ml-0.5">{unit}</span>}
       </div>
       {diff != null && diff !== 0 && (
-        <div className={`text-[11px] tabular-nums ${good ? 'text-emerald-600 dark:text-emerald-500' : 'text-amber-600 dark:text-amber-500'}`}>
+        <div className={`text-[11px] tabular-nums ${good ? 'text-emerald-400' : 'text-amber-400'}`}>
           {diff > 0 ? '+' : ''}{diff} vs 10d
         </div>
       )}
@@ -70,7 +71,7 @@ function Today() {
     return (
       <>
         <h2 className="section-label mb-2">Last night</h2>
-        <p className="text-sm text-neutral-500 dark:text-neutral-400">
+        <p className="text-sm text-neutral-400">
           No wellness data yet — the Garmin sync hasn’t written a row.
         </p>
       </>
@@ -96,11 +97,11 @@ function Today() {
   return (
     <>
       <div className="flex items-baseline justify-between mb-2">
-        <h2 className={`section-label ${stale ? 'text-amber-700 dark:text-amber-500' : ''}`}>
+        <h2 className={`section-label ${stale ? 'text-amber-400' : ''}`}>
           {heading}
         </h2>
         {stale && (
-          <span className="text-[11px] text-amber-700 dark:text-amber-500">
+          <span className="text-[11px] text-amber-400">
             last night not synced
           </span>
         )}
@@ -133,10 +134,10 @@ function Today() {
           <span className="tag">{data.steps_today.toLocaleString()} steps today</span>
         )}
       </div>
-      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1.5">
+      <p className="text-[11px] text-neutral-400 mt-1.5">
         {formatDay(night.date, { weekday: 'long', month: 'short', day: 'numeric' })}
         {data.stale_hours != null && data.stale_hours > 48 && (
-          <span className="text-amber-600 dark:text-amber-500"> · sync {data.stale_hours}h stale</span>
+          <span className="text-amber-400"> · sync {data.stale_hours}h stale</span>
         )}
       </p>
     </>
@@ -186,7 +187,7 @@ function Protocol({ protocol, bodyweight }) {
     : null;
 
   return (
-    <section className="border-t border-neutral-200 dark:border-neutral-800 pt-4">
+    <section className="border-t border-neutral-800 pt-4">
       <h2 className="section-label mb-2">Protocol</h2>
 
       <div className="flex items-center gap-1.5 flex-wrap">
@@ -200,16 +201,16 @@ function Protocol({ protocol, bodyweight }) {
             }
             className={
               !night
-                ? 'w-3.5 h-3.5 flex items-center justify-center text-neutral-400 dark:text-neutral-600 text-xs leading-none'
+                ? 'w-3.5 h-3.5 flex items-center justify-center text-neutral-600 text-xs leading-none'
                 : night.within_anchor
                   ? 'w-3.5 h-3.5 rounded-full bg-emerald-500'
-                  : 'w-3.5 h-3.5 rounded-full border-2 border-red-400 dark:border-red-500'
+                  : 'w-3.5 h-3.5 rounded-full border-2 border-red-500'
             }
           >
             {!night && '·'}
           </span>
         ))}
-        <span className="text-[11px] text-neutral-500 dark:text-neutral-400 ml-1">
+        <span className="text-[11px] text-neutral-400 ml-1">
           bedtime · {within} of {tracked} tracked night{tracked === 1 ? '' : 's'} on anchor
         </span>
       </div>
@@ -218,30 +219,30 @@ function Protocol({ protocol, bodyweight }) {
         <p className="text-sm mt-2 tabular-nums">
           Last night <span className="font-medium">{last.bed}</span>{' '}
           <span className={Math.abs(last.minutes_vs_anchor) <= 30
-            ? 'text-emerald-600 dark:text-emerald-500'
-            : 'text-red-600 dark:text-red-400'}>
+            ? 'text-emerald-400'
+            : 'text-red-400'}>
             {last.minutes_vs_anchor > 0 ? '+' : ''}{last.minutes_vs_anchor} min vs 22:30
           </span>
         </p>
       )}
 
-      <p className="text-sm mt-1 text-neutral-700 dark:text-neutral-300 tabular-nums">
+      <p className="text-sm mt-1 text-neutral-300 tabular-nums">
         Movement streak{' '}
-        <span className="font-medium text-emerald-600 dark:text-emerald-500">
+        <span className="font-medium text-emerald-400">
           {streak} day{streak === 1 ? '' : 's'}
         </span>
         {latestWeight && (
           <>
             {' · '}Weight <span className="font-medium">{formatKg(latestWeight.weight_kg)}</span>
             {drift != null && drift !== 0 && (
-              <span className={drift > 0 ? 'text-amber-600 dark:text-amber-500' : 'text-emerald-600 dark:text-emerald-500'}>
+              <span className={drift > 0 ? 'text-amber-400' : 'text-emerald-400'}>
                 {' '}{drift > 0 ? '+' : ''}{drift.toFixed(1)}
               </span>
             )}
             {/* Named because it is not obvious: the scale syncs to Garmin Connect, which
                 reaches here via intervals.icu, so nothing is typed in by hand. The manual
                 logger exists for weeks away from the scale and has never been used. */}
-            <span className="text-neutral-500 dark:text-neutral-400 font-normal">
+            <span className="text-neutral-400 font-normal">
               {' '}({latestWeight.source === 'manual' ? 'manual' : 'Garmin'})
             </span>
           </>
@@ -256,7 +257,7 @@ function Protocol({ protocol, bodyweight }) {
           if (!bf) return null;
           const fatKg = (Number(bf.weight_kg) * Number(bf.body_fat_pct)) / 100;
           return (
-            <span className="text-neutral-500 dark:text-neutral-400">
+            <span className="text-neutral-400">
               {' · '}fat {fatKg.toFixed(1)}kg ({Number(bf.body_fat_pct).toFixed(1)}%)
             </span>
           );
@@ -276,13 +277,13 @@ function Protocol({ protocol, bodyweight }) {
         ].filter(([, t]) => t && t.answered > 0);
         if (!parts.length) return null;
         return (
-          <p className="text-sm mt-1 text-neutral-700 dark:text-neutral-300 tabular-nums">
+          <p className="text-sm mt-1 text-neutral-300 tabular-nums">
             Evening ramp
             {parts.map(([label, t]) => (
               <span key={label}>
                 {' · '}{label}{' '}
                 <span className={t.kept === t.answered
-                  ? 'font-medium text-emerald-600 dark:text-emerald-500'
+                  ? 'font-medium text-emerald-400'
                   : 'font-medium'}>
                   {t.kept}/{t.answered}
                 </span>
@@ -307,11 +308,11 @@ function Protocol({ protocol, bodyweight }) {
         // Flat stays neutral because ONE flat week is noise — it is two in a row that
         // mean something, and colouring the first amber would manufacture an alarm.
         const paceClass = {
-          losing: 'text-emerald-600 dark:text-emerald-500',
-          gaining: 'text-amber-600 dark:text-amber-500',
-          too_fast: 'text-amber-600 dark:text-amber-500',
-          flat: 'text-neutral-500 dark:text-neutral-400',
-        }[g.pace] || 'text-neutral-500 dark:text-neutral-400';
+          losing: 'text-emerald-400',
+          gaining: 'text-amber-400',
+          too_fast: 'text-amber-400',
+          flat: 'text-neutral-400',
+        }[g.pace] || 'text-neutral-400';
         const paceTitle = {
           losing: 'On plan — a sane rate that keeps lean tissue',
           gaining: 'Weekly mean is up on last week',
@@ -322,7 +323,7 @@ function Protocol({ protocol, bodyweight }) {
         const reached = g.to_goal_kg != null && g.to_goal_kg <= 0;
 
         return (
-          <p className="text-sm mt-1 text-neutral-700 dark:text-neutral-300 tabular-nums">
+          <p className="text-sm mt-1 text-neutral-300 tabular-nums">
             Goal <span className="font-medium">{g.goal_kg.toFixed(1)}kg</span>
             {' · '}week mean{' '}
             <span className="font-medium">{g.week_mean.toFixed(1)}</span>
@@ -331,7 +332,7 @@ function Protocol({ protocol, bodyweight }) {
                 {' '}{g.change_kg > 0 ? '+' : ''}{g.change_kg.toFixed(1)} vs last wk
               </span>
             )}
-            <span className="text-neutral-500 dark:text-neutral-400">
+            <span className="text-neutral-400">
               {reached
                 ? ' · at goal'
                 : ` · ${g.to_goal_kg.toFixed(1)}kg to go`}
@@ -341,7 +342,7 @@ function Protocol({ protocol, bodyweight }) {
                 so next to the number it produced. */}
             {g.week_readings < 5 && (
               <span
-                className="text-neutral-400 dark:text-neutral-500"
+                className="text-neutral-400"
                 title="Weekly mean over fewer than five weigh-ins"
               >
                 {' '}({g.week_readings} weigh-in{g.week_readings === 1 ? '' : 's'})
@@ -393,9 +394,9 @@ function TrendRow({ row, window30, window90, open, onToggle }) {
         onClick={onToggle}
         aria-expanded={open}
         className="w-full flex items-center gap-3 py-1 min-h-11 md:min-h-0 text-left rounded-md
-                   hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors"
+ hover:bg-neutral-900/50 transition-colors"
       >
-        <span className="w-14 shrink-0 text-xs text-neutral-500 dark:text-neutral-400">{row.label}</span>
+        <span className="w-14 shrink-0 text-xs text-neutral-400">{row.label}</span>
         <Sparkline
           data={window30}
           field={row.field}
@@ -408,14 +409,14 @@ function TrendRow({ row, window30, window90, open, onToggle }) {
             : latest}
         </span>
         <span className={`w-11 shrink-0 text-right text-[11px] tabular-nums ${
-          diff === 0 ? 'text-neutral-400 dark:text-neutral-600'
-            : good ? 'text-emerald-600 dark:text-emerald-500'
-            : 'text-amber-600 dark:text-amber-500'
+          diff === 0 ? 'text-neutral-600'
+            : good ? 'text-emerald-400'
+            : 'text-amber-400'
         }`}>
           {diff > 0 ? '+' : ''}{precision > 0 ? diff.toFixed(precision) : diff}
         </span>
-        <span className="w-3 shrink-0 text-[10px] text-neutral-400 dark:text-neutral-600">
-          {open ? '▲' : '▼'}
+        <span className="w-3 shrink-0 inline-flex items-center text-neutral-600">
+          <ChevronIcon open={open} />
         </span>
       </button>
       {open && (
@@ -465,7 +466,7 @@ function pacePer100m(seconds, metres) {
 function SessionRow({ children, date }) {
   return (
     <div className="flex gap-3 py-2">
-      <span className="w-12 shrink-0 text-xs text-neutral-500 dark:text-neutral-400 pt-0.5">
+      <span className="w-12 shrink-0 text-xs text-neutral-400 pt-0.5">
         {formatDay(date, { day: 'numeric', month: 'short' })}
       </span>
       <div className="min-w-0 flex-1">{children}</div>
@@ -478,9 +479,9 @@ function Endurance({ sessions, ceiling }) {
   // finding, and a section that silently disappears reads as a bug rather than a fact.
   if (!sessions?.length) {
     return (
-      <section className="border-t border-neutral-200 dark:border-neutral-800 pt-4">
+      <section className="border-t border-neutral-800 pt-4">
         <h2 className="section-label mb-1">Endurance</h2>
-        <p className="text-sm text-neutral-500 dark:text-neutral-400">
+        <p className="text-sm text-neutral-400">
           No runs or swims in the last six weeks.
         </p>
       </section>
@@ -491,18 +492,18 @@ function Endurance({ sessions, ceiling }) {
   const swims = sessions.filter((s) => s.type === 'Swim');
 
   return (
-    <section className="border-t border-neutral-200 dark:border-neutral-800 pt-4">
+    <section className="border-t border-neutral-800 pt-4">
       <h2 className="section-label mb-1">Endurance · last 6 weeks</h2>
 
       {runs.length > 0 && (
         <>
-          <p className="text-[11px] uppercase tracking-wide text-neutral-400 dark:text-neutral-600 mt-2">Runs</p>
-          <div className="divide-y divide-neutral-200 dark:divide-neutral-800">
+          <p className="text-[11px] uppercase tracking-wide text-neutral-600 mt-2">Runs</p>
+          <div className="divide-y divide-neutral-800">
             {runs.map((r) => {
               const mins = Number(r.minutes_over_hr_ceiling) || 0;
-              const overTone = mins <= 3 ? 'text-emerald-600 dark:text-emerald-500'
-                : mins <= 12 ? 'text-amber-600 dark:text-amber-500'
-                : 'text-red-600 dark:text-red-400';
+              const overTone = mins <= 3 ? 'text-emerald-400'
+                : mins <= 12 ? 'text-amber-400'
+                : 'text-red-400';
               // The running-only cadence, from the per-second stream — walk breaks
               // excluded, so it means what it says. The whole-session average (which
               // once raised a false overstriding alarm on a hilly walk-break day) is
@@ -515,20 +516,20 @@ function Endurance({ sessions, ceiling }) {
                   <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm tabular-nums">
                     <span className="font-medium">{(Number(r.distance_m) / 1000).toFixed(1)}km</span>
                     <span>{pacePerKm(r.moving_time, Number(r.distance_m))}/km</span>
-                    {r.average_hr && <span className="text-neutral-500 dark:text-neutral-400">HR {r.average_hr}</span>}
+                    {r.average_hr && <span className="text-neutral-400">HR {r.average_hr}</span>}
                     {runCadence != null ? (
-                      <span className="text-neutral-500 dark:text-neutral-400">{runCadence} spm run</span>
+                      <span className="text-neutral-400">{runCadence} spm run</span>
                     ) : cadence != null ? (
-                      <span className="text-neutral-500 dark:text-neutral-400">{cadence} spm session</span>
+                      <span className="text-neutral-400">{cadence} spm session</span>
                     ) : null}
                     {/* Detected strides/surges. Two is the floor: one "effort" on an
                         easy run is usually a downhill, six is a stride set, fourteen
                         is a run that never settled. */}
                     {effortCount >= 2 && (
-                      <span className="text-neutral-500 dark:text-neutral-400">{effortCount} efforts</span>
+                      <span className="text-neutral-400">{effortCount} efforts</span>
                     )}
                     {r.elevation_m != null && (
-                      <span className="text-neutral-500 dark:text-neutral-400">↑{r.elevation_m}m</span>
+                      <span className="text-neutral-400">↑{r.elevation_m}m</span>
                     )}
                     {/* Bpm dropped in the minute after the run's hardest effort. Only
                         present when the file has a clear peak — in practice, stride
@@ -536,14 +537,14 @@ function Endurance({ sessions, ceiling }) {
                         weeks before pace-at-HR does, so it gets the accent colour the
                         other chips don't. */}
                     {r.hrr != null && (
-                      <span className="text-sky-600 dark:text-sky-400">HRR {r.hrr}</span>
+                      <span className="text-sky-400">HRR {r.hrr}</span>
                     )}
                     {/* Aerobic decoupling. Amber only from 10% — high drift is as often
                         a fast first km as a fitness statement, so it flags, not scolds. */}
                     {r.decoupling_pct != null && (
                       <span className={Number(r.decoupling_pct) >= 10
-                        ? 'text-amber-600 dark:text-amber-500'
-                        : 'text-neutral-500 dark:text-neutral-400'}>
+                        ? 'text-amber-400'
+                        : 'text-neutral-400'}>
                         drift {r.decoupling_pct}%
                       </span>
                     )}
@@ -555,7 +556,7 @@ function Endurance({ sessions, ceiling }) {
               );
             })}
           </div>
-          <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1.5">
+          <p className="text-[11px] text-neutral-400 mt-1.5">
             An easy run should sit near zero minutes over. “spm run” is cadence over the
             running samples only — walk breaks excluded; “spm session” is the old blended
             average on pre-stream history. HRR is beats recovered in the minute after the
@@ -568,8 +569,8 @@ function Endurance({ sessions, ceiling }) {
 
       {swims.length > 0 && (
         <>
-          <p className="text-[11px] uppercase tracking-wide text-neutral-400 dark:text-neutral-600 mt-4">Swims</p>
-          <div className="divide-y divide-neutral-200 dark:divide-neutral-800">
+          <p className="text-[11px] uppercase tracking-wide text-neutral-600 mt-4">Swims</p>
+          <div className="divide-y divide-neutral-800">
             {swims.map((w) => (
               <SessionRow key={w.date + w.name} date={w.date}>
                 <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm tabular-nums">
@@ -577,17 +578,17 @@ function Endurance({ sessions, ceiling }) {
                       beside it will read slower on exactly the sessions that went best. */}
                   <span className="font-medium">{Math.round(w.moving_time / 60)} min</span>
                   <span>{Number(w.distance_m)}m</span>
-                  <span className="text-neutral-500 dark:text-neutral-400">
+                  <span className="text-neutral-400">
                     {pacePer100m(w.moving_time, Number(w.distance_m))}/100m
                   </span>
                   {w.stride_m != null && (
-                    <span className="text-neutral-500 dark:text-neutral-400">{w.stride_m} m/stroke</span>
+                    <span className="text-neutral-400">{w.stride_m} m/stroke</span>
                   )}
                   {/* Wall rest from the stream. On a continuous-block swim this is the
                       honest continuity figure — pace per 100m can hold steady while
                       the rests quietly grow. */}
                   {w.swim_rest_s != null && (
-                    <span className="text-neutral-500 dark:text-neutral-400">
+                    <span className="text-neutral-400">
                       rest {Math.floor(w.swim_rest_s / 60)}:{String(w.swim_rest_s % 60).padStart(2, '0')}
                     </span>
                   )}
@@ -595,7 +596,7 @@ function Endurance({ sessions, ceiling }) {
               </SessionRow>
             ))}
           </div>
-          <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1.5">
+          <p className="text-[11px] text-neutral-400 mt-1.5">
             Minutes are the dose; distance per stroke is the economy. A slower pace with more
             minutes is a better session, not a worse one.
           </p>
@@ -610,7 +611,7 @@ function WeeklyReview({ entry }) {
   if (!entry) return null;
   const a = entry.advice || {};
   return (
-    <section className="border-t border-neutral-200 dark:border-neutral-800 pt-4">
+    <section className="border-t border-neutral-800 pt-4">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -618,11 +619,11 @@ function WeeklyReview({ entry }) {
         aria-expanded={open}
       >
         <span className="section-label">Week review</span>
-        <span className="text-xs text-neutral-500 dark:text-neutral-400">
-          {formatDay(entry.for_date, { month: 'short', day: 'numeric' })} {open ? '▲' : '▼'}
+        <span className="text-xs text-neutral-400 inline-flex items-center gap-1">
+          {formatDay(entry.for_date, { month: 'short', day: 'numeric' })} <ChevronIcon open={open} />
         </span>
       </button>
-      <h3 className="font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">{a.headline}</h3>
+      <h3 className="font-semibold tracking-tight text-neutral-200">{a.headline}</h3>
       {open && (
         <div className="space-y-3 mt-2">
           {[
@@ -634,20 +635,20 @@ function WeeklyReview({ entry }) {
             text ? (
               <div key={label}>
                 <p className="section-label">{label}</p>
-                <p className="text-sm text-neutral-700 dark:text-neutral-300">{text}</p>
+                <p className="text-sm text-neutral-300">{text}</p>
               </div>
             ) : null
           )}
           {a.next_week?.length > 0 && (
             <div>
               <p className="section-label">Next week</p>
-              <ul className="divide-y divide-neutral-200 dark:divide-neutral-800">
+              <ul className="divide-y divide-neutral-800">
                 {a.next_week.map((d, i) => (
                   <li key={i} className="py-1.5">
                     <span className="text-sm font-medium">{d.day}</span>{' '}
-                    <span className="text-sm text-neutral-700 dark:text-neutral-300">{d.focus}</span>
+                    <span className="text-sm text-neutral-300">{d.focus}</span>
                     {d.detail && (
-                      <div className="text-sm text-neutral-600 dark:text-neutral-400">{d.detail}</div>
+                      <div className="text-sm text-neutral-400">{d.detail}</div>
                     )}
                   </li>
                 ))}
@@ -656,10 +657,10 @@ function WeeklyReview({ entry }) {
           )}
           {a.flags?.length > 0 && (
             <div>
-              <p className="section-label text-amber-700 dark:text-amber-500">Flags</p>
+              <p className="section-label text-amber-400">Flags</p>
               <ul className="space-y-0.5">
                 {a.flags.map((f, i) => (
-                  <li key={i} className="text-sm text-amber-700 dark:text-amber-500">· {f}</li>
+                  <li key={i} className="text-sm text-amber-400">· {f}</li>
                 ))}
               </ul>
             </div>
@@ -715,7 +716,7 @@ export default function Trends() {
   const wellness30 = wellness.slice(-30);
 
   return (
-    <div className="max-w-2xl mx-auto space-y-4">
+    <div className="space-y-4">
       <h1 className="text-2xl font-semibold tracking-tight">Trends</h1>
 
       {/* The heading lives inside Today: it has to name which night this actually is,
@@ -731,17 +732,17 @@ export default function Trends() {
           <Protocol protocol={trends?.protocol} bodyweight={trends?.bodyweight} />
           <LatestNotes />
 
-          <section className="border-t border-neutral-200 dark:border-neutral-800 pt-4">
+          <section className="border-t border-neutral-800 pt-4">
             <h2 className="section-label mb-2">Fitness · 90 days</h2>
             <Suspense fallback={<Skeleton className="h-40 w-full" />}>
               <FitnessChart days={90} />
             </Suspense>
           </section>
 
-          <section className="border-t border-neutral-200 dark:border-neutral-800 pt-4">
+          <section className="border-t border-neutral-800 pt-4">
             <div className="flex items-baseline justify-between mb-2">
               <h2 className="section-label">Last 30 days</h2>
-              <span className="text-[11px] text-neutral-400 dark:text-neutral-600">tap for 90</span>
+              <span className="text-[11px] text-neutral-600">tap for 90</span>
             </div>
             {wellness30.length > 1 ? (
               TREND_ROWS.map((row) => (
@@ -755,7 +756,7 @@ export default function Trends() {
                 />
               ))
             ) : (
-              <p className="text-sm text-neutral-500 dark:text-neutral-400">
+              <p className="text-sm text-neutral-400">
                 No wellness readings yet — they arrive with the Garmin sync.
               </p>
             )}

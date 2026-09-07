@@ -44,9 +44,9 @@ frontend/
       WorkoutSession.jsx     /session/:id — log sets, swap exercises, finish
       WorkoutDetail.jsx      /workouts/:id — read-only past workout
       ExerciseLibrary.jsx    Browse/add exercises
-    index.css                Tailwind layers + dark-mode CSS overrides
-  tailwind.config.js         `darkMode: 'class'`
-  index.html                 Inline script applies `.dark` before paint
+    components/ui.jsx        Page / Section / Disclosure / Sheet primitives (2026-09-08)
+    index.css                Tailwind layers + the shared component classes (dark only)
+  tailwind.config.js         Type-role font sizes only
 ```
 
 ## Domain model
@@ -117,8 +117,23 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
 ## Conventions and lessons
 
 ### Styling
-- **Dark mode is the default.** Class-based (`darkMode: 'class'` in `tailwind.config.js`). An inline script in `index.html` sets `.dark` on `<html>` before paint based on `localStorage.theme` (defaults to dark). Toggle is in the Navbar.
-- Shared component classes (`.card`, `.input`, `.btn-secondary`, `.btn-ghost`, `.label`, `.tag`, `.section-label`, `.chip`) carry `dark:` variants in `src/index.css`.
+- **Dark only** (2026-09-08 redesign, PR 1). The light theme, the toggle, `darkMode: 'class'`
+  and the pre-paint `.dark` script are gone; `<meta name="color-scheme" content="dark">` keeps
+  native controls in step. Never write a `dark:` variant — there is nothing for it to vary from.
+- **One ramp**, written at the top of `src/index.css`: page `neutral-950` · raised surface
+  `neutral-900` (sheets, tiles) · hairline `neutral-800` (the only border/divide shade) ·
+  title `neutral-200` · body `neutral-300` · muted `neutral-400` · ghost/placeholder
+  `neutral-600` · accent text `emerald-400`, primary action `emerald-700` · coach/warning
+  `amber-400` · danger `red-400`. Chart ink is the same ramp as hex (see `CHART` in
+  `Progress.jsx`). Don't introduce a neighbouring shade because it "looks close".
+- **Primitives in `components/ui.jsx`**: `Page` (one column rhythm), `Section` (hairline +
+  `.section-label` + optional action), `Disclosure` (the one expand glyph — `ChevronIcon`,
+  never ▲▼/→), `Sheet` (the one bottom sheet: backdrop, Escape, body scroll lock, safe
+  area; `tall` for full-height pickers, `closeOnEscape={false}` when the sheet has inner
+  navigation). New screens are built from these; the remaining hand-written
+  `border-t … pt-4` sections migrate as each screen is rebuilt in PRs 2–5.
+- **One width.** `Layout` owns the column (`max-w-2xl`); pages don't set their own.
+- Shared component classes (`.card`, `.input`, `.btn-*`, `.label`, `.tag`, `.section-label`, `.chip`) live in `src/index.css`.
 - **The design language is flat, not carded** (2026-08-04, matching the session ledger):
   pages are sections separated by hairline `divide-y`/`border-t` rules, headed by
   `.section-label` (11px uppercase), with small data facts as `.tag` chips (sets×reps,
@@ -132,10 +147,8 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
   16px. `.card` is `p-3 md:p-5` — 20px of padding all round was coming out of the set
   inputs. Don't "tidy" these back to a single size.
 - `.badge` is a label, `.chip` is a tap target. Filter rows want `.chip`.
-- Muted text is `text-neutral-500 dark:text-neutral-400`. Both halves matter: `neutral-500`
-  on `neutral-900` is 3.78:1 and `neutral-400` on white is 2.52:1 — each fails AA in the
-  other theme.
-- Pages use a lot of raw Tailwind utilities (`bg-white`, `text-gray-500`, `border-gray-200`, etc.). Rather than retrofit `dark:` variants everywhere, `index.css` has a small layer of `.dark .<class>` overrides that remap those utilities. **When adding new pages, you can keep using the same raw utilities — they'll theme correctly automatically.**
+- Muted text is `text-neutral-400` (4.6:1 on `neutral-950`); `neutral-500` fails AA on the
+  raised surface, so it isn't in the ramp.
 
 ### Code
 - Don't add comments that just narrate behavior. Only comment when the *why* is non-obvious.
@@ -190,7 +203,7 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
 - **The Detail page's completion band keys off `location.state.justFinished`**, set only by
   the session's Finish navigation. PRs-today are derived client-side from
   `/progress/personal-bests` dates — don't add a dedicated endpoint for it.
-- **The session's unsaved edits live in `localStorage`, not the query cache.** `utils/draft.js`
+- **The session's unsaved edits live in `localStorage`, not the query cache.** `util/draft.js`
   writes the pending payload *and* a snapshot of the workout shape on every edit, and clears
   it only when the server confirms that exact payload. A surviving draft therefore means
   unsaved work. `['workout', id]` stays out of the persisted query cache (see `main.jsx`) so
