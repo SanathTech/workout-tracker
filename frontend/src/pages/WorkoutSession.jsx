@@ -37,6 +37,9 @@ const SAVE_LABEL = {
 // working on it", red is "your last set is not on the server". So the two states worth
 // acting on carry a word; the steady-state ones stay a quiet dot. Red is also a button:
 // tapping it retries, which is what the old bottom bar's "Retry save" did.
+// Pin sentinel: every block collapsed (see `pinned` below).
+const NONE = Symbol('none');
+
 function SaveStatus({ status, staleMinutes, onRetry }) {
   if (status === 'idle') return null;
   const word = status === 'error' ? 'Not saved'
@@ -669,9 +672,10 @@ export default function WorkoutSession() {
   const [finished, setFinished] = useState(null); // summary for the FinishSheet, once completed
   const [notesOpen, setNotesOpen] = useState(false);
   // Which exercise the ledger is open on. null = the first one not yet done; a tap on a
-  // collapsed line pins it, and finishing the pinned exercise's last set unpins so the
-  // next one opens on its own. (Auto-collapse: Boostcamp's pattern — the scroll is one
-  // exercise, not the whole workout.)
+  // collapsed line pins it; NONE = the user collapsed the open one and wants the bare
+  // list (a review of a finished session). Finishing the pinned exercise's last set
+  // unpins so the next one opens on its own. (Auto-collapse: Boostcamp's pattern — the
+  // scroll is one exercise, not the whole workout.)
   const [pinned, setPinned] = useState(null);
   const flushRef = useRef(null);       // latest flush(), for the retry timer to call
   const mountedRef = useRef(true);
@@ -777,7 +781,8 @@ export default function WorkoutSession() {
     if (pinned != null && doneIds.has(pinned) && !prevDoneRef.current.has(pinned)) setPinned(null);
     prevDoneRef.current = doneIds;
   }, [doneIds, pinned]);
-  const openId = (pinned != null && exercises.some((ex) => ex.client_id === pinned)) ? pinned : firstOpenId;
+  const openId = pinned === NONE ? null
+    : (pinned != null && exercises.some((ex) => ex.client_id === pinned)) ? pinned : firstOpenId;
 
   // Hydrate local state once from the fresh mount-fetch. If that fetch errored but
   // cached data exists (e.g. offline), hydrate from cache instead of hanging on the
@@ -967,7 +972,10 @@ export default function WorkoutSession() {
     let volume = 0;
     for (const ex of exercises) {
       const now = working(ex.sets);
-      for (const x of now) volume += (isBlank(x.weight_kg) ? 0 : Number(x.weight_kg)) * Number(x.reps);
+      // Added load only, floored at zero: an assisted pull-up logs the assistance as a
+      // negative and must not subtract from the session. The server's volume figures
+      // fold bodyweight in (util/volume.js); this is the number for the sheet, not stats.
+      for (const x of now) volume += Math.max(0, isBlank(x.weight_kg) ? 0 : Number(x.weight_kg)) * Number(x.reps);
       const prev = working(qc.getQueryData(['last-by-exercise', ex.exercise_id, id])?.sets || []);
       if (!now.length || !prev.length) continue;
       const nowKg = maxKg(now);
@@ -1258,11 +1266,7 @@ export default function WorkoutSession() {
             state={ex.client_id === openId ? 'open' : doneIds.has(ex.client_id) ? 'done' : 'next'}
             onToggle={() => {
               track('tap', ex.client_id === openId ? 'exercise-collapse' : 'exercise-open');
-              // Collapsing the auto-opened block pins "nothing" by pointing at a done
-              // exercise; simplest honest behaviour: collapse pins the next not-done one.
-              setPinned(ex.client_id === openId
-                ? (exercises.find((x) => x.client_id !== ex.client_id && !doneIds.has(x.client_id))?.client_id ?? ex.client_id)
-                : ex.client_id);
+              setPinned(ex.client_id === openId ? NONE : ex.client_id);
             }}
             onOpenPicker={() => setPicker({ mode: 'replace', forIndex: i })}
             onChange={(u) => setExercises(exercises.map((x, j) => j === i ? u : x))}

@@ -24,7 +24,10 @@ function resolveAim(engine, notes, targetRirPerSet) {
   const defaultRir = Array.isArray(targetRirPerSet) ? targetRirPerSet.find((r) => r != null) ?? null : null;
   const hasCall = (n) => n.aim_weight_kg != null || n.aim_reps != null || n.aim_rir != null;
   const call = [...notes].reverse().find(hasCall) || null;
-  const cues = notes.filter((n) => n !== call).map((n) => ({ id: n.id, note: n.note }));
+  // Only number-free notes are cues. An older load call the newest one superseded is
+  // dropped, not demoted — "back off to 95" under an aim of 100 is a contradiction, and
+  // the coach resolves the stale note rather than the phone explaining it away.
+  const cues = notes.filter((n) => !hasCall(n)).map((n) => ({ id: n.id, note: n.note }));
 
   if (call) {
     const weight = call.aim_weight_kg != null ? Number(call.aim_weight_kg) : null;
