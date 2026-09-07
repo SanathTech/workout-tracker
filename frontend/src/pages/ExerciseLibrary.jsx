@@ -1,45 +1,22 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getExercises, getExerciseGroups, deleteExercise } from '../api/client';
 import { Skeleton } from '../components/Skeleton';
 import CreateExerciseForm from '../components/CreateExerciseForm';
 import MoreMenu from '../components/MoreMenu';
+import { Sheet } from '../components/ui';
 
 // A bottom sheet, not a centered card. A centered card taller than the viewport clips at
 // BOTH ends once the keyboard shrinks the layout viewport (interactive-widget=
 // resizes-content) — 537px of form in ~460px of screen put the title 27px off-screen.
 // The sheet caps at the dynamic viewport, pins the title, and scrolls the form instead.
 function AddExerciseModal({ onClose }) {
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60"
-      onClick={onClose}
-    >
-      <div
-        className="w-full md:max-w-md max-h-[85vh] max-h-[85dvh] flex flex-col bg-white dark:bg-neutral-900 border-t md:border border-neutral-200 dark:border-neutral-800 rounded-t-xl md:rounded-lg shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between pl-4 pr-2 h-12 border-b border-neutral-200 dark:border-neutral-800 shrink-0">
-          <h2 className="font-semibold">Add exercise</h2>
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            className="w-11 h-11 flex items-center justify-center rounded text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200"
-          >
-            ×
-          </button>
-        </div>
-        <div className="flex-1 overflow-y-auto overscroll-contain">
-          <CreateExerciseForm showDescription submitLabel="Add" onCancel={onClose} onCreated={onClose} />
-        </div>
+    <Sheet title="Add exercise" onClose={onClose}>
+      <div className="flex-1 overflow-y-auto overscroll-contain">
+        <CreateExerciseForm showDescription submitLabel="Add" onCancel={onClose} onCreated={onClose} />
       </div>
-    </div>
+    </Sheet>
   );
 }
 
@@ -48,7 +25,7 @@ function ExerciseRow({ ex, onDelete }) {
     <div className="flex items-center gap-2 py-1.5">
       <div className="flex-1 min-w-0">
         <p className="font-medium">{ex.name}</p>
-        {ex.description && <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-0.5 line-clamp-2">{ex.description}</p>}
+        {ex.description && <p className="text-sm text-neutral-400 mt-0.5 line-clamp-2">{ex.description}</p>}
       </div>
       <MoreMenu
         label={`Options for ${ex.name}`}
@@ -92,7 +69,7 @@ export default function ExerciseLibrary() {
       {/* Sticky: the library is 80-odd rows, and the search you want is at the top of a
           list you've already scrolled away from. `md:top-14` clears the desktop header,
           which is itself sticky — at top-0 this bar parked on top of the nav. */}
-      <div className="sticky top-0 md:top-14 z-10 -mx-4 px-4 py-2 bg-white dark:bg-neutral-950 space-y-2">
+      <div className="sticky top-0 md:top-14 z-10 -mx-4 px-4 py-2 bg-neutral-950 space-y-2">
         <input
           className="input md:max-w-xs h-11"
           placeholder="Search…"
@@ -120,7 +97,7 @@ export default function ExerciseLibrary() {
       </div>
 
       {deleteError && (
-        <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 rounded-md px-3 py-2">
+        <p className="text-sm text-red-400 bg-red-950/40 border border-red-900/50 rounded-md px-3 py-2">
           {deleteError}
         </p>
       )}
@@ -130,15 +107,15 @@ export default function ExerciseLibrary() {
           {[0, 1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-14 w-full" />)}
         </div>
       ) : exercises.length === 0 ? (
-        <p className="text-center text-neutral-500 dark:text-neutral-400 py-20 text-sm">No exercises found.</p>
+        <p className="text-center text-neutral-400 py-20 text-sm">No exercises found.</p>
       ) : (
         Object.entries(grouped).map(([group, exs]) => (
           <section key={group}>
             <div className="flex items-center gap-2 mb-1">
               <h2 className="section-label">{group}</h2>
-              <span className="text-xs text-neutral-500 dark:text-neutral-400 tabular-nums">{exs.length}</span>
+              <span className="text-xs text-neutral-400 tabular-nums">{exs.length}</span>
             </div>
-            <div className="divide-y divide-neutral-200 dark:divide-neutral-800 border-t border-neutral-200 dark:border-neutral-800">
+            <div className="divide-y divide-neutral-800 border-t border-neutral-800">
               {exs.map((ex) => (
                 <ExerciseRow key={ex.id} ex={ex} onDelete={() => { if (!removing) remove(ex.id); }} />
               ))}

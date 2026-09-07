@@ -6,21 +6,14 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
-    <!-- One fixed value left the system chrome black around a light-mode app. -->
-    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)" />
+    <!-- Dark only (2026-09-08 redesign): one palette, and native controls/scrollbars follow it. -->
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#0a0a0a" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Workouts" />
     <title>Workout Tracker</title>
-    <script>
-      (function () {
-        var stored = localStorage.getItem('theme');
-        var dark = stored ? stored === 'dark' : true;
-        if (dark) document.documentElement.classList.add('dark');
-      })();
-    </script>
   </head>
   <body>
     <div id="root"></div>

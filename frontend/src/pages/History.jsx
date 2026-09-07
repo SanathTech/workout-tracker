@@ -4,7 +4,7 @@ import { useSmartBack } from '../hooks/useSmartBack';
 import { getWorkouts } from '../api/client';
 import { Skeleton } from '../components/Skeleton';
 import StatusBadge from '../components/StatusBadge';
-import { formatDay } from '../utils/format';
+import { formatDay } from '../util/format';
 
 const PAGE = 50;
 
@@ -12,18 +12,18 @@ function Row({ w }) {
   return (
     <Link to={`/workouts/${w.id}`} className="flex items-center justify-between py-3 group">
       <div className="min-w-0">
-        <p className="font-medium group-hover:underline text-neutral-900 dark:text-neutral-100 truncate">
+        <p className="font-medium group-hover:underline text-neutral-200 truncate">
           {w.routine_name || 'Workout'}
           <StatusBadge status={w.status} className="ml-2" />
         </p>
-        <p className="text-sm text-neutral-500 dark:text-neutral-400 truncate">
+        <p className="text-sm text-neutral-400 truncate">
           {formatDay(w.date, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
           {w.exercise_count ? ` · ${w.exercise_count} exercises` : ''}
           {w.program_name ? ` · ${w.program_name}` : ''}
         </p>
       </div>
       {w.duration_minutes ? (
-        <span className="text-xs text-neutral-500 dark:text-neutral-400 shrink-0 ml-3">{w.duration_minutes} min</span>
+        <span className="text-xs text-neutral-400 shrink-0 ml-3">{w.duration_minutes} min</span>
       ) : null}
     </Link>
   );
@@ -43,15 +43,15 @@ export default function History() {
   const items = data?.pages.flat() ?? [];
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="space-y-6">
       <div>
-        <button type="button" onClick={goBack} className="text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 inline-flex items-center min-h-11 md:min-h-0 -ml-1 pl-1">← Back</button>
+        <button type="button" onClick={goBack} className="text-sm text-neutral-400 hover:text-neutral-200 inline-flex items-center min-h-11 md:min-h-0 -ml-1 pl-1">← Back</button>
         <h1 className="text-2xl font-semibold tracking-tight mt-1">Workout history</h1>
       </div>
 
-      <div className="border-t border-neutral-200 dark:border-neutral-800">
+      <div className="border-t border-neutral-800">
         {isLoading ? (
-          <div className="divide-y divide-neutral-200 dark:divide-neutral-800">
+          <div className="divide-y divide-neutral-800">
             {[0, 1, 2, 3].map((i) => (
               <div key={i} className="py-3 space-y-1.5">
                 <Skeleton className="h-4 w-32" />
@@ -60,9 +60,9 @@ export default function History() {
             ))}
           </div>
         ) : items.length === 0 ? (
-          <p className="text-sm text-neutral-500 dark:text-neutral-400 py-4">No workouts logged yet.</p>
+          <p className="text-sm text-neutral-400 py-4">No workouts logged yet.</p>
         ) : (
-          <div className="divide-y divide-neutral-200 dark:divide-neutral-800">
+          <div className="divide-y divide-neutral-800">
             {items.map((w) => <Row key={w.id} w={w} />)}
           </div>
         )}

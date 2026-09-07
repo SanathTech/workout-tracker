@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { getMuscleVolume } from '../api/client';
-import { formatDay } from '../utils/format';
+import { formatDay } from '../util/format';
 import { Skeleton } from './Skeleton';
 
 // The bar is positioned on the MEV→MRV scale, not on "percent of a target", because there
@@ -11,7 +11,7 @@ function VolumeBar({ row, weeks }) {
   const pct = (v) => `${Math.min(100, (v / scaleMax) * 100)}%`;
 
   const tone = {
-    below_mev:  'bg-neutral-400 dark:bg-neutral-600',
+    below_mev:  'bg-neutral-600',
     productive: 'bg-emerald-500',
     high:       'bg-amber-500',
     above_mrv:  'bg-red-500',
@@ -27,24 +27,24 @@ function VolumeBar({ row, weeks }) {
   return (
     <div className="py-1.5">
       <div className="flex items-baseline justify-between gap-2 mb-1">
-        <span className="text-sm text-neutral-800 dark:text-neutral-200">{row.label}</span>
-        <span className="text-xs tabular-nums text-neutral-500 dark:text-neutral-400">
+        <span className="text-sm text-neutral-200">{row.label}</span>
+        <span className="text-xs tabular-nums text-neutral-400">
           {row.sets} {row.sets === 1 ? 'set' : 'sets'} · {note}
         </span>
       </div>
-      <div className="relative h-2 rounded-full bg-neutral-150 dark:bg-neutral-800 overflow-hidden">
+      <div className="relative h-2 rounded-full bg-neutral-800 overflow-hidden">
         {/* the productive band, so the bar can be read against it at a glance */}
         <div
           className="absolute inset-y-0 bg-emerald-500/15"
           style={{ left: pct(row.mev), width: `calc(${pct(row.mav)} - ${pct(row.mev)})` }}
         />
         <div className={`absolute inset-y-0 left-0 rounded-full ${tone}`} style={{ width: pct(row.sets) }} />
-        <div className="absolute inset-y-0 w-px bg-neutral-400/70 dark:bg-neutral-500" style={{ left: pct(row.mev) }} />
+        <div className="absolute inset-y-0 w-px bg-neutral-500" style={{ left: pct(row.mev) }} />
         <div className="absolute inset-y-0 w-px bg-red-400/70" style={{ left: pct(row.mrv) }} />
         {/* where the last N weeks have typically landed, so this week reads as up or down */}
         {row.avg_sets > 0 && (
           <div
-            className="absolute inset-y-0 w-0.5 bg-neutral-900/60 dark:bg-white/70"
+            className="absolute inset-y-0 w-0.5 bg-white/70"
             style={{ left: pct(row.avg_sets) }}
             title={`${weeks}-week average: ${row.avg_sets} sets/week`}
           />
@@ -86,19 +86,19 @@ export default function MuscleVolume({ weeks = 8 }) {
           <h2 className="section-label">
             Sets per muscle{weekLabel ? ` · week of ${weekLabel}` : ''}
           </h2>
-          <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">
+          <p className="text-[11px] text-neutral-400 mt-0.5">
             Assisting muscles count as half a set. The marker is the {weeks}-week average.
           </p>
         </div>
       </div>
 
       {trained.length === 0 ? (
-        <p className="text-sm text-neutral-500 dark:text-neutral-400 py-4">
+        <p className="text-sm text-neutral-400 py-4">
           No sets logged this week yet.
           {untrained.length > 0 && ' Show all to see how the last few weeks compare.'}
         </p>
       ) : (
-        <div className="divide-y divide-neutral-100 dark:divide-neutral-900">
+        <div className="divide-y divide-neutral-800">
           {shown.map((row) => <VolumeBar key={row.muscle} row={row} weeks={weeks} />)}
         </div>
       )}
@@ -107,7 +107,7 @@ export default function MuscleVolume({ weeks = 8 }) {
         <button
           type="button"
           onClick={() => setShowAll((v) => !v)}
-          className="mt-1 h-11 text-xs font-medium text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200"
+          className="mt-1 h-11 text-xs font-medium text-neutral-400 hover:text-neutral-200"
         >
           {showAll ? 'Hide untrained' : `Show ${untrained.length} untrained`}
         </button>

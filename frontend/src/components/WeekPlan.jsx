@@ -18,7 +18,7 @@ const KIND_STYLES = {
   gym: 'bg-emerald-500',
   run: 'bg-sky-500',
   swim: 'bg-cyan-500',
-  walk: 'bg-neutral-400 dark:bg-neutral-600',
+  walk: 'bg-neutral-600',
 };
 
 const KIND_LABELS = { gym: 'Gym', run: 'Run', swim: 'Swim', walk: 'Walk' };
@@ -51,18 +51,18 @@ function DayRow({ day }) {
       disabled={!expandable}
       onClick={() => setOpen((v) => !v)}
       aria-expanded={expandable ? open : undefined}
-      className={`w-full text-left flex gap-3 py-2 ${isToday ? 'bg-emerald-50/60 dark:bg-emerald-950/20 -mx-3 px-3' : ''}`}
+      className={`w-full text-left flex gap-3 py-2 ${isToday ? 'bg-emerald-950/20 -mx-3 px-3' : ''}`}
     >
       {/* Fixed-width date gutter keeps every title on the same left edge. */}
       <div className="w-12 shrink-0 flex items-baseline gap-1">
         <span
           className={`text-xs font-semibold tracking-wide ${
-            isToday ? 'text-emerald-700 dark:text-emerald-400' : 'text-neutral-500 dark:text-neutral-400'
+            isToday ? 'text-emerald-400' : 'text-neutral-400'
           }`}
         >
           {day.weekday.slice(0, 3).toUpperCase()}
         </span>
-        <span className="text-[11px] text-neutral-400 dark:text-neutral-500 tabular-nums">{Number(dom)}</span>
+        <span className="text-[11px] text-neutral-400 tabular-nums">{Number(dom)}</span>
         <span className="sr-only">{monthName}</span>
       </div>
 
@@ -78,18 +78,18 @@ function DayRow({ day }) {
           <span
             className={`text-sm font-medium truncate ${
               missed
-                ? 'text-neutral-400 dark:text-neutral-500 line-through'
-                : 'text-neutral-900 dark:text-neutral-100'
+                ? 'text-neutral-400 line-through'
+                : 'text-neutral-200'
             }`}
           >
             {planned.title}
           </span>
           {isToday && <span className="sr-only">today</span>}
           {done && !isToday && (
-            <span className="text-emerald-600 dark:text-emerald-500 text-xs shrink-0" aria-label="done">✓</span>
+            <span className="text-emerald-400 text-xs shrink-0" aria-label="done">✓</span>
           )}
           {missed && (
-            <span className="text-[11px] text-amber-700 dark:text-amber-500 shrink-0">nothing logged</span>
+            <span className="text-[11px] text-amber-400 shrink-0">nothing logged</span>
           )}
         </div>
 
@@ -97,8 +97,8 @@ function DayRow({ day }) {
           <p
             className={`text-xs mt-1 ${
               state === 'past'
-                ? 'text-neutral-400 dark:text-neutral-500'
-                : 'text-neutral-600 dark:text-neutral-400'
+                ? 'text-neutral-400'
+                : 'text-neutral-400'
             }`}
           >
             {planned.detail}
@@ -126,17 +126,17 @@ export default function WeekPlan() {
 
   if (isLoading) {
     return (
-      <section className="border-t border-neutral-200 dark:border-neutral-800 pt-4">
+      <section className="border-t border-neutral-800 pt-4">
         <p className="section-label">This week</p>
-        <p className="text-sm text-neutral-500 dark:text-neutral-400 py-4">Loading the week…</p>
+        <p className="text-sm text-neutral-400 py-4">Loading the week…</p>
       </section>
     );
   }
   if (isError || !data) {
     return (
-      <section className="border-t border-neutral-200 dark:border-neutral-800 pt-4">
+      <section className="border-t border-neutral-800 pt-4">
         <p className="section-label">This week</p>
-        <p className="text-sm text-red-600 dark:text-red-400 py-4">Couldn’t load the week.</p>
+        <p className="text-sm text-red-400 py-4">Couldn’t load the week.</p>
       </section>
     );
   }
@@ -145,31 +145,31 @@ export default function WeekPlan() {
   const nextGym = data.days.find((d) => d.state !== 'past' && d.planned.kind === 'gym');
 
   return (
-    <section className="border-t border-neutral-200 dark:border-neutral-800 pt-4 space-y-3">
+    <section className="border-t border-neutral-800 pt-4 space-y-3">
       <div>
         <p className="section-label">This week</p>
         {/* Today's slot in words, because the "Up next" card above only knows about gym
             days — on a Wednesday the answer is the swim, and the program can't say so. */}
-        <p className="text-base font-semibold tracking-tight text-neutral-900 dark:text-neutral-100 mt-0.5">
+        <p className="text-base font-semibold tracking-tight text-neutral-200 mt-0.5">
           {todayRow ? todayRow.planned.title : 'Rest'}
-          <span className="text-xs font-normal text-neutral-500 dark:text-neutral-400 ml-2">today</span>
+          <span className="text-xs font-normal text-neutral-400 ml-2">today</span>
         </p>
         {todayRow?.planned.detail && (
-          <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-0.5">
+          <p className="text-sm text-neutral-400 mt-0.5">
             {todayRow.planned.detail}
           </p>
         )}
         {nextGym && nextGym.state !== 'today' && (
-          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+          <p className="text-xs text-neutral-400 mt-1">
             Next gym:{' '}
-            <span className="text-neutral-700 dark:text-neutral-300">
+            <span className="text-neutral-300">
               {nextGym.weekday} — {nextGym.planned.title}
             </span>
           </p>
         )}
       </div>
 
-      <div className="divide-y divide-neutral-200 dark:divide-neutral-800 border-t border-neutral-200 dark:border-neutral-800">
+      <div className="divide-y divide-neutral-800 border-t border-neutral-800">
         {data.days.map((d) => (
           <DayRow key={d.date} day={d} />
         ))}

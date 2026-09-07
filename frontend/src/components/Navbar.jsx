@@ -1,5 +1,4 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { useEffect, useState } from 'react';
 import { useIsFetching, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMobileNavHidden } from '../hooks/useMobileNavVisibility';
 import { getAuthStatus, logout } from '../api/client';
@@ -78,29 +77,13 @@ const desktopLinks = [
   { to: '/exercises', label: 'Exercises', Icon: DumbbellIcon },
 ];
 
-function SunIcon(props) {
-  return (
-    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" {...props}>
-      <circle cx="12" cy="12" r="4" />
-      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" strokeLinecap="round" />
-    </svg>
-  );
-}
-function MoonIcon(props) {
-  return (
-    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" {...props}>
-      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 function SyncingDot() {
   const fetching = useIsFetching();
   if (!fetching) return null;
   return (
     <span
       aria-label="Syncing"
-      className="w-1.5 h-1.5 rounded-full bg-neutral-400 dark:bg-neutral-500 animate-pulse"
+      className="w-1.5 h-1.5 rounded-full bg-neutral-500 animate-pulse"
     />
   );
 }
@@ -141,27 +124,9 @@ function SignOutButton() {
       disabled={signOut.isPending}
       aria-label="Sign out"
       title="Sign out"
-      className="shrink-0 w-11 h-11 flex items-center justify-center rounded-md text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-neutral-200 dark:hover:bg-neutral-900 transition-colors"
+      className="shrink-0 w-11 h-11 flex items-center justify-center rounded-md text-neutral-400 hover:text-neutral-200 hover:bg-neutral-900 transition-colors"
     >
       <SignOutIcon />
-    </button>
-  );
-}
-
-function ThemeToggle() {
-  const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'));
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', dark);
-    localStorage.setItem('theme', dark ? 'dark' : 'light');
-  }, [dark]);
-  return (
-    <button
-      type="button"
-      onClick={() => setDark((d) => !d)}
-      aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
-      className="shrink-0 w-11 h-11 flex items-center justify-center rounded-md text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-neutral-200 dark:hover:bg-neutral-900 transition-colors"
-    >
-      {dark ? <SunIcon /> : <MoonIcon />}
     </button>
   );
 }
@@ -178,12 +143,12 @@ export default function Navbar() {
           during a session, where the page supplies its own pinned context strip.
           Desktop: full nav, sticky. */}
       <header
-        className={`bg-white border-b border-neutral-200 md:sticky md:top-0 z-10 dark:bg-neutral-950 dark:border-neutral-900 ${
+        className={`border-b md:sticky md:top-0 z-10 bg-neutral-950 border-neutral-800 ${
           inSession ? 'hidden md:block' : ''
         }`}
       >
-        <div className="max-w-6xl mx-auto px-4 flex items-center h-14">
-          <span className="font-semibold tracking-tight text-neutral-900 dark:text-neutral-200">
+        <div className="max-w-2xl mx-auto px-4 flex items-center h-14">
+          <span className="font-semibold tracking-tight text-neutral-200">
             Workout Tracker
           </span>
           <div className="hidden md:flex gap-1 ml-6">
@@ -194,8 +159,8 @@ export default function Navbar() {
                 className={({ isActive }) =>
                   `px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
                     isActive
-                      ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-400'
-                      : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 hover:bg-neutral-50 dark:text-neutral-400 dark:hover:text-neutral-200 dark:hover:bg-neutral-900/50'
+                      ? 'bg-emerald-500/10 text-emerald-400'
+                      : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-900/50'
                   }`
                 }
               >
@@ -205,7 +170,6 @@ export default function Navbar() {
           </div>
           <div className="ml-auto flex items-center gap-2">
             <SyncingDot />
-            <ThemeToggle />
             <SignOutButton />
           </div>
         </div>
@@ -213,7 +177,7 @@ export default function Navbar() {
 
       {/* Bottom tab bar — mobile only, hidden during a workout session or when an editor explicitly hides it */}
       {showBottomNav && (
-        <nav aria-label="Main" className="md:hidden fixed bottom-0 inset-x-0 z-20 bg-white border-t border-neutral-200 dark:bg-neutral-950 dark:border-neutral-900 pb-[env(safe-area-inset-bottom)]">
+        <nav aria-label="Main" className="md:hidden fixed bottom-0 inset-x-0 z-20 border-t bg-neutral-950 border-neutral-800 pb-[env(safe-area-inset-bottom)]">
           <div className="grid grid-cols-4">
             {links.map((l) => (
               <NavLink
@@ -222,8 +186,8 @@ export default function Navbar() {
                 className={({ isActive }) =>
                   `flex flex-col items-center justify-center gap-0.5 h-14 text-[11px] font-medium transition-colors ${
                     isActive
-                      ? 'text-emerald-700 dark:text-emerald-400'
-                      : 'text-neutral-500 dark:text-neutral-400'
+                      ? 'text-emerald-400'
+                      : 'text-neutral-400'
                   }`
                 }
               >

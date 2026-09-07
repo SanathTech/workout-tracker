@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { getBodyweight, logBodyweight } from '../api/client';
-import { formatDay } from '../utils/format';
+import { formatDay } from '../util/format';
 import { Skeleton } from './Skeleton';
 
 export default function BodyweightCard() {
@@ -32,14 +32,14 @@ export default function BodyweightCard() {
   const valid = value !== '' && Number.isFinite(parsed) && parsed > 0 && parsed <= 500;
 
   return (
-    <section className="border-t border-neutral-200 dark:border-neutral-800 pt-4">
+    <section className="border-t border-neutral-800 pt-4">
       <div className="flex items-baseline justify-between mb-2">
         <h2 className="section-label">Bodyweight</h2>
         {latest && (
-          <span className="text-xs text-neutral-500 dark:text-neutral-400">
+          <span className="text-xs text-neutral-400">
             {latest.weight_kg}kg
             {change != null && (
-              <span className={change > 0 ? 'text-amber-600 dark:text-amber-500' : change < 0 ? 'text-emerald-600 dark:text-emerald-500' : ''}>
+              <span className={change > 0 ? 'text-amber-400' : change < 0 ? 'text-emerald-400' : ''}>
                 {' '}({change > 0 ? '+' : ''}{change} over {data.length} entries)
               </span>
             )}
@@ -65,7 +65,7 @@ export default function BodyweightCard() {
           </ResponsiveContainer>
         </div>
       ) : (
-        <p className="text-sm text-neutral-500 dark:text-neutral-400 py-2">
+        <p className="text-sm text-neutral-400 py-2">
           {data.length === 1 ? 'One entry so far — log again to see a trend.' : 'No weigh-ins logged yet.'}
         </p>
       )}
@@ -87,9 +87,9 @@ export default function BodyweightCard() {
         </button>
       </form>
       {save.isError && (
-        <p className="text-xs text-red-600 dark:text-red-400 mt-1">Couldn’t save that weigh-in.</p>
+        <p className="text-xs text-red-400 mt-1">Couldn’t save that weigh-in.</p>
       )}
-      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1">
+      <p className="text-[11px] text-neutral-400 mt-1">
         One entry per day — logging again replaces today’s.
       </p>
     </section>

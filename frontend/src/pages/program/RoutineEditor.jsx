@@ -67,7 +67,7 @@ export default function RoutineEditor({ routine, allExercises, onChange, onRemov
 
       <div>
         {routine.exercises.map((ex, i) => (
-          <div key={ex.client_id} className={i > 0 ? 'border-t border-neutral-200 dark:border-neutral-800' : ''}>
+          <div key={ex.client_id} className={i > 0 ? 'border-t border-neutral-800' : ''}>
             <ExerciseEditor
               ex={ex}
               allExercises={allExercises}

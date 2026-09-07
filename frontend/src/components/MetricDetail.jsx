@@ -1,7 +1,7 @@
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine,
 } from 'recharts';
-import { formatDay } from '../utils/format';
+import { formatDay } from '../util/format';
 
 // The expanded view behind a sparkline row: the same series, 90 days instead of 30,
 // with axes, a mean line and the range it actually moved through.
@@ -20,7 +20,7 @@ export default function MetricDetail({ label, data, field, stroke, unit, precisi
   const present = rows.map((r) => r.value).filter((v) => v != null && Number.isFinite(v));
   if (present.length < 2) {
     return (
-      <p className="text-sm text-neutral-500 dark:text-neutral-400 py-2">
+      <p className="text-sm text-neutral-400 py-2">
         Not enough {label.toLowerCase()} readings yet.
       </p>
     );
@@ -42,12 +42,12 @@ export default function MetricDetail({ label, data, field, stroke, unit, precisi
       <div className="h-44 -ml-2">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={rows} margin={{ top: 4, right: 6, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="2 4" stroke="currentColor" className="text-neutral-200 dark:text-neutral-800" vertical={false} />
+            <CartesianGrid strokeDasharray="2 4" stroke="currentColor" className="text-neutral-800" vertical={false} />
             <XAxis
               dataKey="date"
               tick={{ fontSize: 10 }}
               stroke="currentColor"
-              className="text-neutral-400 dark:text-neutral-600"
+              className="text-neutral-600"
               tickFormatter={(d) => formatDay(d, { month: 'short', day: 'numeric' })}
               minTickGap={40}
             />
@@ -56,7 +56,7 @@ export default function MetricDetail({ label, data, field, stroke, unit, precisi
             <YAxis
               tick={{ fontSize: 10 }}
               stroke="currentColor"
-              className="text-neutral-400 dark:text-neutral-600"
+              className="text-neutral-600"
               width={field === 'steps' ? 40 : 28}
               domain={precision > 0 ? ['dataMin - 0.5', 'dataMax + 0.5'] : ['dataMin - 2', 'dataMax + 2']}
               tickFormatter={fmt}
@@ -69,7 +69,7 @@ export default function MetricDetail({ label, data, field, stroke, unit, precisi
             <ReferenceLine
               y={mean}
               stroke="currentColor"
-              className="text-neutral-400 dark:text-neutral-600"
+              className="text-neutral-600"
               strokeDasharray="4 4"
             />
             {/* The fill is dropped on a sparse series. An Area fills down to the axis

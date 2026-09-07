@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { saveSessionFeel } from '../api/client';
+import { Sheet } from './ui';
 
 // Asked on Finish, before the page changes.
 //
@@ -64,26 +65,17 @@ export default function FinishRatingSheet({ workoutId, summary, onDone }) {
   const hint = ANCHORS.find((a) => a.n === picked)?.hint;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40"
-      onClick={close}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Rate this session"
-    >
-      <div
-        className="w-full max-w-md bg-white dark:bg-neutral-950 rounded-t-2xl border-t border-neutral-200 dark:border-neutral-800 p-4 pb-6"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <p className="section-label text-emerald-700 dark:text-emerald-400">Workout complete</p>
+    <Sheet onClose={close} label="Rate this session">
+      <div className="p-4 pb-[calc(env(safe-area-inset-bottom)+1.5rem)]">
+        <p className="section-label text-emerald-400">Workout complete</p>
         {summary && (
-          <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-0.5">{summary}</p>
+          <p className="text-sm text-neutral-400 mt-0.5">{summary}</p>
         )}
 
-        <h2 className="text-lg font-semibold tracking-tight mt-3 text-neutral-900 dark:text-neutral-100">
+        <h2 className="text-lg font-semibold tracking-tight mt-3 text-neutral-200">
           How hard was that?
         </h2>
-        <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-2">
+        <p className="text-xs text-neutral-400 mb-2">
           RPE 1–10 — 8 is hard, 10 is nothing left.
         </p>
 
@@ -98,7 +90,7 @@ export default function FinishRatingSheet({ workoutId, summary, onDone }) {
               className={`min-h-11 rounded-md text-sm font-medium tabular-nums border transition-colors ${
                 picked === n
                   ? 'bg-emerald-600 border-emerald-600 text-white'
-                  : 'border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:border-neutral-400 dark:hover:border-neutral-600'
+                  : 'border-neutral-800 text-neutral-300 hover:border-neutral-600'
               }`}
             >
               {n}
@@ -107,12 +99,12 @@ export default function FinishRatingSheet({ workoutId, summary, onDone }) {
         </div>
 
         {/* Reserved line, so picking a number doesn't shift the buttons under the thumb. */}
-        <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-2 h-4">{hint || ''}</p>
+        <p className="text-xs text-neutral-400 mt-2 h-4">{hint || ''}</p>
 
         <button type="button" onClick={close} className="btn-ghost w-full mt-1">
           Skip
         </button>
       </div>
-    </div>
+    </Sheet>
   );
 }

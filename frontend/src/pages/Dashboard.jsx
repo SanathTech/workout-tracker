@@ -9,7 +9,7 @@ import { Skeleton } from '../components/Skeleton';
 import StatusBadge from '../components/StatusBadge';
 import CheckinCard from '../components/CheckinCard';
 import WeekPlan from '../components/WeekPlan';
-import { formatDay } from '../utils/format';
+import { formatDay } from '../util/format';
 
 function WorkoutRow({ workout }) {
   return (
@@ -18,18 +18,18 @@ function WorkoutRow({ workout }) {
       className="flex items-center justify-between py-3 group"
     >
       <div>
-        <p className="font-medium group-hover:underline text-neutral-900 dark:text-neutral-100">
+        <p className="font-medium group-hover:underline text-neutral-200">
           {workout.routine_name || 'Workout'}
           <StatusBadge status={workout.status} className="ml-2" />
         </p>
-        <p className="text-sm text-neutral-500 dark:text-neutral-400">
+        <p className="text-sm text-neutral-400">
           {formatDay(workout.date, { weekday: 'short', month: 'short', day: 'numeric' })}
           {workout.exercise_count ? ` · ${workout.exercise_count} exercises` : ''}
           {workout.program_name ? ` · ${workout.program_name}` : ''}
         </p>
       </div>
       {workout.duration_minutes && (
-        <span className="text-xs text-neutral-500 dark:text-neutral-400 shrink-0 ml-3 whitespace-nowrap tabular-nums">{workout.duration_minutes} min</span>
+        <span className="text-xs text-neutral-400 shrink-0 ml-3 whitespace-nowrap tabular-nums">{workout.duration_minutes} min</span>
       )}
     </Link>
   );
@@ -74,7 +74,7 @@ function NextWorkoutCard({ program }) {
           {progress?.completed_workouts}{progress?.total_workouts ? `/${progress.total_workouts}` : ''} workouts done
           {progress?.skipped_workouts ? ` · ${progress.skipped_workouts} skipped` : ''}
         </p>
-        <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">Start a new program when you're ready.</p>
+        <p className="text-sm text-neutral-400 mt-1">Start a new program when you're ready.</p>
         <Link to="/program" className="btn-primary mt-4 inline-flex">New program</Link>
       </section>
     );
@@ -94,7 +94,7 @@ function NextWorkoutCard({ program }) {
         </div>
       </div>
 
-      <p className="text-sm text-neutral-600 dark:text-neutral-400">
+      <p className="text-sm text-neutral-400">
         {progress.next_routine.exercises.length} exercises:{' '}
         {progress.next_routine.exercises.slice(0, 4).map((e) => e.exercise_name).join(', ')}
         {progress.next_routine.exercises.length > 4 && '…'}
@@ -117,7 +117,7 @@ function NextWorkoutCard({ program }) {
         </button>
       </div>
       {skip.isError && (
-        <p className="text-xs text-red-600 dark:text-red-400">Could not skip this workout. Try again.</p>
+        <p className="text-xs text-red-400">Could not skip this workout. Try again.</p>
       )}
     </section>
   );
@@ -146,11 +146,11 @@ function InProgressCard({ workout }) {
   return (
     <Link
       to={`/session/${workout.id}`}
-      className="block -mx-2 px-2 py-2 rounded-lg border-l-2 border-l-emerald-500 pl-3 hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
+      className="block -mx-2 px-2 py-2 rounded-lg border-l-2 border-l-emerald-500 pl-3 hover:bg-neutral-900 transition-colors"
     >
-      <p className="section-label text-emerald-700 dark:text-emerald-400">In progress</p>
+      <p className="section-label text-emerald-400">In progress</p>
       <p className="text-lg font-semibold mt-0.5">{workout.routine_name || 'Workout'}</p>
-      <p className="text-sm text-neutral-500 dark:text-neutral-400">
+      <p className="text-sm text-neutral-400">
         Started {new Date(workout.created_at).toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' })} · tap to continue
       </p>
     </Link>
@@ -200,7 +200,7 @@ export default function Dashboard() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Today</h1>
-        <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
+        <p className="text-sm text-neutral-400 mt-1">
           {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
           {/* The four totals live on Progress; the only one that changes what you do
               today is how many sessions this week already has. */}
@@ -215,7 +215,7 @@ export default function Dashboard() {
       ) : !active ? (
         <section>
           <p className="font-semibold">No active program</p>
-          <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
+          <p className="text-sm text-neutral-400 mt-1">
             Set up a program (e.g. 12-week split with Upper/Lower routines), then start it to track workouts.
           </p>
           <Link to="/program" className="btn-primary mt-4 inline-flex">Set up a program</Link>
@@ -232,23 +232,23 @@ export default function Dashboard() {
       <CheckinCard />
       <WeekPlan />
 
-      <section className="border-t border-neutral-200 dark:border-neutral-800 pt-4">
+      <section className="border-t border-neutral-800 pt-4">
         <div className="flex items-center justify-between mb-1">
           <h2 className="section-label">Recent workouts</h2>
           {recent?.length > 0 && (
-            <Link to="/history" className="text-xs font-medium text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 inline-flex items-center min-h-11 md:min-h-0 pl-3">See all →</Link>
+            <Link to="/history" className="text-xs font-medium text-neutral-400 hover:text-neutral-200 inline-flex items-center min-h-11 md:min-h-0 pl-3">See all →</Link>
           )}
         </div>
         {recentLoading ? (
-          <div className="divide-y divide-neutral-200 dark:divide-neutral-800">
+          <div className="divide-y divide-neutral-800">
             <WorkoutRowSkeleton />
             <WorkoutRowSkeleton />
             <WorkoutRowSkeleton />
           </div>
         ) : recent?.length === 0 ? (
-          <p className="text-sm text-neutral-500 dark:text-neutral-400 py-4">No workouts logged yet.</p>
+          <p className="text-sm text-neutral-400 py-4">No workouts logged yet.</p>
         ) : (
-          <div className="divide-y divide-neutral-200 dark:divide-neutral-800">
+          <div className="divide-y divide-neutral-800">
             {recent?.slice(0, 3).map((w) => <WorkoutRow key={w.id} workout={w} />)}
           </div>
         )}
