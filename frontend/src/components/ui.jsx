@@ -8,8 +8,9 @@ import { ChevronIcon, CloseIcon } from './icons';
 //   Sheet    — the one bottom sheet: backdrop, Escape, tap-outside, safe-area padding.
 // Width lives in Layout (max-w-2xl), not here: it's a phone app that happens to run on desktop.
 
-export function Page({ className = '', children }) {
-  return <div className={`space-y-6 ${className}`}>{children}</div>;
+// `dense` is Today's rhythm (16px): the one screen that's operated more than read.
+export function Page({ dense = false, className = '', children }) {
+  return <div className={`${dense ? 'space-y-4' : 'space-y-6'} ${className}`}>{children}</div>;
 }
 
 export function Section({ label, action, className = '', children }) {

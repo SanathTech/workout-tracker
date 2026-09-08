@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
@@ -6,37 +6,19 @@ import {
   startWorkout, skipUpcomingWorkout,
 } from '../api/client';
 import { Skeleton } from '../components/Skeleton';
-import { Page } from '../components/ui';
-import { ChevronIcon } from '../components/icons';
-import CheckinCard, { ratingsComplete, rampComplete, RAMP_FIELDS } from '../components/CheckinCard';
+import { Page, Section } from '../components/ui';
+import CheckinCard, { checkinStarted } from '../components/CheckinCard';
 import WeekStrip, { useWeek } from '../components/WeekPlan';
 import TodayTiles from '../components/TodayTiles';
 import CoachCard from '../components/CoachCard';
-import { track } from '../util/telemetry';
 
-// Today (2026-09-08 redesign, PR 3). Two things happen on this screen and only two:
-// a session gets started, a check-in gets done. Both blocks are always here, one open
-// and one folded to a single line, and the open one follows the clock — the session
-// until 19:00, the check-in after — because that's when each of them actually happens.
-// Either line can be tapped to swap. Everything else on the page is a glance (the
-// week, four numbers, the coach's line) and a tap away from its full reading.
-const EVENING_HOUR = 19;
-
-// True from 19:00. Re-evaluates at the next flip, so a page left open across 19:00
-// (or brought back from the background by the PWA) swaps without a reload.
-function useEvening() {
-  const [evening, setEvening] = useState(() => new Date().getHours() >= EVENING_HOUR);
-  useEffect(() => {
-    const check = () => setEvening(new Date().getHours() >= EVENING_HOUR);
-    const now = new Date();
-    const next = new Date(now);
-    next.setHours(now.getHours() >= EVENING_HOUR ? 24 : EVENING_HOUR, 0, 0, 0);
-    const timer = setTimeout(check, next - now);
-    document.addEventListener('visibilitychange', check);
-    return () => { clearTimeout(timer); document.removeEventListener('visibilitychange', check); };
-  }, [evening]);
-  return evening;
-}
+// Today (2026-09-08 redesign, PR 3; density pass PR 6 the same day). Two things happen
+// on this screen and only two: a session gets started, a check-in gets done. Both
+// blocks are open, always. PR 3 shipped them as a pair that swapped on the clock — the
+// session until 19:00, the check-in after — and the first evening on a phone it read
+// as two folded one-liners over a screen of nothing: the lift preview and the Start
+// button were behind a chevron on the one day a week they matter. Nothing on this page
+// is folded now; the page is short because the rhythm is, not because it hides things.
 
 // ---------- session block ----------
 
@@ -50,8 +32,8 @@ function InProgressBlock({ workout }) {
   return (
     <div className="space-y-3">
       <div>
-        <h2 className="text-2xl font-semibold tracking-tight">{workout.routine_name || 'Workout'}</h2>
-        <p className="text-sm text-neutral-400 mt-1 tabular-nums">
+        <h2 className="text-xl font-semibold tracking-tight">{workout.routine_name || 'Workout'}</h2>
+        <p className="text-sm text-neutral-400 mt-0.5 tabular-nums">
           {planned > 0 && <>{logged}/{planned} sets · </>}
           started {new Date(workout.created_at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
         </p>
@@ -154,15 +136,15 @@ function NextWorkoutBlock({ program }) {
 
   const next = progress.next_routine;
   return (
-    <div className="space-y-3">
-      <div>
-        <h2 className="text-2xl font-semibold tracking-tight">{next.name}</h2>
-        <p className="text-sm text-neutral-400 mt-1">{next.exercises.length} exercises</p>
-      </div>
+    <div className="space-y-2">
+      <h2 className="text-xl font-semibold tracking-tight">
+        {next.name}
+        <span className="text-sm font-normal text-neutral-400 ml-2">{next.exercises.length} exercises</span>
+      </h2>
 
       <LiftPreview routine={next} />
 
-      <div className="space-y-2 pt-1">
+      <div className="space-y-1 pt-1">
         <button
           onClick={() => start.mutate(next.id)}
           disabled={start.isPending || skip.isPending}
@@ -215,53 +197,6 @@ function SessionSkeleton() {
   );
 }
 
-// ---------- the two-block hero ----------
-
-// One block open, one folded. The folded one is a single tappable line; the open one's
-// heading is the same control, so tapping either swaps them.
-function HeroBlock({ label, labelClass = '', line, open, onToggle, status, children }) {
-  if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={false}
-        className="w-full flex items-center justify-between gap-3 text-left min-h-11 py-1"
-      >
-        <span className="text-sm text-neutral-300 truncate">
-          <span className={`section-label inline mr-2 ${labelClass}`}>{label}</span>
-          {line}
-        </span>
-        <ChevronIcon />
-      </button>
-    );
-  }
-  return (
-    <div className="space-y-3">
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded
-        className="w-full flex items-baseline justify-between gap-3 text-left min-h-11 md:min-h-0"
-      >
-        <span className={`section-label ${labelClass}`}>{label}</span>
-        <span className="text-xs text-neutral-400 inline-flex items-center gap-1">
-          {status}
-          <ChevronIcon open />
-        </span>
-      </button>
-      {children}
-    </div>
-  );
-}
-
-function checkinLine(checkin) {
-  if (!ratingsComplete(checkin)) return null;
-  const parts = [`Mood ${checkin.mood}`, `Energy ${checkin.energy}`, `Soreness ${checkin.soreness}`];
-  if (rampComplete(checkin)) parts.push(`${RAMP_FIELDS.map((f) => (checkin[f] ? '✓' : '✗')).join('')}`);
-  return parts.join(' · ');
-}
-
 // The manifest's "Start next workout" shortcut lands here with ?start=next. An unfinished
 // session wins over starting a new one, and the param is stripped either way so a refresh
 // (or the back button) can't start a second workout.
@@ -301,37 +236,15 @@ export default function Dashboard() {
   const resolved = !activeLoading && !inProgressLoading;
   useStartNextShortcut({ active, inProgress, resolved });
 
-  // Which block is open: his choice if he's made one this visit, else the clock — and an
-  // unfinished session always opens first, whatever the hour. The choice remembers which
-  // session (if any) it was made under, so folding the session to check in mid-workout
-  // sticks, but a session that starts afterwards still comes up open.
-  const evening = useEvening();
-  const sessionId = inProgress?.id ?? null;
-  const [chosen, setChosen] = useState(null);
-  const choice = chosen && chosen.sessionId === sessionId ? chosen.to : null;
-  const openBlock = choice ?? (inProgress ? 'session' : evening ? 'checkin' : 'session');
-  const swap = (to) => { track('ui', 'today-hero-swap', { to, evening }); setChosen({ to, sessionId }); };
-
   const todayRow = week?.days?.find((d) => d.state === 'today');
   const todayGymDone = todayRow?.planned?.kind === 'gym' && todayRow.done ? todayRow : null;
-  const next = active?.progress?.next_routine;
-
   const sessionLabel = !resolved ? 'Session' : inProgress ? 'In progress' : todayGymDone ? 'Done today' : 'Up next';
-  const sessionLine = !resolved
-    ? <Skeleton className="inline-block h-3.5 w-40 align-middle" />
-    : inProgress
-    ? inProgress.routine_name || 'Workout'
-    : todayGymDone
-      ? [todayGymDone.planned.title, todayGymDone.actual?.[0]?.meta].filter(Boolean).join(' · ')
-      : !active ? 'No active program'
-      : next ? next.name : 'Program complete';
-  const checkinSummary = checkinLine(checkin);
 
   return (
-    <Page>
+    <Page dense>
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Today</h1>
-        <p className="text-sm text-neutral-400 mt-1">
+        <p className="text-sm text-neutral-400 mt-0.5">
           {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
           {active?.progress?.week && ` · Week ${active.progress.week}${active.total_weeks ? ` of ${active.total_weeks}` : ''}`}
         </p>
@@ -339,32 +252,31 @@ export default function Dashboard() {
 
       <WeekStrip />
 
-      <section className="border-t border-neutral-800 pt-3">
-        <HeroBlock
-          label={sessionLabel}
-          labelClass={inProgress ? 'text-emerald-400' : ''}
-          line={sessionLine}
-          open={openBlock === 'session'}
-          onToggle={() => swap(openBlock === 'session' ? 'checkin' : 'session')}
-        >
-          {!resolved ? <SessionSkeleton />
-            : inProgress ? <InProgressBlock workout={inProgress} />
-            : !active ? <NoProgramBlock />
-            : <NextWorkoutBlock program={active} />}
-        </HeroBlock>
-      </section>
+      <Section
+        label={<span className={inProgress ? 'text-emerald-400' : ''}>{sessionLabel}</span>}
+        className="pt-3"
+      >
+        {/* A finished gym day still shows the next routine underneath: "Done today" is
+            the label, the Start below it is for the day he trains twice or wants to look
+            ahead — it was never hidden before and it isn't now. */}
+        {todayGymDone && (
+          <p className="text-sm text-neutral-300 mb-2">
+            {[todayGymDone.planned.title, todayGymDone.actual?.[0]?.meta].filter(Boolean).join(' · ')}
+          </p>
+        )}
+        {!resolved ? <SessionSkeleton />
+          : inProgress ? <InProgressBlock workout={inProgress} />
+          : !active ? <NoProgramBlock />
+          : <NextWorkoutBlock program={active} />}
+      </Section>
 
-      <section className="border-t border-neutral-800 pt-3">
-        <HeroBlock
-          label={checkinSummary ? 'Check-in' : evening ? 'Tonight’s check-in' : 'Today’s check-in'}
-          line={checkinSummary || (evening ? 'ratings and the evening ramp' : 'mood · energy · soreness')}
-          status={checkinSummary ? 'Saved' : null}
-          open={openBlock === 'checkin'}
-          onToggle={() => swap(openBlock === 'checkin' ? 'session' : 'checkin')}
-        >
-          <CheckinCard compact />
-        </HeroBlock>
-      </section>
+      <Section
+        label="Check-in"
+        action={checkinStarted(checkin) && <span className="text-[11px] text-emerald-400">Saved</span>}
+        className="pt-3"
+      >
+        <CheckinCard compact />
+      </Section>
 
       <TodayTiles />
 

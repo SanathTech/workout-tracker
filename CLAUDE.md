@@ -44,7 +44,7 @@ frontend/
       WorkoutRow.jsx         The one row for a logged workout (Train's history)
       FinishSheet.jsx        Post-Finish summary (duration/sets/volume/↑/★) + RPE grid
     pages/
-      Dashboard.jsx          Today: week strip, session ⇄ check-in hero (one open, flips at 19:00), tiles, coach line
+      Dashboard.jsx          Today: week strip, session block (lift preview + Start) and check-in block both open, tiles, coach line
       Trends.jsx             Read-only recovery + endurance data, latest notes, weight goal, weekly review
       Progress.jsx           "Lifts" tab: exercise picker (remembered) → chart · bests · aim line with edit; then muscle sets, totals, weekly volume, all PBs, bodyweight
       Train.jsx              This week (DayRows) · Program (ProgramView: name, week, the one Start, routines) · History (infinite); Exercises is a link
@@ -239,13 +239,14 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
   logging flows down the list without taps. `+ Add exercise`, workout notes and Skip live in
   the header's ⋯ menu; there is no bottom bar and no save sentence in the body (the dot in the
   header sub-line is the save status; a red one is a retry button).
-- **Today has two hero blocks, always both, exactly one open.** The session block (in
-  progress → Continue · n/m sets; else Up next with the main lifts' aims from `/suggestions`;
-  else no-program / complete) and the check-in block (`CheckinCard compact`). The open one
-  is the user's choice for this visit, else the clock: session before 19:00, check-in after,
-  and an unfinished session always opens first. Tapping either block's line swaps them. No
-  recent-workouts list and no "N this week" stat live here any more — History and Progress
-  have them; don't add a third thing to do to this screen.
+- **Today has two blocks, both always open, nothing folded.** The session block (in
+  progress → Continue · n/m sets; else Up next with the main lifts' aims from `/suggestions`
+  and the Start; else no-program / complete) and the check-in block (`CheckinCard compact`,
+  whose answered halves fold to one line each). PR 3 shipped them as a pair that swapped on
+  the clock (session before 19:00, check-in after); on a phone that read as two one-liners
+  over empty screen, so PR 6 opened both and cut the rhythm (`Page dense` = 16px). Don't
+  bring the swap back, and don't add a third thing to do to this screen — History and
+  Progress hold the recent-workouts list and the "N this week" stat.
 - **The session's unsaved edits live in `localStorage`, not the query cache.** `util/draft.js`
   writes the pending payload *and* a snapshot of the workout shape on every edit, and clears
   it only when the server confirms that exact payload. A surviving draft therefore means
