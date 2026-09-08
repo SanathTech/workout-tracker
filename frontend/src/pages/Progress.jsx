@@ -129,7 +129,9 @@ function ExerciseCard({ exercise, weeks, pb, onPick }) {
 
       {exercise && (
         aim ? (
-          <AimLine aim={aim} cues={sug?.cues ?? []} onEdit={() => setEditing(true)} />
+          // A coach aim edits its note, so no edit until that note has loaded — otherwise
+          // a fast tap would go down the create path and leave two calls in the ledger.
+          <AimLine aim={aim} cues={sug?.cues ?? []} onEdit={aim.source !== 'coach' || note ? () => setEditing(true) : undefined} />
         ) : (
           <div className="flex items-center gap-2 text-sm min-h-11">
             <span className="text-neutral-400">No aim yet</span>

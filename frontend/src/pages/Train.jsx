@@ -122,7 +122,7 @@ function ProgramSkeleton() {
 function HistoryBlock() {
   // Offset paging so history is unbounded (the backend clamps `limit` to 200).
   const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
-    queryKey: ['workouts-history'],
+    queryKey: ['workouts-history', PAGE],
     queryFn: ({ pageParam }) => getWorkouts({ limit: PAGE, offset: pageParam }),
     initialPageParam: 0,
     getNextPageParam: (lastPage, allPages) => (lastPage.length === PAGE ? allPages.length * PAGE : undefined),
