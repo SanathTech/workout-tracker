@@ -1,30 +1,28 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate, Navigate } from 'react-router-dom';
-import { getWorkout, updateWorkout, completeWorkout, skipWorkout, getLastByExercise, getSuggestions, getCoachNotes, makeDefaultExercise } from '../api/client';
+import { getWorkout, updateWorkout, completeWorkout, skipWorkout, getLastByExercise, getSuggestions, getCoachNotes, getPersonalBests, makeDefaultExercise } from '../api/client';
 import { Skeleton } from '../components/Skeleton';
 import ExercisePickerSheet from '../components/ExercisePickerSheet';
 import MainBadge from '../components/MainBadge';
 import { ChevronIcon } from '../components/icons';
+import { Sheet } from '../components/ui';
+import AimLine from '../components/AimLine';
 import { selectOnFocus, handleEditorEnter } from './program/helpers';
 import { formatRestRange, formatWarmup, formatDay } from '../util/format';
 import { createSaveLoop } from '../util/saveLoop';
-import FinishRatingSheet from '../components/FinishRatingSheet';
+import FinishSheet from '../components/FinishSheet';
 import { saveDraft, saveSnapshot, readDraft, clearDraft, pruneDrafts } from '../util/draft';
 import MoreMenu from '../components/MoreMenu';
 import { track } from '../util/telemetry';
 
 const isBlank = (v) => v === '' || v == null;
 
-function TargetChip({ children }) {
-  return <span className="tag">{children}</span>;
-}
-
 const SAVE_TONE = {
-  saving: 'bg-neutral-500 animate-pulse',
-  saved: 'bg-emerald-500',
-  unsaved: 'bg-amber-500',
-  error: 'bg-red-500',
+  saving: 'bg-neutral-400 animate-pulse',
+  saved: 'bg-emerald-400',
+  unsaved: 'bg-amber-400',
+  error: 'bg-red-400',
 };
 const SAVE_LABEL = {
   saving: 'Saving',
@@ -33,20 +31,23 @@ const SAVE_LABEL = {
   error: 'Could not save — retrying',
 };
 
-// The pinned strip is the only status a phone can see once you have scrolled into the
-// sets — the full sentence in the page body has long since scrolled away. A bare dot
-// left the two states that matter indistinguishable without knowing the colour code,
-// and they mean opposite things: amber is "still working on it", red is "your last
-// set is not on the server". So the two states worth acting on carry a word; the
-// steady-state ones stay a quiet dot.
-const SAVE_SHORT = { saving: null, saved: null, unsaved: 'Unsaved', error: 'Not saved' };
+// The header is the only save status there is (the sentence that used to repeat it in
+// the page body is gone). A bare dot left the two states that matter indistinguishable
+// without knowing the colour code, and they mean opposite things: amber is "still
+// working on it", red is "your last set is not on the server". So the two states worth
+// acting on carry a word; the steady-state ones stay a quiet dot. Red is also a button:
+// tapping it retries, which is what the old bottom bar's "Retry save" did.
+// Pin sentinel: every block collapsed (see `pinned` below).
+const NONE = Symbol('none');
 
-function SaveStatusDot({ status }) {
+function SaveStatus({ status, staleMinutes, onRetry }) {
   if (status === 'idle') return null;
-  const word = SAVE_SHORT[status];
-  return (
-    <span className="shrink-0 flex items-center gap-1.5" role="status" aria-label={SAVE_LABEL[status]} title={SAVE_LABEL[status]}>
-      <span className={`shrink-0 w-2.5 h-2.5 rounded-full ${SAVE_TONE[status]}`} />
+  const word = status === 'error' ? 'Not saved'
+    : status === 'unsaved' ? (staleMinutes >= 1 ? `Not saved ${staleMinutes} min` : 'Unsaved')
+    : null;
+  const body = (
+    <>
+      <span className={`shrink-0 w-2 h-2 rounded-full ${SAVE_TONE[status]}`} />
       {word && (
         <span className={`text-[11px] font-medium whitespace-nowrap ${
           status === 'error' ? 'text-red-400' : 'text-amber-400'
@@ -54,8 +55,40 @@ function SaveStatusDot({ status }) {
           {word}
         </span>
       )}
+    </>
+  );
+  if (status === 'error') {
+    return (
+      <button type="button" onClick={onRetry} className="shrink-0 inline-flex items-center gap-1.5" title="Retry save" aria-label="Not saved — tap to retry">
+        {body}
+      </button>
+    );
+  }
+  return (
+    <span className="shrink-0 inline-flex items-center gap-1.5" role="status" aria-label={SAVE_LABEL[status]} title={SAVE_LABEL[status]}>
+      {body}
     </span>
   );
+}
+
+// Minutes:seconds since the workout was opened, off the same clock the server derives
+// duration_minutes from (created_at). Its own component so the once-a-second tick
+// re-renders one span, not the ledger. Goes quiet past six hours — the same cap the
+// server applies — because by then it is a forgotten tab, not a session.
+function Elapsed({ since }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const start = since ? Date.parse(since) : NaN;
+  if (!Number.isFinite(start)) return null;
+  const secs = Math.max(0, Math.floor((now - start) / 1000));
+  if (secs > 6 * 3600) return null;
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const ss = String(secs % 60).padStart(2, '0');
+  return <span>{h ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`}</span>;
 }
 
 // The set-number cell doubles as the type control rather than adding another tap target.
@@ -81,7 +114,7 @@ const LEDGER_COLS = 'grid grid-cols-[2.5rem_1fr_4rem_4rem_3.25rem] items-center'
 // There used to be a tick column and a rest timer (removed 2026-08-10 — the owner
 // rests by Garmin, and with the timer gone the tick was a second button for what the
 // PREV tap already does). The green done-tint stays, keyed off the row carrying reps.
-function SetRow({ set, previousSet, showPrev, targetRir, suggestion, onChange, onRemove }) {
+function SetRow({ set, previousSet, showPrev, targetRir, aim, onChange, onRemove }) {
   const prevWeight = previousSet?.weight_kg != null ? Number(previousSet.weight_kg) : null;
   // Either half can be null on its own — a weight-only or reps-only previous set still
   // shows the half it has rather than collapsing to a dash.
@@ -128,29 +161,23 @@ function SetRow({ set, previousSet, showPrev, targetRir, suggestion, onChange, o
   const { offset, revealed, close, handlers } = useSwipeToReveal();
 
   // Ghost text is the AIM, not an echo of PREV (owner call, 2026-08-10 — the old
-  // prev-as-placeholder duplicated the PREV column one cell over). Increase: the
-  // suggested weight at the bottom of the range. Hold: same weight, beat last time's
-  // reps by one, capped at the top of the range. No suggestion: plain unit labels.
+  // prev-as-placeholder duplicated the PREV column one cell over), and it echoes the
+  // Aim line above the ledger and nothing else. No aim: plain unit labels.
   //
-  // "Last time" means the same row only when it was at the SAME load. A session that
-  // ramped (45x12, then 50x8) has a working weight of 50 and a first row of 12 reps, and
-  // pairing them ghosted "50 x 12" — a weight-and-rep combination taken from two
-  // different sets, and one he had never done. When the loads differ the row falls back
-  // to the engine's target at the working weight.
-  const ghostWeight = suggestion?.suggested_weight_kg ?? null;
+  // An engine HOLD is the one case with a per-row target: same weight, beat last time's
+  // reps by one, capped at the top of the range — but only when last time's row was at
+  // the SAME load. A session that ramped (45x12, then 50x8) has a working weight of 50
+  // and a first row of 12 reps, and pairing them ghosted "50 x 12", a combination he
+  // had never done. A coach aim is flat across the rows: "cut every set at 6" means 6,
+  // not 9/8/7.
+  const ghostWeight = aim?.weight_kg ?? null;
   const prevAtGhostWeight = previousSet?.weight_kg != null && ghostWeight != null
     && Number(previousSet.weight_kg) === ghostWeight;
-  // Only 'increase' and 'hold' carry a target. 'no_history' and 'no_target' are the
-  // engine saying it has nothing to progress against, and inventing "one more than last
-  // time" there would dress a guess up as a prescription — they get plain unit labels,
-  // matching the chip, which already hides itself for both.
-  const ghostReps = suggestion?.action === 'increase'
-    ? suggestion.suggested_reps_low ?? null
-    : suggestion?.action !== 'hold'
-      ? null
-      : prevAtGhostWeight && previousSet?.reps != null
-        ? Math.min(previousSet.reps + 1, suggestion.suggested_reps_high ?? previousSet.reps + 1)
-        : suggestion.suggested_reps_next ?? suggestion.suggested_reps_low ?? null;
+  const ghostReps = aim == null
+    ? null
+    : aim.source === 'engine' && aim.action === 'hold' && prevAtGhostWeight && previousSet?.reps != null
+      ? Math.min(previousSet.reps + 1, aim.reps_high ?? previousSet.reps + 1)
+      : aim.reps ?? null;
 
   const typeLabel = SET_TYPE_LABEL[set.set_type || 'working'];
   const cellInput = 'w-full h-11 bg-transparent border-0 p-0 text-center text-base tabular-nums text-neutral-200 placeholder:text-neutral-600 focus:outline-none focus:bg-neutral-800/70 rounded-md transition-colors';
@@ -284,15 +311,41 @@ function useSwipeToReveal(width = 80) {
   return { offset, revealed, close, handlers };
 }
 
-function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onTargetChange, onRemove, suggestion, coachNote }) {
+// "40 × 8 · 7 · 6" for the collapsed line. Working sets only; one weight when the
+// session held it, per-set weights when it ramped; bodyweight rows are reps alone.
+function summarizeSets(sets) {
+  const done = sets.filter((s) => !isBlank(s.reps) && s.set_type !== 'warmup');
+  if (!done.length) return '';
+  // 0 kg is bodyweight (dead hang, plank) — reps alone say it better than "0 × 37".
+  const weights = done.map((s) => (isBlank(s.weight_kg) || Number(s.weight_kg) === 0 ? null : Number(s.weight_kg)));
+  const uniform = weights.every((w) => w === weights[0]);
+  if (uniform) {
+    const reps = done.map((s) => s.reps).join(' · ');
+    return weights[0] == null ? reps : `${weights[0]} × ${reps}`;
+  }
+  return done.map((s, i) => (weights[i] == null ? `${s.reps}` : `${weights[i]}×${s.reps}`)).join(' · ');
+}
+
+function CheckIcon({ size = 14 }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+      <polyline points="20 6 9 17 4 12" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+// Three states, decided by the page: 'done' (every set has reps) collapses to one line
+// of what you did; 'next' is a muted one-liner with the prescription and the aim's
+// weight so you can see what's coming; 'open' is the ledger. Typical scroll: one
+// exercise. Tap a collapsed line to open it.
+function ExerciseBlock({ block, workoutId, state, onToggle, onOpenPicker, onChange, onTargetChange, onRemove, suggestion }) {
   const qc = useQueryClient();
   const [showNote, setShowNote] = useState(false);
-  const [showReason, setShowReason] = useState(false);
   // Open the editor whenever a note already exists, so an existing note is never
   // hidden behind the menu — and stays open while typing the first one.
   const [editingNote, setEditingNote] = useState(false);
   // Collapse transient state when the exercise is swapped for a different one.
-  useEffect(() => { setShowNote(false); setShowReason(false); setEditingNote(false); }, [block.exercise_id]);
+  useEffect(() => { setShowNote(false); setEditingNote(false); }, [block.exercise_id]);
   const { data: previous } = useQuery({
     queryKey: ['last-by-exercise', block.exercise_id, workoutId],
     queryFn: () => getLastByExercise(block.exercise_id, { exclude: workoutId }),
@@ -326,35 +379,42 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onTargetChang
     : null;
   const warmupLabel = formatWarmup(target?.warmup_sets_low, target?.warmup_sets_high);
 
-  // Everything the old suggestion box said, as a row of chips (owner preference over the
-  // muted text line). RIR targets aren't here — they ride in the RIR column as ghost
-  // placeholders. The suggestion chip keeps its colour; its reason expands on tap.
-  const metaChips = [];
-  if (target?.target_sets) metaChips.push(repRange ? `${target.target_sets} × ${repRange}` : `${target.target_sets} sets`);
-  else if (repRange) metaChips.push(`${repRange} reps`);
+  // The prescription, as one muted line rather than a row of chips: it is kept, it
+  // just stops competing with the aim. RIR targets ride in the RIR column as ghosts
+  // too; the at-a-glance version stays here by request (2026-08-22) — uniform targets
+  // collapse to one number, mixed ones (mains at 2,2,1) show the sequence.
+  const setsLabel = target?.target_sets
+    ? (repRange ? `${target.target_sets} × ${repRange}` : `${target.target_sets} sets`)
+    : (repRange ? `${repRange} reps` : null);
+  const prescription = [];
+  if (setsLabel) prescription.push(setsLabel);
   if (target?.rest_seconds != null || target?.rest_seconds_high != null) {
-    metaChips.push(`${formatRestRange(target.rest_seconds, target.rest_seconds_high)} rest`);
+    prescription.push(`${formatRestRange(target.rest_seconds, target.rest_seconds_high)} rest`);
   }
-  // Back by request (2026-08-22): the per-set targets still ghost in the RIR column,
-  // but he wants the at-a-glance version in the chip row too. Uniform targets collapse
-  // to one number; mixed ones (e.g. mains at 2,2,1) show the sequence.
   const rirTargets = Array.isArray(target?.target_rir_per_set) ? target.target_rir_per_set.filter((r) => r != null) : [];
   if (rirTargets.length) {
     const uniform = rirTargets.every((r) => r === rirTargets[0]);
-    metaChips.push(uniform ? `RIR ${rirTargets[0]}` : `RIR ${rirTargets.join('·')}`);
+    prescription.push(uniform ? `RIR ${rirTargets[0]}` : `RIR ${rirTargets.join('·')}`);
   }
-  if (warmupLabel) metaChips.push(warmupLabel);
+  if (warmupLabel) prescription.push(warmupLabel);
 
-  const hasSuggestion = suggestion && suggestion.action !== 'no_history' && suggestion.action !== 'no_target';
-  const suggestionLabel = hasSuggestion
-    ? `${suggestion.action === 'increase' ? 'Add load —' : 'Hold'} ${suggestion.suggested_weight_kg != null ? `${suggestion.suggested_weight_kg} kg` : ''}`.trim()
-    : null;
+  const aim = suggestion?.aim ?? null;
+  const cues = suggestion?.cues ?? [];
 
   const addSet = () => {
     track('tap', 'add-set', { exercise_id: block.exercise_id });
     const nextNum = (block.sets[block.sets.length - 1]?.set_number || 0) + 1;
     onChange({ ...block, sets: [...block.sets, { set_number: nextNum, reps: null, weight_kg: null, rir: null, set_type: 'working' }] });
   };
+  // Warm-ups go in at the top, ahead of the working sets, and everything renumbers.
+  // The routine can prescribe them but the ledger only ever knew W by tapping a set
+  // number, so a prescribed warm-up was a row you had to invent.
+  const addWarmup = () => {
+    track('tap', 'add-warmup', { exercise_id: block.exercise_id });
+    const rows = [{ reps: null, weight_kg: null, rir: null, set_type: 'warmup', logged_at: null }, ...block.sets];
+    onChange({ ...block, sets: rows.map((r, i) => ({ ...r, set_number: i + 1 })) });
+  };
+  const hasWarmup = block.sets.some((s) => s.set_type === 'warmup');
   // The set's timestamp is born here, the first time reps land on the row — the same
   // moment the row turns green. One chokepoint covers typing and the PREV tap alike.
   // Rest between sets is derived from these stamps later; there is deliberately no
@@ -374,6 +434,39 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onTargetChang
     ...block,
     sets: block.sets.filter((_, j) => j !== i).map((s, j) => ({ ...s, set_number: j + 1 })),
   });
+
+  if (state === 'done') {
+    return (
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={false}
+        className="w-full min-h-11 py-1.5 flex items-center gap-2 text-left text-sm"
+      >
+        <span className="text-emerald-400 shrink-0"><CheckIcon /></span>
+        <span className="font-medium text-neutral-400 min-w-0 truncate">{block.exercise_name || 'Exercise'}</span>
+        <span className="ml-auto shrink-0 text-neutral-400 tabular-nums">{summarizeSets(block.sets)}</span>
+      </button>
+    );
+  }
+  if (state === 'next') {
+    const aimWeight = aim?.weight_kg != null && Number(aim.weight_kg) !== 0
+      ? `${aim.action === 'increase' ? '↑ ' : ''}${Math.round(aim.weight_kg * 100) / 100} kg`
+      : aim?.reps != null ? `${aim.reps} reps` : null;
+    return (
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={false}
+        className="w-full min-h-11 py-1.5 flex items-center gap-2 text-left text-sm"
+      >
+        <span className="text-neutral-400 min-w-0 truncate">{block.exercise_name || 'Pick an exercise'}</span>
+        <span className="ml-auto shrink-0 text-neutral-400 tabular-nums text-xs">
+          {[setsLabel, aimWeight].filter(Boolean).join(' · ')}
+        </span>
+      </button>
+    );
+  }
 
   return (
     <div className="py-3">
@@ -408,50 +501,15 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onTargetChang
               confirm: 'Update routine — sure?',
               onSelect: () => { track('tap', 'make-default', { exercise_id: block.exercise_id }); makeDefault.mutate(); },
             },
+            { label: 'Collapse', onSelect: onToggle },
             { label: 'Remove exercise', confirm: 'Remove — sure?', danger: true, onSelect: () => { track('tap', 'remove-exercise'); onRemove(); } },
           ]}
         />
       </div>
 
-      {/* Standing guidance from coaching conversations — the call that would otherwise
-          be forgotten by Saturday. Rendered next to the suggestion chip on purpose:
-          when they disagree (the engine is note-blind — it reads sets, never notes),
-          this is the one that wins, and the two need to be visible together for that
-          to be legible. Amber, always visible, no tap required. */}
-      {coachNote && (
-        <p className="text-xs text-amber-400 mt-1 mb-0.5">
-          Coach: {coachNote.note}
-        </p>
-      )}
-      {(metaChips.length > 0 || suggestionLabel) && (
-        <div className="flex flex-wrap items-center gap-1.5 mt-1 mb-1.5">
-          {metaChips.map((c) => <TargetChip key={c}>{c}</TargetChip>)}
-          {suggestionLabel && (
-            <button
-              type="button"
-              onClick={() => setShowReason((v) => !v)}
-              aria-expanded={showReason}
-              className="py-2.5 -my-2.5"
-            >
-              <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] uppercase tracking-wide font-medium ${
-                suggestion.action === 'increase'
-                  ? 'bg-emerald-500/15 text-emerald-400'
-                  : 'bg-neutral-800 text-neutral-300'
-              }`}>
-                {suggestionLabel}
-              </span>
-            </button>
-          )}
-        </div>
-      )}
-
-      {showReason && hasSuggestion && (
-        <p className="text-xs text-neutral-400 mb-1.5">
-          {suggestion.suggested_weight_kg != null && (
-            <>{suggestion.suggested_weight_kg} kg × {suggestion.suggested_reps_low}–{suggestion.suggested_reps_high} · </>
-          )}
-          {suggestion.reason}
-        </p>
+      <AimLine aim={aim} cues={cues} />
+      {prescription.length > 0 && (
+        <p className="text-xs text-neutral-400 tabular-nums mb-1.5">{prescription.join(' · ')}</p>
       )}
 
       {target?.notes && showNote && (
@@ -494,20 +552,35 @@ function ExerciseBlock({ block, workoutId, onOpenPicker, onChange, onTargetChang
             set={s}
             previousSet={prevBySet[s.set_number]}
             showPrev={hasPrev}
-            targetRir={Array.isArray(target?.target_rir_per_set) ? target.target_rir_per_set[i] ?? null : null}
-            suggestion={hasSuggestion ? suggestion : null}
+            // The RIR ghost echoes the aim when the coach set one ("take it to RIR 1"
+            // beats the program's 2); otherwise the program's per-set target.
+            targetRir={aim?.source === 'coach' && aim.rir != null
+              ? aim.rir
+              : Array.isArray(target?.target_rir_per_set) ? target.target_rir_per_set[i] ?? null : null}
+            aim={s.set_type === 'warmup' ? null : aim}
             onChange={(u) => updateSet(i, u)}
             onRemove={() => removeSet(i)}
           />
         ))}
       </div>
-      <button
-        type="button"
-        onClick={addSet}
-        className="h-11 pl-2 pr-4 -ml-2 text-sm text-neutral-400 hover:text-neutral-200 rounded transition-colors"
-      >
-        + Add set
-      </button>
+      <div className="flex items-center gap-4">
+        <button
+          type="button"
+          onClick={addSet}
+          className="h-11 pl-2 pr-2 -ml-2 text-sm text-neutral-400 hover:text-neutral-200 rounded transition-colors"
+        >
+          + Add set
+        </button>
+        {warmupLabel && !hasWarmup && (
+          <button
+            type="button"
+            onClick={addWarmup}
+            className="h-11 px-2 text-sm text-neutral-400 hover:text-neutral-200 rounded transition-colors"
+          >
+            + Warm-up
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -596,7 +669,14 @@ export default function WorkoutSession() {
   const [autosave, setAutosave] = useState('idle'); // idle | unsaved | saving | saved | error
   const [doneError, setDoneError] = useState('');
   const [hydrated, setHydrated] = useState(false);
-  const [ratingOpen, setRatingOpen] = useState(false);
+  const [finished, setFinished] = useState(null); // summary for the FinishSheet, once completed
+  const [notesOpen, setNotesOpen] = useState(false);
+  // Which exercise the ledger is open on. null = the first one not yet done; a tap on a
+  // collapsed line pins it; NONE = the user collapsed the open one and wants the bare
+  // list (a review of a finished session). Finishing the pinned exercise's last set
+  // unpins so the next one opens on its own. (Auto-collapse: Boostcamp's pattern — the
+  // scroll is one exercise, not the whole workout.)
+  const [pinned, setPinned] = useState(null);
   const flushRef = useRef(null);       // latest flush(), for the retry timer to call
   const mountedRef = useRef(true);
   // The save loop lives in util/saveLoop.js so its invariants can be tested without a
@@ -647,21 +727,14 @@ export default function WorkoutSession() {
     enabled: hydrated,
     staleTime: 5 * 60_000,
   });
-  // Standing coach guidance, matched to this workout's exercises. Cheap and cached —
-  // notes change between sessions, not during them.
+  // Session-wide coach guidance (no exercise attached). Per-exercise notes no longer
+  // come from here: /suggestions folds them into each exercise's `aim` and `cues`, so
+  // the precedence between note and engine is decided once, on the server.
   const { data: coachNotes = [] } = useQuery({
     queryKey: ['coach-notes'],
     queryFn: getCoachNotes,
     staleTime: 5 * 60_000,
   });
-  const noteByExercise = useMemo(() => {
-    const map = {};
-    for (const n of coachNotes) {
-      if (n.routine_id != null && n.routine_id !== workout?.routine_id) continue;
-      if (n.exercise_id != null) map[n.exercise_id] = n;
-    }
-    return map;
-  }, [coachNotes, workout?.routine_id]);
   const generalNotes = useMemo(
     () => coachNotes.filter((n) => n.exercise_id == null
       && (n.routine_id == null || n.routine_id === workout?.routine_id)),
@@ -682,19 +755,6 @@ export default function WorkoutSession() {
   // and the page throws on render. The bundler compiles that without complaint.
   const staleMinutes = dirtyFor ? Math.floor((Date.now() - dirtyFor) / 60_000) : 0;
 
-  // The fixed action bar changes height (save error), and content has to be
-  // able to scroll clear of whatever it currently is.
-  const barRef = useRef(null);
-  const [barHeight, setBarHeight] = useState(80);
-  useEffect(() => {
-    const el = barRef.current;
-    if (!el || typeof ResizeObserver === 'undefined') return undefined;
-    const ro = new ResizeObserver(([entry]) => setBarHeight(entry.target.offsetHeight));
-    ro.observe(el);
-    setBarHeight(el.offsetHeight);
-    return () => ro.disconnect();
-  }, [hydrated]);
-
   const { loggedSets, plannedSets } = useMemo(() => {
     let logged = 0;
     let planned = 0;
@@ -708,6 +768,21 @@ export default function WorkoutSession() {
     }
     return { loggedSets: logged, plannedSets: planned };
   }, [exercises]);
+
+  // Done = every set has reps (the same reps-are-the-signal rule as the row tint). An
+  // exercise with no rows can't be done — it is still waiting on you.
+  const isDone = (ex) => ex.sets.length > 0 && ex.sets.every((s) => !isBlank(s.reps));
+  const doneIds = useMemo(() => new Set(exercises.filter(isDone).map((ex) => ex.client_id)), [exercises]);
+  const firstOpenId = exercises.find((ex) => !doneIds.has(ex.client_id))?.client_id ?? null;
+  // Unpin on the not-done → done transition only. A done exercise reopened by hand
+  // stays open until you tap away; one you just finished collapses.
+  const prevDoneRef = useRef(doneIds);
+  useEffect(() => {
+    if (pinned != null && doneIds.has(pinned) && !prevDoneRef.current.has(pinned)) setPinned(null);
+    prevDoneRef.current = doneIds;
+  }, [doneIds, pinned]);
+  const openId = pinned === NONE ? null
+    : (pinned != null && exercises.some((ex) => ex.client_id === pinned)) ? pinned : firstOpenId;
 
   // Hydrate local state once from the fresh mount-fetch. If that fetch errored but
   // cached data exists (e.g. offline), hydrate from cache instead of hanging on the
@@ -879,6 +954,56 @@ export default function WorkoutSession() {
   // only way out was a workaround nobody would guess. Nothing is discarded — the draft
   // survives, the loop keeps retrying, and re-opening the workout flushes it. The
   // confirm below says plainly what is and is not on the server.
+  // What the session added up to, for the FinishSheet. Progressions compare each
+  // exercise's working sets with the previous session already cached on the block
+  // (['last-by-exercise', …]); PRs come from the personal-bests list, which only
+  // counts completed workouts — hence fetched after completion. Both are best-effort:
+  // a PB fetch failing must not stand between him and the summary.
+  const buildSummary = async (completed) => {
+    const working = (sets) => sets.filter((x) => x.set_type !== 'warmup' && !isBlank(x.reps));
+    const maxKg = (sets) => {
+      const ws = sets.map((x) => (isBlank(x.weight_kg) ? null : Number(x.weight_kg))).filter((w) => w != null);
+      return ws.length ? Math.max(...ws) : null;
+    };
+    const repsAt = (sets, kg) => sets
+      .filter((x) => (kg == null ? isBlank(x.weight_kg) : Number(x.weight_kg) === kg))
+      .reduce((a, x) => a + Number(x.reps), 0);
+    const progressions = [];
+    let volume = 0;
+    for (const ex of exercises) {
+      const now = working(ex.sets);
+      // Added load only, floored at zero: an assisted pull-up logs the assistance as a
+      // negative and must not subtract from the session. The server's volume figures
+      // fold bodyweight in (util/volume.js); this is the number for the sheet, not stats.
+      for (const x of now) volume += Math.max(0, isBlank(x.weight_kg) ? 0 : Number(x.weight_kg)) * Number(x.reps);
+      const prev = working(qc.getQueryData(['last-by-exercise', ex.exercise_id, id])?.sets || []);
+      if (!now.length || !prev.length) continue;
+      const nowKg = maxKg(now);
+      const prevKg = maxKg(prev);
+      if (nowKg != null && prevKg != null && nowKg > prevKg) {
+        progressions.push({ exercise_id: ex.exercise_id, exercise_name: ex.exercise_name, detail: `${prevKg} → ${nowKg} kg` });
+      } else if (nowKg === prevKg && repsAt(now, nowKg) > repsAt(prev, prevKg)) {
+        progressions.push({ exercise_id: ex.exercise_id, exercise_name: ex.exercise_name, detail: `+${repsAt(now, nowKg) - repsAt(prev, prevKg)} reps${nowKg != null ? ` at ${nowKg} kg` : ''}` });
+      }
+    }
+    let prs = [];
+    try {
+      const pbs = await qc.fetchQuery({ queryKey: ['personal-bests'], queryFn: getPersonalBests, staleTime: 0 });
+      const inSession = new Map(exercises.map((ex) => [ex.exercise_id, ex]));
+      prs = pbs
+        .filter((pb) => pb.date === workout.date && inSession.has(pb.exercise_id))
+        // A first-ever session is trivially a "best"; only a best that beat history counts.
+        .filter((pb) => working(qc.getQueryData(['last-by-exercise', pb.exercise_id, id])?.sets || []).length > 0)
+        .map((pb) => ({ exercise_id: pb.exercise_id, exercise_name: pb.exercise_name, detail: `${pb.best_weight != null ? `${Number(pb.best_weight)} kg × ` : ''}${pb.reps}` }));
+    } catch { /* summary without PRs */ }
+    const facts = [
+      completed?.duration_minutes ? `${completed.duration_minutes} min` : null,
+      `${loggedSets} set${loggedSets === 1 ? '' : 's'}`,
+      volume > 0 ? `${Math.round(volume).toLocaleString()} kg` : null,
+    ].filter(Boolean).join(' · ');
+    return { title: workout.routine_name || 'Workout', facts, progressions, prs };
+  };
+
   const finish = useMutation({
     mutationFn: async ({ force = false } = {}) => {
       await saveNow(); // ensure the latest edits are persisted before completing
@@ -887,9 +1012,10 @@ export default function WorkoutSession() {
         err.name = 'UnsavedChangesError';
         throw err;
       }
-      return completeWorkout(id);
+      const completed = await completeWorkout(id);
+      return buildSummary(completed);
     },
-    onSuccess: (_data, variables) => {
+    onSuccess: (summary, variables) => {
       // Only when the server genuinely has everything. Forced through with edits still
       // pending, the draft is the only copy of them and must outlive the navigation.
       if (!loop.isDirty()) clearDraft(id);
@@ -904,11 +1030,11 @@ export default function WorkoutSession() {
       qc.invalidateQueries({ queryKey: ['suggestions'] });
       qc.invalidateQueries({ queryKey: ['muscle-volume'] });
       qc.invalidateQueries({ queryKey: ['in-progress-workout'] });
-      // Ask for the rating before leaving, not after arriving. On the destination page
-      // it sits above the exercise list and is scrolled past; here it is the only thing
-      // on screen at the one moment the answer is still accurate. The workout is already
-      // completed by this point, so the sheet can be skipped without consequence.
-      setRatingOpen(true);
+      // Summary and rating before leaving, not after arriving. On the destination page
+      // they sat above the exercise list and were scrolled past; here they are the only
+      // thing on screen at the one moment the answer is still accurate. The workout is
+      // already completed by this point, so the sheet can be dismissed without consequence.
+      setFinished(summary);
     },
   });
 
@@ -997,89 +1123,136 @@ export default function WorkoutSession() {
       : { title: 'Add exercise', presetSubstitutes: [], currentExerciseId: null }
     : { title: '', presetSubstitutes: [], currentExerciseId: null };
 
+  const finishError = doneError
+    || (skip.isError ? 'Could not skip the workout.' : null)
+    || (finish.isError ? (finish.error?.message || 'Could not finish the workout.') : null);
+  const progress = plannedSets > 0 ? Math.min(100, Math.round((loggedSets / plannedSets) * 100)) : 0;
+
   return (
     <div className="space-y-4">
-      {ratingOpen && (
-        <FinishRatingSheet
+      {finished && (
+        <FinishSheet
           workoutId={id}
-          summary={`${loggedSets} set${loggedSets === 1 ? '' : 's'}${workout.duration_minutes ? ` · ${workout.duration_minutes} min` : ''}`}
+          {...finished}
           onDone={() => {
-            setRatingOpen(false);
-            navigate(`/workouts/${id}`, { state: { justFinished: true } });
+            setFinished(null);
+            navigate(`/workouts/${id}`);
           }}
         />
       )}
-      {/* Replaces the global header on mobile (hidden by Navbar during a session): the
-          pinned strip carries the routine, how far through you are and the save state,
-          rather than the app's own name. */}
-      <div className="md:hidden sticky top-0 z-10 -mx-4 px-4 h-12 flex items-center gap-3 bg-neutral-950 border-b border-neutral-800">
-        <button
-          onClick={() => navigate(-1)}
-          aria-label="Back"
-          className="shrink-0 -ml-2 w-11 h-11 flex items-center justify-center text-neutral-400"
-        >
-          ←
-        </button>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium truncate text-neutral-200">
-            {workout.routine_name || 'Workout'}
-          </p>
-          <p className="text-[11px] text-neutral-400 truncate">
-            {loggedSets} of {plannedSets} sets logged
-          </p>
+      {/* The header: back, routine, how far through and how long, Finish, ⋯. Pinned on
+          both breakpoints (under the desktop nav). Replaces the global header on mobile
+          (hidden by Navbar during a session) AND the old fixed bottom bar — Finish is
+          up here now, which is 60px of ledger back at every scroll position. The 3px
+          bar underneath is the hairline doing double duty as the progress bar. */}
+      <div className="sticky top-0 md:top-14 z-10 -mx-4 bg-neutral-950">
+        <div className="px-4 h-12 flex items-center gap-1">
+          <button
+            onClick={() => navigate(-1)}
+            aria-label="Back"
+            className="shrink-0 -ml-3 w-11 h-11 flex items-center justify-center text-neutral-400 hover:text-neutral-200"
+          >
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <polyline points="15 18 9 12 15 6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold truncate text-neutral-200 leading-tight">
+              {workout.routine_name || 'Workout'}
+            </p>
+            <p className="text-xs text-neutral-400 tabular-nums truncate leading-tight flex items-center gap-1">
+              <span>{loggedSets}/{plannedSets} sets</span>
+              {isCompleted
+                ? workout.duration_minutes && <span>·&nbsp;{workout.duration_minutes} min</span>
+                : <span>·&nbsp;<Elapsed since={workout.created_at} /></span>}
+              <SaveStatus status={autosave} staleMinutes={staleMinutes} onRetry={() => saveNow()} />
+            </p>
+          </div>
+          {isCompleted ? (
+            <button
+              onClick={doneEditing}
+              disabled={autosave === 'saving'}
+              className="btn-primary min-h-0 h-9 px-3 shrink-0"
+            >
+              {autosave === 'saving' ? 'Saving…' : 'Done'}
+            </button>
+          ) : (
+            <button
+              onClick={() => { if (confirm('Finish this workout?')) { track('tap', 'finish', undefined, Number(id)); finish.mutate({}); } }}
+              disabled={finish.isPending || skip.isPending}
+              className="btn-primary min-h-0 h-9 px-3 shrink-0"
+            >
+              {finish.isPending ? '…' : 'Finish'}
+            </button>
+          )}
+          <MoreMenu
+            label="Session options"
+            items={[
+              { label: 'Add exercise', onSelect: () => { track('tap', 'add-exercise'); setPicker({ mode: 'add' }); } },
+              { label: notes ? 'Workout notes' : 'Add workout notes', onSelect: () => setNotesOpen(true) },
+              !isCompleted && {
+                label: 'Skip this workout',
+                confirm: 'Skip — sure?',
+                danger: true,
+                onSelect: () => { if (!skip.isPending && !finish.isPending) skip.mutate(); },
+              },
+            ]}
+          />
         </div>
-        <SaveStatusDot status={autosave} />
+        {finishError && (
+          <div className="px-4 pb-2">
+            <p className="text-xs text-red-400">{finishError}</p>
+            {/* The escape hatch. Blocked on a save that will not land, the alternative
+                is standing in the gym repeating a workaround — so offer the exit, and
+                be specific about the trade rather than hiding it behind "are you
+                sure?". The sets stay on the phone and sync when they can. */}
+            {finish.error?.name === 'UnsavedChangesError' && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirm(
+                    'Finish anyway?\n\nYour most recent sets have not reached the server yet. '
+                    + 'They stay saved on this phone and will sync when the connection recovers — '
+                    + 'reopen the workout later to check they arrived.'
+                  )) { track('tap', 'finish-anyway', { stalls: loop.stalls }, Number(id)); finish.mutate({ force: true }); }
+                }}
+                className="btn-secondary text-xs mt-1.5"
+              >
+                Finish anyway
+              </button>
+            )}
+          </div>
+        )}
+        <div className="h-[3px] bg-neutral-800" role="progressbar" aria-valuenow={loggedSets} aria-valuemax={plannedSets} aria-label="Sets logged">
+          <div className="h-full bg-emerald-700 transition-[width] duration-300" style={{ width: `${progress}%` }} />
+        </div>
       </div>
 
-      <div>
-        <div className="hidden md:flex items-center justify-between gap-3">
-          <button onClick={() => navigate(-1)} className="text-sm text-neutral-400 hover:text-neutral-200">← Back</button>
+      {(isCompleted || usingSnapshot || (recovered && !usingSnapshot && autosave !== 'saved')) && (
+        <div className="space-y-1">
+          {isCompleted && (
+            <p className="text-xs text-neutral-400">
+              Editing {formatDay(workout.date, { weekday: 'long', month: 'short', day: 'numeric' })} — changes save automatically.
+            </p>
+          )}
+          {usingSnapshot && (
+            <p className="text-xs text-amber-400">
+              Offline — showing this session from your device. Keep logging; it saves when you reconnect.
+            </p>
+          )}
+          {recovered && !usingSnapshot && autosave !== 'saved' && (
+            <p className="text-xs text-amber-400">
+              Restored sets that hadn’t reached the server. They’ll save once you’re back online.
+            </p>
+          )}
         </div>
-        {/* The pinned strip already names the routine on mobile. */}
-        <h1 className="hidden md:block text-2xl font-semibold tracking-tight mt-1">{workout.routine_name || 'Workout'}</h1>
-        <p className="text-sm text-neutral-400">
-          {workout.program_name && `${workout.program_name} · `}
-          {workout.program_week && `Week ${workout.program_week} · `}
-          {formatDay(workout.date, { weekday: 'long', month: 'short', day: 'numeric' })}
-        </p>
-        {isCompleted && (
-          <p className="text-xs mt-0.5 text-neutral-400">Editing a completed workout — changes save automatically.</p>
-        )}
-        {usingSnapshot && (
-          <p className="text-xs mt-1 text-amber-400">
-            Offline — showing this session from your device. Keep logging; it saves when you reconnect.
-          </p>
-        )}
-        {recovered && !usingSnapshot && autosave !== 'saved' && (
-          <p className="text-xs mt-1 text-amber-400">
-            Restored sets that hadn’t reached the server. They’ll save once you’re back online.
-          </p>
-        )}
-        {autosave !== 'idle' && (
-          <p className={`text-xs mt-0.5 ${
-            autosave === 'error' ? 'text-red-400'
-              : autosave === 'unsaved' ? 'text-amber-400'
-              : 'text-neutral-400'
-          }`}>
-            {autosave === 'saving' ? 'Saving…'
-              : autosave === 'saved' ? 'All changes saved'
-              : autosave === 'unsaved' ? (staleMinutes >= 1
-                  ? `Not saved for ${staleMinutes} min — still trying`
-                  : 'Unsaved changes…')
-              : 'Couldn’t save — retrying…'}
-          </p>
-        )}
-      </div>
+      )}
 
       {/* Session-wide coach guidance (no exercise attached) sits above the ledger,
-          where the session-level facts live. */}
+          where the session-level facts live. Two lines here, the rest in a sheet. */}
       {generalNotes.length > 0 && (
-        <div className="mb-2">
-          {generalNotes.map((n) => (
-            <p key={n.id} className="text-xs text-amber-400 mt-0.5">
-              Coach: {n.note}
-            </p>
-          ))}
+        <div>
+          {generalNotes.map((n) => <GeneralNote key={n.id} note={n.note} />)}
         </div>
       )}
       {/* Hairline dividers between exercises instead of card borders — the ledger gets
@@ -1090,116 +1263,40 @@ export default function WorkoutSession() {
             key={ex.client_id}
             block={ex}
             workoutId={id}
+            state={ex.client_id === openId ? 'open' : doneIds.has(ex.client_id) ? 'done' : 'next'}
+            onToggle={() => {
+              track('tap', ex.client_id === openId ? 'exercise-collapse' : 'exercise-open');
+              setPinned(ex.client_id === openId ? NONE : ex.client_id);
+            }}
             onOpenPicker={() => setPicker({ mode: 'replace', forIndex: i })}
             onChange={(u) => setExercises(exercises.map((x, j) => j === i ? u : x))}
             onTargetChange={(target) => setExercises((prev) => prev.map((x) => x.client_id === ex.client_id ? { ...x, target } : x))}
             onRemove={() => setExercises(exercises.filter((_, j) => j !== i))}
             suggestion={suggestionByExercise[ex.exercise_id]}
-            coachNote={noteByExercise[ex.exercise_id]}
           />
         ))}
+        {exercises.length === 0 && (
+          <p className="py-6 text-sm text-neutral-400 text-center">No exercises yet — add one from ⋯.</p>
+        )}
       </div>
 
-      <button
-        type="button"
-        onClick={() => setPicker({ mode: 'add' })}
-        className="w-full h-12 text-sm font-medium text-neutral-400 hover:text-neutral-200 border border-dashed border-neutral-800 rounded hover:bg-neutral-900 transition-colors"
-      >
-        + Add exercise
-      </button>
-
-      <section className="pt-1">
-        <label className="section-label block mb-1.5" htmlFor="wt-workout-notes">Workout notes</label>
-        {/* field-sizing grows the box with its contents; rows={2} is the floor and the
-            fallback on browsers without it. Capped so a long note scrolls within the
-            box instead of pushing Finish off screen. */}
-        <textarea
-          id="wt-workout-notes"
-          className="input resize-none [field-sizing:content] max-h-[40vh]"
-          rows={2}
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-        />
-      </section>
-
-      {!isCompleted && (
-        <button
-          onClick={() => {
-            if (confirm('Skip this workout? It keeps its place in the program sequence, and anything logged here stops counting.')) skip.mutate();
-          }}
-          disabled={skip.isPending || finish.isPending}
-          className="btn-ghost w-full justify-center h-11"
-        >
-          {skip.isPending ? 'Skipping…' : 'Skip this workout'}
-        </button>
+      {(notesOpen || notes) && (
+        <section className="pt-1">
+          <label className="section-label block mb-1.5" htmlFor="wt-workout-notes">Workout notes</label>
+          {/* field-sizing grows the box with its contents; rows={2} is the floor and the
+              fallback on browsers without it. Capped so a long note scrolls within the
+              box instead of pushing the ledger about. */}
+          <textarea
+            id="wt-workout-notes"
+            className="input resize-none [field-sizing:content] max-h-[40vh]"
+            rows={2}
+            autoFocus={notesOpen && !notes}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            onBlur={() => { if (!notes) setNotesOpen(false); }}
+          />
+        </section>
       )}
-
-      {/* Sized to whatever the fixed bar currently is, so the last set can always be
-          scrolled clear of it — the bar grows when the rest timer or an error is in it. */}
-      <div style={{ height: barHeight }} aria-hidden="true" />
-      <div
-        ref={barRef}
-        className="fixed bottom-0 inset-x-0 z-20 bg-neutral-950 border-t border-neutral-800 pb-[env(safe-area-inset-bottom)]"
-      >
-        <div className="max-w-2xl mx-auto px-4">
-          {(finish.isError || skip.isError || doneError) && (
-            <div className="pt-2">
-              <p className="text-xs text-red-400">
-                {doneError
-                  || (skip.isError ? 'Could not skip the workout.' : null)
-                  || finish.error?.message
-                  || 'Could not finish the workout.'}
-              </p>
-              {/* The escape hatch. Blocked on a save that will not land, the alternative
-                  is standing in the gym repeating a workaround — so offer the exit, and
-                  be specific about the trade rather than hiding it behind "are you
-                  sure?". The sets stay on the phone and sync when they can. */}
-              {finish.error?.name === 'UnsavedChangesError' && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (confirm(
-                      'Finish anyway?\n\nYour most recent sets have not reached the server yet. '
-                      + 'They stay saved on this phone and will sync when the connection recovers — '
-                      + 'reopen the workout later to check they arrived.'
-                    )) { track('tap', 'finish-anyway', { stalls: loop.stalls }, Number(id)); finish.mutate({ force: true }); }
-                  }}
-                  className="btn-secondary text-xs mt-1.5"
-                >
-                  Finish anyway
-                </button>
-              )}
-            </div>
-          )}
-          <div className="py-3 flex gap-2">
-            {autosave === 'error' && (
-              <button
-                onClick={() => saveNow()}
-                className="btn-secondary justify-center h-12 shrink-0"
-              >
-                Retry save
-              </button>
-            )}
-            {isCompleted ? (
-              <button
-                onClick={doneEditing}
-                disabled={autosave === 'saving'}
-                className="btn-primary flex-1 justify-center h-12"
-              >
-                {autosave === 'saving' ? 'Saving…' : 'Done'}
-              </button>
-            ) : (
-              <button
-                onClick={() => { if (confirm('Finish this workout?')) { track('tap', 'finish', undefined, Number(id)); finish.mutate({}); } }}
-                disabled={finish.isPending || skip.isPending}
-                className="btn-primary flex-1 justify-center h-12"
-              >
-                {finish.isPending ? '…' : 'Finish workout'}
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
 
       <ExercisePickerSheet
         open={!!picker}
@@ -1208,6 +1305,30 @@ export default function WorkoutSession() {
         {...pickerProps}
       />
     </div>
+  );
+}
+
+// A session-level coach note: two lines on the page, the whole thing on tap.
+function GeneralNote({ note }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="w-full text-left text-xs text-amber-400 line-clamp-2 py-1"
+      >
+        <span className="font-semibold uppercase tracking-wider text-[10.5px] mr-1.5">Coach</span>
+        {note}
+      </button>
+      {open && (
+        <Sheet title="Coach" onClose={() => setOpen(false)}>
+          <div className="p-4 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] overflow-y-auto">
+            <p className="text-sm text-neutral-300 whitespace-pre-line">{note}</p>
+          </div>
+        </Sheet>
+      )}
+    </>
   );
 }
 

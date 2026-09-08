@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const { resolveAim } = require('../util/aim');
 const { serverError } = require('../util/errors');
 const { LANDMARKS } = require('../db/muscles');
 const { resolveWorkoutDate, currentWeekStart } = require('../util/dates');
@@ -251,6 +252,33 @@ router.get('/one-rm/:exerciseId', async (req, res) => {
   }
 });
 
+// Compound lifts move in bigger jumps than isolation — the smallest plate pair is
+// 2.5kg total on a bar, but a 2.5kg jump on a cable curl is a ~10% step.
+const COMPOUND = new Set(['quads', 'hamstrings', 'glutes', 'chest', 'lats', 'upper_back', 'lower_back']);
+
+// Rest-aware progression, possible since sets carry logged_at (2026-08-24). A
+// compressed session — median gap between an exercise's sets under its prescribed
+// rest floor — yields fewer reps at the same weight BY DESIGN: on a short day the
+// plan is to cut rest, hold the load and let reps fall. Judging progression against
+// that session reads the plan working as a plateau, and a run of office-Thursday
+// sessions would hold a weight forever that full-rest days had already cleared.
+//
+// The gap includes the set itself (~30-45s), so a median under the floor means true
+// rest well short of it — deliberately conservative. Fewer than two stamps means the
+// rest is unknown (pre-stamp history, or a single-set session), never compressed.
+const medianGapSeconds = (sets) => {
+  const times = sets.map((s) => Date.parse(s.logged_at)).filter(Number.isFinite).sort((a, b) => a - b);
+  if (times.length < 2) return null;
+  const gaps = times.slice(1).map((t, i) => (t - times[i]) / 1000).sort((a, b) => a - b);
+  const mid = gaps.length >> 1;
+  return gaps.length % 2 ? gaps[mid] : (gaps[mid - 1] + gaps[mid]) / 2;
+};
+const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const dayLabel = (iso) => {
+  const [, m, d] = String(iso).split('-').map(Number);
+  return `${d} ${SHORT_MONTHS[m - 1] || ''}`.trim();
+};
+
 // GET /api/progress/suggestions — double progression, per exercise in the active program.
 //
 // The rule: every working set at the top of the prescribed rep range means the load is no
@@ -275,7 +303,7 @@ router.get('/suggestions', async (req, res) => {
        prescribed AS (
          SELECT DISTINCT ON (re.exercise_id)
                 re.exercise_id, re.rep_range_low, re.rep_range_high, re.target_sets,
-                re.rest_seconds,
+                re.rest_seconds, re.target_rir_per_set,
                 e.name AS exercise_name, e.is_bodyweight,
                 COALESCE(pm.muscle, 'other') AS primary_muscle
            FROM routine_exercises re
@@ -336,182 +364,29 @@ router.get('/suggestions', async (req, res) => {
          FROM prescribed p
          LEFT JOIN sessions s ON s.exercise_id = p.exercise_id AND (s.pick <= 3 OR s.recency = 1)
         GROUP BY p.exercise_id, p.rep_range_low, p.rep_range_high, p.target_sets,
-                 p.rest_seconds, p.exercise_name, p.is_bodyweight, p.primary_muscle
+                 p.rest_seconds, p.target_rir_per_set, p.exercise_name, p.is_bodyweight,
+                 p.primary_muscle
         ORDER BY p.exercise_name`,
       [routineId]
     );
 
-    // Compound lifts move in bigger jumps than isolation — the smallest plate pair is
-    // 2.5kg total on a bar, but a 2.5kg jump on a cable curl is a ~10% step.
-    const COMPOUND = new Set(['quads', 'hamstrings', 'glutes', 'chest', 'lats', 'upper_back', 'lower_back']);
-
-    // Rest-aware progression, possible since sets carry logged_at (2026-08-24). A
-    // compressed session — median gap between an exercise's sets under its prescribed
-    // rest floor — yields fewer reps at the same weight BY DESIGN: on a short day the
-    // plan is to cut rest, hold the load and let reps fall. Judging progression against
-    // that session reads the plan working as a plateau, and a run of office-Thursday
-    // sessions would hold a weight forever that full-rest days had already cleared.
-    //
-    // The gap includes the set itself (~30-45s), so a median under the floor means true
-    // rest well short of it — deliberately conservative. Fewer than two stamps means the
-    // rest is unknown (pre-stamp history, or a single-set session), never compressed.
-    const medianGapSeconds = (sets) => {
-      const times = sets.map((s) => Date.parse(s.logged_at)).filter(Number.isFinite).sort((a, b) => a - b);
-      if (times.length < 2) return null;
-      const gaps = times.slice(1).map((t, i) => (t - times[i]) / 1000).sort((a, b) => a - b);
-      const mid = gaps.length >> 1;
-      return gaps.length % 2 ? gaps[mid] : (gaps[mid - 1] + gaps[mid]) / 2;
-    };
-    const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const dayLabel = (iso) => {
-      const [, m, d] = String(iso).split('-').map(Number);
-      return `${d} ${SHORT_MONTHS[m - 1] || ''}`.trim();
-    };
+    // Standing coach calls, scoped the way the session scopes them: a note pinned to a
+    // routine shows only there; an unpinned one shows wherever the exercise appears.
+    // Resolved here (see util/aim.js) so the client never has to weigh note against chip.
+    const { rows: noteRows } = await db.query(
+      `SELECT id, exercise_id, routine_id, note, aim_weight_kg::float, aim_reps, aim_rir
+         FROM coach_notes
+        WHERE resolved_at IS NULL AND NOT internal AND exercise_id IS NOT NULL
+          AND (routine_id IS NULL OR routine_id = $1::int)
+        ORDER BY created_at`,
+      [routineId]
+    );
+    const notesByExercise = {};
+    for (const n of noteRows) (notesByExercise[n.exercise_id] = notesByExercise[n.exercise_id] || []).push(n);
 
     const suggestions = rows.map((r) => {
-      const sessions = r.sessions || [];
-      // Same-routine history first — but the range is per routine while the WEIGHT is
-      // per exercise. On 2026-09-07 Day C's own last pull-up session (31 Aug, -23kg)
-      // said "hold -23, aim 10" while Day A had already moved him to -18kg on 3 Sep:
-      // the chip contradicted the coach note and the PREV column in the same card. So
-      // when the newest session anywhere sits at a different working weight, that is
-      // the load he is actually on, and it is what gets graded — against THIS
-      // routine's range, with the scope suffix saying where the numbers came from. At
-      // the same weight the same-routine session still wins (PR #90).
-      const maxWeight = (sess) => {
-        const ws = (sess?.sets || []).map((s) => s.weight_kg).filter((w) => w != null);
-        return ws.length ? Math.max(...ws) : null;
-      };
-      const own = sessions[0] || null;
-      const newest = sessions.find((sess) => sess.newest) || null;
-      const movedOn = own && newest && newest !== own && !newest.same_routine
-        && maxWeight(newest) !== maxWeight(own);
-      const latest = movedOn ? newest : own;
-      const sets = latest?.sets || [];
-      const top = r.rep_range_high;
-      const low = r.rep_range_low;
-      const restFloor = r.rest_seconds != null ? Number(r.rest_seconds) : null;
-      const compressed = (sess) => {
-        if (restFloor == null || !sess) return false;
-        const median = medianGapSeconds(sess.sets || []);
-        return median != null && median < restFloor;
-      };
-      const base = {
-        exercise_id: r.exercise_id,
-        exercise_name: r.exercise_name,
-        rep_range_low: low,
-        rep_range_high: top,
-        last_date: latest?.date || null,
-        last_sets: sets,
-        last_routine_name: latest?.routine_name || null,
-        // False when the numbers came from a different routine, which prescribes a
-        // different range. The UI says so rather than presenting it as like-for-like.
-        last_same_routine: latest?.same_routine === true,
-      };
-      // Appended to whatever reason follows, so the source of the comparison travels
-      // with the advice instead of being inferred from the numbers.
-      //
-      // Only when a routine was actually asked for. Without one, `same_routine` is false
-      // for every row by construction, and the suffix would have fired on every
-      // suggestion in the list. And it states only what is known — which routine the
-      // numbers came from. Whether that routine prescribes a DIFFERENT range is not
-      // something this query establishes, so it no longer claims it.
-      const scope = (routineId != null && base.last_routine_name && !base.last_same_routine)
-        ? ` (last done on ${base.last_routine_name})`
-        : '';
-
-      if (!sets.length) {
-        return { ...base, action: 'no_history', reason: 'No logged sets yet — set your starting weight.' };
-      }
-      if (top == null) {
-        return { ...base, action: 'no_target', reason: 'No rep range prescribed, so there is nothing to progress against.' };
-      }
-
-      const weights = sets.map((s) => s.weight_kg).filter((w) => w != null);
-      const workingWeight = weights.length ? Math.max(...weights) : null;
-      const atTop = sets.every((s) => s.reps >= top);
-      const step = COMPOUND.has(r.primary_muscle) ? 2.5 : 1.25;
-
-      // Topped out is topped out — clearing the range on short rest is MORE convincing,
-      // not less, so a compressed session never blocks an increase it earned.
-      if (atTop && workingWeight != null) {
-        return {
-          ...base,
-          action: 'increase',
-          suggested_weight_kg: Math.round((workingWeight + step) * 100) / 100,
-          suggested_reps_low: low,
-          suggested_reps_high: top,
-          reason: `Hit ${top} on every set at ${workingWeight}kg — add ${step}kg and work back up the range.${scope}`,
-        };
-      }
-      if (atTop) {
-        return { ...base, action: 'increase', reason: `Hit ${top} on every set — add load next session.${scope}` };
-      }
-
-      // Short of the top. If that shortfall came from a compressed session, it is what
-      // the short-on-time plan prescribes, not evidence about the weight — so the
-      // verdict comes from the most recent normal-rest session at the same weight and
-      // scope instead, and says so. Same-scope only: a same-routine session judged
-      // against another routine's day would smuggle back the cross-routine bug.
-      // The rest floor is this routine's; a session lifted from another routine was
-      // paced to that routine's floor, so it is never read as short-rest here.
-      const latestCompressed = (routineId == null || latest.same_routine) && compressed(latest);
-      const judged = (latestCompressed && workingWeight != null)
-        ? sessions.find((sess) =>
-            sess !== latest
-            && sess.same_routine === latest.same_routine
-            && !compressed(sess)
-            && (sess.sets || []).some((s) => s.weight_kg === workingWeight)) || null
-        : null;
-
-      if (judged && judged.sets.every((s) => s.reps >= top)) {
-        return {
-          ...base,
-          action: 'increase',
-          suggested_weight_kg: Math.round((workingWeight + step) * 100) / 100,
-          suggested_reps_low: low,
-          suggested_reps_high: top,
-          reason: `Hit ${top} at ${workingWeight}kg on ${dayLabel(judged.date)} — the short-rest session since doesn't reset that. Add ${step}kg.${scope}`,
-        };
-      }
-
-      const shortfall = sets.filter((s) => s.reps < top).length;
-      // The next rung at the working weight, for rows where beating the positionally
-      // matching set is the wrong comparison. A session ramped 45x12 then 50x8 has a
-      // working weight of 50 but a first set of 12 reps, and "one more than last time"
-      // read against that row asks for 50x12 — a load he has never taken past 8. So the
-      // target is derived from the sets actually done AT this weight, lowest first,
-      // because that is the rung every set still has to clear. When a normal-rest
-      // baseline exists, aims come from whichever is higher — a compressed week must
-      // never lower the target.
-      const worstAt = (list) => {
-        const at = (list || []).filter((s) => s.weight_kg === workingWeight && s.reps != null);
-        return at.length ? Math.min(...at.map((s) => s.reps)) : null;
-      };
-      const worstAtWeight = worstAt(sets);
-      const worstJudged = judged ? worstAt(judged.sets) : null;
-      const bestWorst = Math.max(worstAtWeight ?? -1, worstJudged ?? -1);
-      const suggestedRepsNext = bestWorst >= 0 ? Math.min(bestWorst + 1, top) : low;
-      const restTail = !latestCompressed ? ''
-        : judged
-          ? ` Last session was short-rest — judged against ${dayLabel(judged.date)}.`
-          : ' Last session was short-rest — reps read low, not a stall.';
-      return {
-        ...base,
-        action: 'hold',
-        suggested_weight_kg: workingWeight,
-        suggested_reps_low: low,
-        suggested_reps_high: top,
-        suggested_reps_next: suggestedRepsNext,
-        // "Stay at 50kg" is a lie when only the last set was at 50 — it reads as though
-        // the whole session was there, which is how a ramped session gets mistaken for a
-        // jump in load. Say what was actually done at the working weight instead.
-        reason: (workingWeight == null
-          ? `Not all sets at ${top} reps yet — add reps before load.${scope}`
-          : new Set(weights).size > 1
-            ? `Worked up to ${workingWeight}kg for ${worstAtWeight} last time — stay there and aim for ${suggestedRepsNext}.${scope}`
-            : `${shortfall} of ${sets.length} sets below ${top} reps — stay at ${workingWeight}kg and add reps.${scope}`) + restTail,
-      };
+      const engine = engineVerdict(r, routineId);
+      return { ...engine, ...resolveAim(engine, notesByExercise[r.exercise_id] || [], r.target_rir_per_set) };
     });
 
     res.json(suggestions);
@@ -519,6 +394,154 @@ router.get('/suggestions', async (req, res) => {
     serverError(res, err);
   }
 });
+
+// The double-progression verdict for one prescribed exercise — the "engine" half of
+// the aim. Pure: everything it needs is on the row.
+function engineVerdict(r, routineId) {
+  const sessions = r.sessions || [];
+  // Same-routine history first — but the range is per routine while the WEIGHT is
+  // per exercise. On 2026-09-07 Day C's own last pull-up session (31 Aug, -23kg)
+  // said "hold -23, aim 10" while Day A had already moved him to -18kg on 3 Sep:
+  // the chip contradicted the coach note and the PREV column in the same card. So
+  // when the newest session anywhere sits at a different working weight, that is
+  // the load he is actually on, and it is what gets graded — against THIS
+  // routine's range, with the scope suffix saying where the numbers came from. At
+  // the same weight the same-routine session still wins (PR #90).
+  const maxWeight = (sess) => {
+    const ws = (sess?.sets || []).map((s) => s.weight_kg).filter((w) => w != null);
+    return ws.length ? Math.max(...ws) : null;
+  };
+  const own = sessions[0] || null;
+  const newest = sessions.find((sess) => sess.newest) || null;
+  const movedOn = own && newest && newest !== own && !newest.same_routine
+    && maxWeight(newest) !== maxWeight(own);
+  const latest = movedOn ? newest : own;
+  const sets = latest?.sets || [];
+  const top = r.rep_range_high;
+  const low = r.rep_range_low;
+  const restFloor = r.rest_seconds != null ? Number(r.rest_seconds) : null;
+  const compressed = (sess) => {
+    if (restFloor == null || !sess) return false;
+    const median = medianGapSeconds(sess.sets || []);
+    return median != null && median < restFloor;
+  };
+  const base = {
+    exercise_id: r.exercise_id,
+    exercise_name: r.exercise_name,
+    rep_range_low: low,
+    rep_range_high: top,
+    last_date: latest?.date || null,
+    last_sets: sets,
+    last_routine_name: latest?.routine_name || null,
+    // False when the numbers came from a different routine, which prescribes a
+    // different range. The UI says so rather than presenting it as like-for-like.
+    last_same_routine: latest?.same_routine === true,
+  };
+  // Appended to whatever reason follows, so the source of the comparison travels
+  // with the advice instead of being inferred from the numbers.
+  //
+  // Only when a routine was actually asked for. Without one, `same_routine` is false
+  // for every row by construction, and the suffix would have fired on every
+  // suggestion in the list. And it states only what is known — which routine the
+  // numbers came from. Whether that routine prescribes a DIFFERENT range is not
+  // something this query establishes, so it no longer claims it.
+  const scope = (routineId != null && base.last_routine_name && !base.last_same_routine)
+    ? ` (last done on ${base.last_routine_name})`
+    : '';
+
+  if (!sets.length) {
+    return { ...base, action: 'no_history', reason: 'No logged sets yet — set your starting weight.' };
+  }
+  if (top == null) {
+    return { ...base, action: 'no_target', reason: 'No rep range prescribed, so there is nothing to progress against.' };
+  }
+
+  const weights = sets.map((s) => s.weight_kg).filter((w) => w != null);
+  const workingWeight = weights.length ? Math.max(...weights) : null;
+  const atTop = sets.every((s) => s.reps >= top);
+  const step = COMPOUND.has(r.primary_muscle) ? 2.5 : 1.25;
+
+  // Topped out is topped out — clearing the range on short rest is MORE convincing,
+  // not less, so a compressed session never blocks an increase it earned.
+  if (atTop && workingWeight != null) {
+    return {
+      ...base,
+      action: 'increase',
+      suggested_weight_kg: Math.round((workingWeight + step) * 100) / 100,
+      suggested_reps_low: low,
+      suggested_reps_high: top,
+      reason: `Hit ${top} on every set at ${workingWeight}kg — add ${step}kg and work back up the range.${scope}`,
+    };
+  }
+  if (atTop) {
+    return { ...base, action: 'increase', reason: `Hit ${top} on every set — add load next session.${scope}` };
+  }
+
+  // Short of the top. If that shortfall came from a compressed session, it is what
+  // the short-on-time plan prescribes, not evidence about the weight — so the
+  // verdict comes from the most recent normal-rest session at the same weight and
+  // scope instead, and says so. Same-scope only: a same-routine session judged
+  // against another routine's day would smuggle back the cross-routine bug.
+  // The rest floor is this routine's; a session lifted from another routine was
+  // paced to that routine's floor, so it is never read as short-rest here.
+  const latestCompressed = (routineId == null || latest.same_routine) && compressed(latest);
+  const judged = (latestCompressed && workingWeight != null)
+    ? sessions.find((sess) =>
+        sess !== latest
+        && sess.same_routine === latest.same_routine
+        && !compressed(sess)
+        && (sess.sets || []).some((s) => s.weight_kg === workingWeight)) || null
+    : null;
+
+  if (judged && judged.sets.every((s) => s.reps >= top)) {
+    return {
+      ...base,
+      action: 'increase',
+      suggested_weight_kg: Math.round((workingWeight + step) * 100) / 100,
+      suggested_reps_low: low,
+      suggested_reps_high: top,
+      reason: `Hit ${top} at ${workingWeight}kg on ${dayLabel(judged.date)} — the short-rest session since doesn't reset that. Add ${step}kg.${scope}`,
+    };
+  }
+
+  const shortfall = sets.filter((s) => s.reps < top).length;
+  // The next rung at the working weight, for rows where beating the positionally
+  // matching set is the wrong comparison. A session ramped 45x12 then 50x8 has a
+  // working weight of 50 but a first set of 12 reps, and "one more than last time"
+  // read against that row asks for 50x12 — a load he has never taken past 8. So the
+  // target is derived from the sets actually done AT this weight, lowest first,
+  // because that is the rung every set still has to clear. When a normal-rest
+  // baseline exists, aims come from whichever is higher — a compressed week must
+  // never lower the target.
+  const worstAt = (list) => {
+    const at = (list || []).filter((s) => s.weight_kg === workingWeight && s.reps != null);
+    return at.length ? Math.min(...at.map((s) => s.reps)) : null;
+  };
+  const worstAtWeight = worstAt(sets);
+  const worstJudged = judged ? worstAt(judged.sets) : null;
+  const bestWorst = Math.max(worstAtWeight ?? -1, worstJudged ?? -1);
+  const suggestedRepsNext = bestWorst >= 0 ? Math.min(bestWorst + 1, top) : low;
+  const restTail = !latestCompressed ? ''
+    : judged
+      ? ` Last session was short-rest — judged against ${dayLabel(judged.date)}.`
+      : ' Last session was short-rest — reps read low, not a stall.';
+  return {
+    ...base,
+    action: 'hold',
+    suggested_weight_kg: workingWeight,
+    suggested_reps_low: low,
+    suggested_reps_high: top,
+    suggested_reps_next: suggestedRepsNext,
+    // "Stay at 50kg" is a lie when only the last set was at 50 — it reads as though
+    // the whole session was there, which is how a ramped session gets mistaken for a
+    // jump in load. Say what was actually done at the working weight instead.
+    reason: (workingWeight == null
+      ? `Not all sets at ${top} reps yet — add reps before load.${scope}`
+      : new Set(weights).size > 1
+        ? `Worked up to ${workingWeight}kg for ${worstAtWeight} last time — stay there and aim for ${suggestedRepsNext}.${scope}`
+        : `${shortfall} of ${sets.length} sets below ${top} reps — stay at ${workingWeight}kg and add reps.${scope}`) + restTail,
+  };
+}
 
 // ── Bodyweight ────────────────────────────────────────────────
 router.get('/bodyweight', async (req, res) => {

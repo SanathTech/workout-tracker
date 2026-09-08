@@ -247,8 +247,23 @@ CREATE TABLE IF NOT EXISTS coach_notes (
   -- on Day A's 6-8 range but not Day C's 6-10). NULL = wherever the exercise appears.
   routine_id  INTEGER REFERENCES routines(id) ON DELETE CASCADE,
   note        TEXT NOT NULL,
+  -- The load call, when the note makes one (2026-09-08). A note carrying an aim IS the
+  -- exercise's aim: /suggestions hands it out in place of the engine's number, so the
+  -- session shows one instruction instead of a chip and a paragraph that disagree. A
+  -- note with no aim is a cue — it rides under whatever aim is showing. Any one of the
+  -- three may be null (a bodyweight hold has no weight; "take it to RIR 1" has no reps).
+  aim_weight_kg NUMERIC(6, 2),
+  aim_reps      INTEGER,
+  aim_rir       INTEGER,
+  -- Coach-to-coach memos (the nutrition stance, what not to prescribe) live in the same
+  -- table so one query finds every standing call, but must never render on his phone.
+  internal      BOOLEAN NOT NULL DEFAULT FALSE,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   resolved_at TIMESTAMPTZ
 );
+ALTER TABLE coach_notes ADD COLUMN IF NOT EXISTS aim_weight_kg NUMERIC(6, 2);
+ALTER TABLE coach_notes ADD COLUMN IF NOT EXISTS aim_reps INTEGER;
+ALTER TABLE coach_notes ADD COLUMN IF NOT EXISTS aim_rir INTEGER;
+ALTER TABLE coach_notes ADD COLUMN IF NOT EXISTS internal BOOLEAN NOT NULL DEFAULT FALSE;
 
 CREATE INDEX IF NOT EXISTS idx_coach_notes_active ON coach_notes(exercise_id) WHERE resolved_at IS NULL;

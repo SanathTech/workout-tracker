@@ -209,11 +209,14 @@ router.get('/week', async (req, res) => {
 // resolved. The session page matches these to its exercises; a row with no exercise_id
 // applies to the whole session. Read-only by design: notes are written and resolved
 // from the coaching side, so the app can never end up arguing with itself about state.
+// Internal memos (coach-to-coach) are filtered here, not client-side — the client has no
+// business knowing they exist.
 router.get('/notes', async (req, res) => {
   try {
     const { rows } = await db.query(
-      `SELECT id, exercise_id, routine_id, note, created_at
-         FROM coach_notes WHERE resolved_at IS NULL ORDER BY created_at`
+      `SELECT id, exercise_id, routine_id, note,
+              aim_weight_kg::float, aim_reps, aim_rir, created_at
+         FROM coach_notes WHERE resolved_at IS NULL AND NOT internal ORDER BY created_at`
     );
     res.json(rows);
   } catch (err) {
