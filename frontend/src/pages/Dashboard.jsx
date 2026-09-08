@@ -286,11 +286,15 @@ export default function Dashboard() {
   useStartNextShortcut({ active, inProgress, resolved });
 
   // Which block is open: his choice if he's made one this visit, else the clock — and an
-  // unfinished session always opens first, whatever the hour.
+  // unfinished session always opens first, whatever the hour. The choice remembers which
+  // session (if any) it was made under, so folding the session to check in mid-workout
+  // sticks, but a session that starts afterwards still comes up open.
   const evening = new Date().getHours() >= EVENING_HOUR;
+  const sessionId = inProgress?.id ?? null;
   const [chosen, setChosen] = useState(null);
-  const openBlock = chosen ?? (inProgress ? 'session' : evening ? 'checkin' : 'session');
-  const swap = (to) => { track('ui', 'today-hero-swap', { to, evening }); setChosen(to); };
+  const choice = chosen && chosen.sessionId === sessionId ? chosen.to : null;
+  const openBlock = choice ?? (inProgress ? 'session' : evening ? 'checkin' : 'session');
+  const swap = (to) => { track('ui', 'today-hero-swap', { to, evening }); setChosen({ to, sessionId }); };
 
   const todayRow = week?.days?.find((d) => d.state === 'today');
   const todayGymDone = todayRow?.planned?.kind === 'gym' && todayRow.done ? todayRow : null;
