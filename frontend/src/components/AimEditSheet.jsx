@@ -12,7 +12,9 @@ import { track } from '../util/telemetry';
 //
 // Prefilled from whatever the aim currently says, so a tweak is one field, not four.
 
-const numOrNull = (v) => (v === '' ? null : Number(v));
+// type=number inputs report '' while the value is unparseable, but belt and braces:
+// only a finite number is a call.
+const numOrNull = (v) => (v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
 
 export default function AimEditSheet({ exercise, aim, note, onClose }) {
   const qc = useQueryClient();
@@ -58,7 +60,7 @@ export default function AimEditSheet({ exercise, aim, note, onClose }) {
     onError: () => setError('Couldn’t resolve. Try again.'),
   });
 
-  const hasCall = weight !== '' || reps !== '' || rir !== '';
+  const hasCall = [weight, reps, rir].some((v) => numOrNull(v) != null);
   const valid = hasCall || text.trim() !== '';
   const busy = save.isPending || resolve.isPending;
 

@@ -71,8 +71,8 @@ function ExerciseCard({ exercise, weeks, pb, onPick }) {
   });
   // Unscoped: Lifts isn't inside a routine, so the server picks the prescription. Same
   // key prefix as the session's scoped query so a saved call invalidates both.
-  const { data: suggestions = [] } = useQuery({ queryKey: ['suggestions', null], queryFn: () => getSuggestions() });
-  const { data: notes = [] } = useQuery({ queryKey: ['coach-notes'], queryFn: getCoachNotes, staleTime: 5 * 60_000 });
+  const { data: suggestions = [] } = useQuery({ queryKey: ['suggestions', null], queryFn: () => getSuggestions(), enabled: !!exercise });
+  const { data: notes = [] } = useQuery({ queryKey: ['coach-notes'], queryFn: getCoachNotes, staleTime: 5 * 60_000, enabled: !!exercise });
 
   const sug = exercise ? suggestions.find((s) => s.exercise_id === exercise.id) : null;
   const aim = sug?.aim ?? null;

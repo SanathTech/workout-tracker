@@ -15,11 +15,12 @@ export default function ProgramEdit() {
   const isNew = !param;
   // Numeric so the key matches what Train and the editor's invalidation use.
   const id = isNew ? null : Number(param);
+  const validId = isNew || Number.isInteger(id);
 
   const { data: program, isLoading, isError } = useQuery({
     queryKey: ['program', id],
     queryFn: () => getProgram(id),
-    enabled: !isNew,
+    enabled: !isNew && validId,
   });
 
   return (
@@ -33,7 +34,7 @@ export default function ProgramEdit() {
           <Skeleton className="h-40 w-full" />
         </div>
       )}
-      {!isNew && isError && <p className="text-sm text-red-400">Couldn’t load that program.</p>}
+      {!isNew && (isError || !validId) && <p className="text-sm text-red-400">Couldn’t load that program.</p>}
       {(isNew || program) && (
         <ProgramEditor
           initial={isNew ? null : program}
