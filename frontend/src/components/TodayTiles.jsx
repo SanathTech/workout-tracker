@@ -2,12 +2,13 @@ import { useQuery } from '@tanstack/react-query';
 import { getReadiness, getTrends } from '../api/client';
 import { Skeleton } from './Skeleton';
 import { Tile } from './ui';
+import { localDate } from '../util/format';
 
 // Four numbers from last night, each against its own ten-day baseline, each a link to
 // the reading on /health. They share that page's queries (['readiness'] and
 // ['trends', 90]) so the tap lands on a screen that's already loaded. Battery and sleep
 // come from /readiness because that's the endpoint that knows about THIS morning —
-// /coach/trends' wellness series deliberately ends yesterday.
+// the `/coach/trends` wellness series deliberately ends yesterday.
 //
 // Colour is direction-vs-good, not magnitude: emerald when the delta helps, amber when
 // it doesn't, muted when it's inside the noise. Weight's "good" direction comes from the
@@ -23,12 +24,6 @@ function mean(values) {
 function hmm(mins) {
   const m = Math.round(Math.abs(mins));
   return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`;
-}
-
-function localDate(offsetDays = 0) {
-  const d = new Date();
-  d.setDate(d.getDate() + offsetDays);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 function tone(delta, good, threshold) {

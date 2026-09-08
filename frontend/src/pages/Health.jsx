@@ -7,7 +7,7 @@ import Sparkline from '../components/Sparkline';
 import { Skeleton } from '../components/Skeleton';
 import { ChevronIcon } from '../components/icons';
 import { Disclosure, Page, Section, Tile } from '../components/ui';
-import { formatDay } from '../util/format';
+import { formatDay, localDate } from '../util/format';
 import { track } from '../util/telemetry';
 
 // Health (Trends until 2026-09-08, Coach before that). This tab used to print a
@@ -31,12 +31,6 @@ const MetricDetail = lazy(() => import('../components/MetricDetail'));
 function hours(secs) {
   if (!secs) return null;
   return `${Math.floor(secs / 3600)}h ${Math.round((secs % 3600) / 60)}m`;
-}
-
-function localDate(offsetDays = 0) {
-  const d = new Date();
-  d.setDate(d.getDate() + offsetDays);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 // How many nights back the shown night is. Whether it IS last night comes from the
@@ -293,10 +287,8 @@ function WeighIn() {
     onSuccess: () => {
       setValue('');
       track('save', 'weigh-in');
-      // Every reader of the series: this page and Today's tile read ['trends'], Lifts
-      // (historically) and the API's own view read ['bodyweight'].
+      // Every reader of the series — this page and Today's tile — reads ['trends'].
       qc.invalidateQueries({ queryKey: ['trends'] });
-      qc.invalidateQueries({ queryKey: ['bodyweight'] });
     },
   });
   const parsed = Number(value);

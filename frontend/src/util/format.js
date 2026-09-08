@@ -1,3 +1,13 @@
+// The device's calendar day as YYYY-MM-DD, optionally shifted. The ONE copy: a workout's
+// date, a bedtime slot and a weigh-in all have to agree on what "today" is, and three
+// hand-rolled versions of this padding is how they stop agreeing.
+export function localDate(offsetDays = 0) {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 export function formatRest(seconds) {
   if (seconds == null) return '';
   if (seconds < 60) return `${seconds}s`;
