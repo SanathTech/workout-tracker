@@ -14,7 +14,7 @@ import { formatDay } from '../util/format';
 // series into the top two-thirds of the plot. Form is a single number he acts on, and
 // it is already stated twice — the today strip and the legend line below.
 //
-// This component is imported lazily by the Trends page: it pulls in Recharts, and its
+// This component is imported lazily by the Health page: it pulls in Recharts, and its
 // data query lives here so the download and the fetch happen together, behind the
 // numbers above it rather than in front of them.
 export default function FitnessChart({ days = 90 }) {

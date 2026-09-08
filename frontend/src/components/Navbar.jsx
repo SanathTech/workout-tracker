@@ -26,13 +26,13 @@ function ProgressIcon(props) {
     </svg>
   );
 }
-// A pulse line rather than the old heart: the tab reports measurements now, and a
-// heart read as "wellbeing" next to a Progress tab that is about lifts.
-function TrendsIcon(props) {
+// The heart is back (PR 5): next to Train and Lifts the tab is the body's numbers —
+// sleep, weight, bedtime — and "Health" is the word he uses for them. The pulse line
+// it replaces read as a stock chart once the tab stopped being called Trends.
+function HealthIcon(props) {
   return (
     <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true" {...props}>
-      <path d="M3 15.5l4.5-5 3.5 3.5L15 8l2.5 3H21" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M3 20h18" strokeLinecap="round" opacity="0.35" />
+      <path d="M12 20.5s-7.5-4.6-7.5-10A4 4 0 0 1 12 8.2a4 4 0 0 1 7.5 2.3c0 5.4-7.5 10-7.5 10z" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -48,9 +48,10 @@ function TrendsIcon(props) {
 // on one screen. 30 days of app_events put Program + Exercises + History + More at 43
 // visits to Lifts' 25, so Train takes the third slot and Lifts the fourth. Desktop shows
 // the same four; the Exercises link lives on Train now, so there's no separate IA.
+// PR 5 renamed Trends to Health — same slot, same data, regrouped by question.
 const links = [
   { to: '/dashboard', label: 'Today', Icon: HomeIcon },
-  { to: '/trends', label: 'Trends', Icon: TrendsIcon },
+  { to: '/health', label: 'Health', Icon: HealthIcon },
   { to: '/train', label: 'Train', Icon: ProgramIcon },
   { to: '/progress', label: 'Lifts', Icon: ProgressIcon },
 ];
