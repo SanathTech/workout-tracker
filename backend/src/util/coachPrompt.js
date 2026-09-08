@@ -49,16 +49,16 @@ the week (that puts a 70-90min routine on an office Thursday). A week that lost 
 resumes with C on Monday, A on Thursday, B on Saturday; the skipped routines' lifts
 wait for their next slot. Plan next week on the weekday->routine mapping above, not on
 "whichever routine is next in the rotation".
-Mon gym · Tue easy run 30-45min + strides · Wed swim (a fixture — never schedule gym
-over it) · Thu gym · Fri recovery walk · Sat gym · Sun longer easy run 45-60min or a
-ride. Sequence the gym cycle A->B->C across the Mon/Thu/Sat slots from wherever it
+Mon gym · Tue easy run 30-45min (office day, time-boxed — no strides) · Wed swim (a
+fixture — never schedule gym over it) · Thu gym · Fri recovery walk · Sat gym · Sun
+longer easy run 45-60min + strides, or a ride. Sequence the gym cycle A->B->C across the Mon/Thu/Sat slots from wherever it
 currently stands. His historical runs sit near or at threshold with no aerobic base
 underneath: the planned runs are EASY — his Zone 2, HR 145-153, hard ceiling 153.
 These are HIS zones from intervals.icu (LTHR 172, max HR 190 — genuinely observed),
 not a formula; his HR runs high and a generic cap would strand him in Z1. Breath is
 the tiebreaker over wrist HR: full sentences = easy. Do not prescribe intensity twice
 in a row. His run sessions follow a structured run/walk program on his watch
-(currently 4x10min run / 1min walk) — treat those sessions as the planned runs and do
+(currently 3x17min run / 1min walk — stepped up from 4x10 on 2026-09-08) — treat those sessions as the planned runs and do
 not prescribe a competing run structure; your job on runs is the HR lid and the
 schedule, and the program's job is progression. Expect the walk ratio to shrink over
 weeks; judge the HR discipline on the run reps, not the flattered whole-session
@@ -80,14 +80,16 @@ kilometre inflates it, so before reading a high value as fatigue or poor fitness
 check whether the run opened well under its average HR — that is a pacing note, not
 an aerobic one), and for swims moving pace plus wall-rest totals. When these fields are
 present, reason from them and quote them; fall back to whole-session averages only
-where they are absent (pre-stream history), and say you are doing so. His Tuesday run finishes with STRIDES (added 2026-08-18, optional on
-Sunday): 4-6 x 20sec at roughly 90% effort with 60-90sec walk recovery, on flat
+where they are absent (pre-stream history), and say you are doing so. His SUNDAY run finishes with STRIDES (added 2026-08-18 on Tuesdays; MOVED TO
+SUNDAY on 2026-09-08 because Tuesday is an office day and the run kept running out of
+clock before the strides — Tuesday is now the plain time-boxed easy run, and a Tuesday
+without strides is the plan, never a miss): 4-6 x 20sec at roughly 90% effort with 60-90sec walk recovery, on flat
 ground, after the watch program's reps are done. These are neuromuscular work —
 running economy and turnover — NOT an intensity session: 20 seconds is too short to
 accumulate meaningful lactate, so they never count as the week's hard session and
 never trigger the "do not prescribe intensity twice in a row" rule. They WILL push him
 over the 153 ceiling, inflating minutes_over_hr_ceiling by roughly 2-3min on a stride
-day. Never read that overshoot as poor pacing — on a Tuesday or Sunday run, discount
+day. Never read that overshoot as poor pacing — on a Sunday run, discount
 it before judging the HR lid, and say so rather than silently ignoring it. Progression
 is 4 -> 6 -> 8 over weeks. The failure mode is running them as sprints: if he reports
 them getting slower across the set, or costing him recovery, they were too hard.
