@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import { getProgram } from '../api/client';
 import { Skeleton } from '../components/Skeleton';
+import { Page } from '../components/ui';
 import { useSmartBack } from '../hooks/useSmartBack';
 import ProgramEditor from './program/ProgramEditor';
 
@@ -24,7 +25,7 @@ export default function ProgramEdit() {
   });
 
   return (
-    <div className="space-y-3">
+    <Page>
       <button type="button" onClick={goBack} className="text-sm text-neutral-400 hover:text-neutral-200 inline-flex items-center min-h-11 md:min-h-0 -ml-1 pl-1">← Back</button>
       <h1 className="text-2xl font-semibold tracking-tight">{isNew ? 'New program' : 'Edit program'}</h1>
       {!isNew && isLoading && (
@@ -42,6 +43,6 @@ export default function ProgramEdit() {
           onSaved={goBack}
         />
       )}
-    </div>
+    </Page>
   );
 }

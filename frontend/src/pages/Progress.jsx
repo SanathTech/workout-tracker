@@ -265,7 +265,7 @@ export default function Progress() {
         {showVolume && <WeeklyVolume weeks={weeks} />}
       </Section>
 
-      <Section label="Personal bests" action={<Disclosure open={showBests} label={showBests ? 'Hide' : `${pbs.length} lifts`} onClick={() => setShowBests((v) => !v)} />}>
+      <Section label="Personal bests" action={<Disclosure open={showBests} label={showBests ? 'Hide' : pbsLoading ? 'Loading…' : `${pbs.length} lifts`} onClick={() => setShowBests((v) => !v)} />}>
         {showBests && <AllBests pbs={pbs} loading={pbsLoading} onPick={(id) => { pick(id); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />}
       </Section>
 
