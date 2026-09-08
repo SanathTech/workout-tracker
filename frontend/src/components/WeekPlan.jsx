@@ -167,9 +167,10 @@ export default function WeekStrip() {
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        aria-label={`This week${open ? '' : ' — show each day'}`}
         className="w-full flex items-stretch -mx-1 px-1 py-1 rounded-lg hover:bg-neutral-900 transition-colors"
       >
+        {/* No aria-label here: the per-day sr-only text below is the accessible name. */}
+        <span className="sr-only">This week{open ? '' : ' — show each day'}.</span>
         {data.days.map((d) => {
           const isToday = d.state === 'today';
           const missed = d.state === 'past' && !d.done;

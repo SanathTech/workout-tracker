@@ -37,7 +37,7 @@ function tone(delta, good, threshold) {
 }
 
 function arrow(delta) {
-  return delta > 0 ? '▲' : '▼';
+  return delta > 0 ? '▲' : delta < 0 ? '▼' : '=';
 }
 
 function Tile({ label, value, sub, subClass = 'text-neutral-400', srLabel }) {
@@ -71,7 +71,7 @@ export function buildTiles({ readiness, trends }) {
   tiles.push({
     label: 'Battery',
     value: bb ?? '—',
-    sub: bbDelta != null ? `${arrow(bbDelta)} ${Math.abs(Math.round(bbDelta))}` : night ? 'no baseline' : 'no sync',
+    sub: bbDelta != null ? `${arrow(Math.round(bbDelta))} ${Math.abs(Math.round(bbDelta))}` : night ? 'no baseline' : 'no sync',
     subClass: tone(bbDelta, 'up', noise.battery),
     srLabel: bb != null ? `Body battery ${bb}${bbDelta != null ? `, ${Math.round(bbDelta)} against the ten-day mean` : ''}` : 'Body battery, no data',
   });
@@ -82,7 +82,7 @@ export function buildTiles({ readiness, trends }) {
   tiles.push({
     label: 'Sleep',
     value: slp != null ? hmm(slp) : '—',
-    sub: slpDelta != null ? `${arrow(slpDelta)} ${hmm(slpDelta)}` : night ? 'no baseline' : 'no sync',
+    sub: slpDelta != null ? `${arrow(Math.round(slpDelta))} ${hmm(slpDelta)}` : night ? 'no baseline' : 'no sync',
     subClass: tone(slpDelta, 'up', noise.sleepMins),
     srLabel: slp != null ? `Sleep ${hmm(slp)}${slpDelta != null ? `, ${Math.round(slpDelta)} minutes against the ten-day mean` : ''}` : 'Sleep, no data',
   });
@@ -97,7 +97,7 @@ export function buildTiles({ readiness, trends }) {
   tiles.push({
     label: 'Weight',
     value: wLatest != null ? wLatest.toFixed(1) : '—',
-    sub: wDelta != null ? `${arrow(wDelta)} ${Math.abs(wDelta).toFixed(1)}` : wLatest != null ? 'no baseline' : 'no reading',
+    sub: wDelta != null ? `${arrow(Math.round(wDelta * 10))} ${Math.abs(wDelta).toFixed(1)}` : wLatest != null ? 'no baseline' : 'no reading',
     subClass: wGood ? tone(wDelta, wGood, noise.weightKg) : 'text-neutral-400',
     srLabel: wLatest != null ? `Weight ${wLatest.toFixed(1)} kilograms${wDelta != null ? `, ${wDelta.toFixed(1)} against the ten-day mean` : ''}` : 'Weight, no reading',
   });
