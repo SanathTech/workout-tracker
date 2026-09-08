@@ -33,13 +33,15 @@ frontend/
     api/client.js            All HTTP calls (axios). Single source for endpoint URLs.
     components/
       Layout.jsx / Navbar.jsx  Bottom bar = FOUR tabs: Home, Trends, Lifts, More (desktop flattens More)
-      CheckinCard.jsx        Daily check-in (mood/energy/soreness + evening-ramp toggles) — on Home; each half folds to one line once answered
-      WeekPlan.jsx           Mon–Sun plan from /api/coach/week — on Home; one line per day, tap to expand
+      CheckinCard.jsx        Daily check-in (mood/energy/soreness + evening-ramp toggles) — Home's check-in block (`compact` = no heading); each half folds to one line once answered
+      WeekPlan.jsx           WeekStrip (7 dots + today's slot, tap → DayRow list) from /api/coach/week; exports DayRow + useWeek
+      TodayTiles.jsx         Battery · Sleep · Weight · Bed vs 10-day baselines (readiness + trends), each a link to Health
+      CoachCard.jsx          One coach line (fresh weekly headline, else newest coach note) → Sheet with the full text
       LatestNotes.jsx        Newest body notes (from /api/coach/week) — on Trends
       AimLine.jsx            The ONE "Aim 52.5 kg × 6 · RIR 1 · ENGINE|COACH · why ›" line + sheets
       FinishSheet.jsx        Post-Finish summary (duration/sets/volume/↑/★) + RPE grid
     pages/
-      Dashboard.jsx          Home: in-progress/"Up next" card, check-in, week plan, recent workouts
+      Dashboard.jsx          Today: week strip, session ⇄ check-in hero (one open, flips at 19:00), tiles, coach line
       Trends.jsx             Read-only recovery + endurance data, latest notes, weight goal, weekly review
       Progress.jsx           "Lifts" tab: volume charts + exercise progress + PRs (Recharts)
       More.jsx               Overflow: Program, Exercises, History
@@ -223,6 +225,13 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
   logging flows down the list without taps. `+ Add exercise`, workout notes and Skip live in
   the header's ⋯ menu; there is no bottom bar and no save sentence in the body (the dot in the
   header sub-line is the save status; a red one is a retry button).
+- **Today has two hero blocks, always both, exactly one open.** The session block (in
+  progress → Continue · n/m sets; else Up next with the main lifts' aims from `/suggestions`;
+  else no-program / complete) and the check-in block (`CheckinCard compact`). The open one
+  is the user's choice for this visit, else the clock: session before 19:00, check-in after,
+  and an unfinished session always opens first. Tapping either block's line swaps them. No
+  recent-workouts list and no "N this week" stat live here any more — History and Progress
+  have them; don't add a third thing to do to this screen.
 - **The session's unsaved edits live in `localStorage`, not the query cache.** `util/draft.js`
   writes the pending payload *and* a snapshot of the workout shape on every edit, and clears
   it only when the server confirms that exact payload. A surviving draft therefore means

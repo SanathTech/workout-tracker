@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getWeek } from '../api/client';
+import { ChevronIcon } from './icons';
+import { Skeleton } from './Skeleton';
 
 // What's on, every day, Monday to Sunday — so the answer to "what am I doing today"
 // lives in the app rather than in a message each morning. The gym slots are resolved
@@ -10,9 +12,9 @@ import { getWeek } from '../api/client';
 // Everything here is computed server-side. No model writes it. A plan you prepare
 // around has to be right, and the cycle position is a modulo, not a judgement.
 //
-// This was its own tab until 2026-09-05. Two weeks of telemetry showed it got a
-// 4-second glance on the way from Home to the check-in, every night — a stop on a
-// corridor, not a destination — so it lives on Home now, under the thing you start.
+// This was its own tab until 2026-09-05, then seven rows on Home. Since the 2026-09-08
+// redesign (PR 3) Home shows the week as a strip of seven dots — done, today, missed,
+// planned — and the rows only unfold on tap. The rows move to Train in PR 4.
 
 const KIND_STYLES = {
   gym: 'bg-emerald-500',
@@ -23,10 +25,14 @@ const KIND_STYLES = {
 
 const KIND_LABELS = { gym: 'Gym', run: 'Run', swim: 'Swim', walk: 'Walk' };
 
+export function useWeek() {
+  return useQuery({ queryKey: ['week'], queryFn: getWeek, staleTime: 60_000 });
+}
+
 // One line per day: the full seven-day detail made Home nearly four screens tall
 // (2026-09-06), and today's detail already sits in the header above. Tap a row for
 // its description and what was actually logged.
-function DayRow({ day }) {
+export function DayRow({ day }) {
   const { planned, actual, state, done } = day;
   const isToday = state === 'today';
   const missed = state === 'past' && !done;
@@ -117,64 +123,95 @@ function DayRow({ day }) {
   );
 }
 
-export default function WeekPlan() {
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ['week'],
-    queryFn: getWeek,
-    staleTime: 60_000,
-  });
+// The seven dots. A filled dot is a day with something logged (in its kind's colour),
+// a hollow one is still to come, today wears a ring, and a past day with nothing logged
+// is dark red — the one state worth noticing at a glance.
+function Dot({ day }) {
+  const { planned, state, done } = day;
+  const missed = state === 'past' && !done;
+  const isToday = state === 'today';
+  let cls;
+  if (done) cls = KIND_STYLES[planned.kind] || 'bg-neutral-400';
+  else if (missed) cls = 'bg-red-400/40';
+  else if (isToday) cls = 'border border-emerald-400';
+  else cls = 'border border-neutral-600';
+  return (
+    <span
+      aria-hidden="true"
+      className={`block w-2.5 h-2.5 rounded-full ${cls} ${isToday ? 'ring-2 ring-emerald-400/40 ring-offset-2 ring-offset-neutral-950' : ''}`}
+    />
+  );
+}
+
+export default function WeekStrip() {
+  const { data, isLoading, isError } = useWeek();
+  const [open, setOpen] = useState(false);
 
   if (isLoading) {
     return (
-      <section className="border-t border-neutral-800 pt-4">
-        <p className="section-label">This week</p>
-        <p className="text-sm text-neutral-400 py-4">Loading the week…</p>
-      </section>
+      <div className="py-2 space-y-3">
+        <div className="flex justify-between px-3">
+          {[0, 1, 2, 3, 4, 5, 6].map((i) => <Skeleton key={i} className="w-2.5 h-2.5 rounded-full" />)}
+        </div>
+        <Skeleton className="h-4 w-48" />
+      </div>
     );
   }
-  if (isError || !data) {
-    return (
-      <section className="border-t border-neutral-800 pt-4">
-        <p className="section-label">This week</p>
-        <p className="text-sm text-red-400 py-4">Couldn’t load the week.</p>
-      </section>
-    );
-  }
+  if (isError || !data) return <p className="text-sm text-red-400">Couldn’t load the week.</p>;
 
   const todayRow = data.days.find((d) => d.state === 'today');
-  const nextGym = data.days.find((d) => d.state !== 'past' && d.planned.kind === 'gym');
 
   return (
-    <section className="border-t border-neutral-800 pt-4 space-y-3">
-      <div>
-        <p className="section-label">This week</p>
-        {/* Today's slot in words, because the "Up next" card above only knows about gym
-            days — on a Wednesday the answer is the swim, and the program can't say so. */}
-        <p className="text-base font-semibold tracking-tight text-neutral-200 mt-0.5">
-          {todayRow ? todayRow.planned.title : 'Rest'}
-          <span className="text-xs font-normal text-neutral-400 ml-2">today</span>
-        </p>
-        {todayRow?.planned.detail && (
-          <p className="text-sm text-neutral-400 mt-0.5">
-            {todayRow.planned.detail}
-          </p>
-        )}
-        {nextGym && nextGym.state !== 'today' && (
-          <p className="text-xs text-neutral-400 mt-1">
-            Next gym:{' '}
-            <span className="text-neutral-300">
-              {nextGym.weekday} — {nextGym.planned.title}
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-label={`This week${open ? '' : ' — show each day'}`}
+        className="w-full flex items-stretch -mx-1 px-1 py-1 rounded-lg hover:bg-neutral-900 transition-colors"
+      >
+        {data.days.map((d) => {
+          const isToday = d.state === 'today';
+          const missed = d.state === 'past' && !d.done;
+          return (
+            <span key={d.date} className="flex-1 flex flex-col items-center gap-2 py-1">
+              <span className={`text-[11px] tracking-wide ${isToday ? 'text-emerald-400 font-semibold' : 'text-neutral-400'}`}>
+                {d.weekday.slice(0, 1)}
+              </span>
+              <Dot day={d} />
+              <span className="sr-only">
+                {d.weekday}: {KIND_LABELS[d.planned.kind] || d.planned.kind}, {d.planned.title}
+                {d.done ? ', done' : missed ? ', nothing logged' : isToday ? ', today' : ''}
+              </span>
             </span>
-          </p>
-        )}
-      </div>
+          );
+        })}
+      </button>
 
-      <div className="divide-y divide-neutral-800 border-t border-neutral-800">
-        {data.days.map((d) => (
-          <DayRow key={d.date} day={d} />
-        ))}
-      </div>
+      {/* Today's slot in words, because the session block only knows about gym days —
+          on a Wednesday the answer is the swim, and the program can't say so. */}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="w-full flex items-baseline justify-between gap-3 text-left mt-1 min-h-11 md:min-h-0"
+      >
+        <span className="text-sm min-w-0 truncate">
+          <span className="text-neutral-200 font-medium">{todayRow ? todayRow.planned.title : 'Rest'}</span>
+          {todayRow?.planned.detail && (
+            <span className="text-neutral-400"> · {todayRow.planned.detail}</span>
+          )}
+        </span>
+        <span className="text-xs text-neutral-400 shrink-0 inline-flex items-center gap-1">
+          week <ChevronIcon open={open} />
+        </span>
+      </button>
 
-    </section>
+      {open && (
+        <div className="divide-y divide-neutral-800 border-t border-neutral-800 mt-1">
+          {data.days.map((d) => <DayRow key={d.date} day={d} />)}
+        </div>
+      )}
+    </div>
   );
 }
