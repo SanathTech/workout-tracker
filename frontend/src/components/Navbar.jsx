@@ -26,14 +26,6 @@ function ProgressIcon(props) {
     </svg>
   );
 }
-function DumbbellIcon(props) {
-  return (
-    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true" {...props}>
-      <path d="M7 8v8M4.5 9.5v5M17 8v8M19.5 9.5v5M7 12h10" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 // A pulse line rather than the old heart: the tab reports measurements now, and a
 // heart read as "wellbeing" next to a Progress tab that is about lifts.
 function TrendsIcon(props) {
@@ -45,36 +37,22 @@ function TrendsIcon(props) {
   );
 }
 
-// Three dots: the overflow tab.
-function MoreIcon(props) {
-  return (
-    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true" {...props}>
-      <circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none" />
-      <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" />
-      <circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
-
 // Four tabs, from six (2026-09-05). Two weeks of app_events: Home, Week and Trends were
 // one nightly corridor to the check-in; Program, Progress and Exercises got a ~1-second
 // tap each on the way round the bar. Week folded into Home along with the check-in,
 // Program and Exercises went under More, and Progress became Lifts — the strength twin
 // of Trends. Trends stays second: after a night's sleep last night's numbers are the
 // first thing worth seeing, and the two leftmost tabs are the ones reachable one-handed.
+//
+// 2026-09-08 (redesign PR 4): More became Train — program, history and the week's rows
+// on one screen. 30 days of app_events put Program + Exercises + History + More at 43
+// visits to Lifts' 25, so Train takes the third slot and Lifts the fourth. Desktop shows
+// the same four; the Exercises link lives on Train now, so there's no separate IA.
 const links = [
-  { to: '/dashboard', label: 'Home', Icon: HomeIcon },
+  { to: '/dashboard', label: 'Today', Icon: HomeIcon },
   { to: '/trends', label: 'Trends', Icon: TrendsIcon },
+  { to: '/train', label: 'Train', Icon: ProgramIcon },
   { to: '/progress', label: 'Lifts', Icon: ProgressIcon },
-  { to: '/more', label: 'More', Icon: MoreIcon },
-];
-
-// Desktop has the width, so the overflow is flattened into the header instead of
-// hidden behind More. Same destinations, one tap fewer.
-const desktopLinks = [
-  ...links.slice(0, 3),
-  { to: '/program', label: 'Program', Icon: ProgramIcon },
-  { to: '/exercises', label: 'Exercises', Icon: DumbbellIcon },
 ];
 
 function SyncingDot() {
@@ -152,7 +130,7 @@ export default function Navbar() {
             Workout Tracker
           </span>
           <div className="hidden md:flex gap-1 ml-6">
-            {desktopLinks.map((l) => (
+            {links.map((l) => (
               <NavLink
                 key={l.to}
                 to={l.to}

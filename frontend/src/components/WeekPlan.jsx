@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { getWeek } from '../api/client';
-import { ChevronIcon } from './icons';
 import { Skeleton } from './Skeleton';
 
 // What's on, every day, Monday to Sunday — so the answer to "what am I doing today"
@@ -13,8 +13,8 @@ import { Skeleton } from './Skeleton';
 // around has to be right, and the cycle position is a modulo, not a judgement.
 //
 // This was its own tab until 2026-09-05, then seven rows on Home. Since the 2026-09-08
-// redesign (PR 3) Home shows the week as a strip of seven dots — done, today, missed,
-// planned — and the rows only unfold on tap. The rows move to Train in PR 4.
+// redesign Today shows the week as a strip of seven dots — done, today, missed, planned
+// — and the rows (DayRow) live on Train; tapping the strip goes there.
 
 const KIND_STYLES = {
   gym: 'bg-emerald-500',
@@ -30,8 +30,8 @@ export function useWeek() {
 }
 
 // One line per day: the full seven-day detail made Home nearly four screens tall
-// (2026-09-06), and today's detail already sits in the header above. Tap a row for
-// its description and what was actually logged.
+// (2026-09-06). Tap a row for its description and what was actually logged; a logged
+// gym day links through to the workout.
 export function DayRow({ day }) {
   const { planned, actual, state, done } = day;
   const isToday = state === 'today';
@@ -49,31 +49,32 @@ export function DayRow({ day }) {
       return text ? { key: `${a.label}-${i}`, text, skipped: a.skipped } : null;
     })
     .filter(Boolean);
-  const expandable = !!planned.detail || chips.length > 0;
+  const workoutId = actual.find((a) => a.kind === 'gym' && !a.skipped && a.workout_id)?.workout_id ?? null;
+  const expandable = !!planned.detail || chips.length > 0 || workoutId != null;
 
   return (
-    <button
-      type="button"
-      disabled={!expandable}
-      onClick={() => setOpen((v) => !v)}
-      aria-expanded={expandable ? open : undefined}
-      className={`w-full text-left flex gap-3 py-2 ${isToday ? 'bg-emerald-950/20 -mx-3 px-3' : ''}`}
-    >
-      {/* Fixed-width date gutter keeps every title on the same left edge. */}
-      <div className="w-12 shrink-0 flex items-baseline gap-1">
-        <span
-          className={`text-xs font-semibold tracking-wide ${
-            isToday ? 'text-emerald-400' : 'text-neutral-400'
-          }`}
-        >
-          {day.weekday.slice(0, 3).toUpperCase()}
-        </span>
-        <span className="text-[11px] text-neutral-400 tabular-nums">{Number(dom)}</span>
-        <span className="sr-only">{monthName}</span>
-      </div>
+    <div className={`${isToday ? 'bg-emerald-950/20 -mx-3 px-3' : ''}`}>
+      <button
+        type="button"
+        disabled={!expandable}
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={expandable ? open : undefined}
+        className="w-full text-left flex gap-3 py-2 min-h-11"
+      >
+        {/* Fixed-width date gutter keeps every title on the same left edge. */}
+        <div className="w-12 shrink-0 flex items-baseline gap-1">
+          <span
+            className={`text-xs font-semibold tracking-wide ${
+              isToday ? 'text-emerald-400' : 'text-neutral-400'
+            }`}
+          >
+            {day.weekday.slice(0, 3).toUpperCase()}
+          </span>
+          <span className="text-[11px] text-neutral-400 tabular-nums">{Number(dom)}</span>
+          <span className="sr-only">{monthName}</span>
+        </div>
 
-      <div className="min-w-0 flex-1">
-        <div className="flex items-baseline gap-2 min-w-0">
+        <div className="min-w-0 flex-1 flex items-baseline gap-2">
           <span
             className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${
               KIND_STYLES[planned.kind] || 'bg-neutral-400'
@@ -98,28 +99,26 @@ export function DayRow({ day }) {
             <span className="text-[11px] text-amber-400 shrink-0">nothing logged</span>
           )}
         </div>
+      </button>
 
-        {open && planned.detail && (
-          <p
-            className={`text-xs mt-1 ${
-              state === 'past'
-                ? 'text-neutral-400'
-                : 'text-neutral-400'
-            }`}
-          >
-            {planned.detail}
-          </p>
-        )}
-
-        {open && chips.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mt-1.5">
-            {chips.map((c) => (
-              <span key={c.key} className={`tag ${c.skipped ? 'opacity-60' : ''}`}>{c.text}</span>
-            ))}
-          </div>
-        )}
-      </div>
-    </button>
+      {open && (
+        <div className="pl-[3.75rem] pb-2 -mt-1 space-y-1.5">
+          {planned.detail && <p className="text-xs text-neutral-400">{planned.detail}</p>}
+          {chips.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {chips.map((c) => (
+                <span key={c.key} className={`tag ${c.skipped ? 'opacity-60' : ''}`}>{c.text}</span>
+              ))}
+            </div>
+          )}
+          {workoutId != null && (
+            <Link to={`/workouts/${workoutId}`} className="inline-flex items-center text-xs text-neutral-400 hover:text-neutral-200 min-h-11 md:min-h-0">
+              Open workout ›
+            </Link>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -145,7 +144,6 @@ function Dot({ day }) {
 
 export default function WeekStrip() {
   const { data, isLoading, isError } = useWeek();
-  const [open, setOpen] = useState(false);
 
   if (isLoading) {
     return (
@@ -163,11 +161,9 @@ export default function WeekStrip() {
 
   return (
     <div>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        aria-label={open ? 'This week' : 'This week — show each day'}
+      <Link
+        to="/train"
+        aria-label="This week — open Train"
         className="w-full flex items-stretch -mx-1 px-1 py-1 rounded-lg hover:bg-neutral-900 transition-colors"
       >
         {data.days.map((d) => {
@@ -181,9 +177,9 @@ export default function WeekStrip() {
             </span>
           );
         })}
-      </button>
-      {/* The dots in words, for screen readers — outside the button so its own name stays
-          short, and always present so the summary doesn't depend on expanding the rows. */}
+      </Link>
+      {/* The dots in words, for screen readers — outside the link so its own name stays
+          short, and always present so the summary doesn't depend on leaving the page. */}
       <ul className="sr-only">
         {data.days.map((d) => {
           const missed = d.state === 'past' && !d.done;
@@ -198,10 +194,8 @@ export default function WeekStrip() {
 
       {/* Today's slot in words, because the session block only knows about gym days —
           on a Wednesday the answer is the swim, and the program can't say so. */}
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
+      <Link
+        to="/train"
         className="w-full flex items-baseline justify-between gap-3 text-left mt-1 min-h-11 md:min-h-0"
       >
         <span className="text-sm min-w-0 truncate">
@@ -210,16 +204,8 @@ export default function WeekStrip() {
             <span className="text-neutral-400"> · {todayRow.planned.detail}</span>
           )}
         </span>
-        <span className="text-xs text-neutral-400 shrink-0 inline-flex items-center gap-1">
-          week <ChevronIcon open={open} />
-        </span>
-      </button>
-
-      {open && (
-        <div className="divide-y divide-neutral-800 border-t border-neutral-800 mt-1">
-          {data.days.map((d) => <DayRow key={d.date} day={d} />)}
-        </div>
-      )}
+        <span className="text-xs text-neutral-400 shrink-0">week ›</span>
+      </Link>
     </div>
   );
 }

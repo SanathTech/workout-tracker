@@ -1,19 +1,40 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
-import { getStats, getVolumeProgress, getExerciseProgress, getPersonalBests, getExercises } from '../api/client';
+import { getStats, getVolumeProgress, getExerciseProgress, getPersonalBests, getExercises, getSuggestions, getCoachNotes } from '../api/client';
 import { Skeleton } from '../components/Skeleton';
 import ExercisePickerSheet from '../components/ExercisePickerSheet';
+import AimLine from '../components/AimLine';
+import AimEditSheet from '../components/AimEditSheet';
+import { Page, Section, Disclosure } from '../components/ui';
 import { ChevronIcon } from '../components/icons';
 import { formatDay, formatKg } from '../util/format';
 import MuscleVolume from '../components/MuscleVolume';
 import BodyweightCard from '../components/BodyweightCard';
 
+// Lifts (2026-09-08, PR 4): one exercise at a time. The picker is the first thing on the
+// page because "how is my RDL going" is the question this tab answers — the old layout
+// buried the exercise chart under two volume cards and a stat grid, and the picker forgot
+// its choice on every visit. Range chips replace the dropdown (one tap, not two), the
+// bests sit under the chart, and the aim line is the same component the session shows,
+// with edit — this is where a coach call gets written from the phone. Everything about
+// training as a whole (muscle sets, totals, weekly volume, all PBs) comes after.
+// Bodyweight is here until Health takes it in PR 5.
+
 // Chart ink for the one (dark) theme: neutral-200 line, neutral-400 text, neutral-800 grid.
 const CHART = { accent: '#e5e5e5', accentAlt: '#a3a3a3', grid: '#262626', text: '#a3a3a3' };
+const TOOLTIP = { background: 'rgba(0,0,0,0.85)', border: 'none', borderRadius: 6, color: '#fff', fontSize: 12 };
+const RANGES = [4, 12, 24, 52];
+const REMEMBER_KEY = 'lifts.exercise';
+
+const readRemembered = () => {
+  try { return Number(localStorage.getItem(REMEMBER_KEY)) || null; } catch { return null; }
+};
+
+const formatDate = (dateStr) => formatDay(dateStr, { month: 'short', day: 'numeric' });
 
 function StatCard({ label, value, unit, loading }) {
   return (
@@ -31,193 +52,230 @@ function StatCard({ label, value, unit, loading }) {
   );
 }
 
-export default function Progress() {
-  const [weeks, setWeeks] = useState(12);
-  const [selectedExerciseId, setSelectedExerciseId] = useState('');
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const theme = CHART;
+function Best({ label, value, sub }) {
+  return (
+    <div className="min-w-0">
+      <p className="section-label">{label}</p>
+      <p className="font-semibold tabular-nums mt-0.5 truncate">{value}</p>
+      {sub && <p className="text-xs text-neutral-400 truncate">{sub}</p>}
+    </div>
+  );
+}
 
-  const { data: stats, isLoading: statsLoading } = useQuery({ queryKey: ['stats'], queryFn: getStats, staleTime: 10 * 60_000 });
-  const { data: volumeData = [], isLoading: volumeLoading } = useQuery({
+function ExerciseCard({ exercise, weeks, pb, onPick }) {
+  const [editing, setEditing] = useState(false);
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: ['exercise-progress', exercise?.id, weeks],
+    queryFn: () => getExerciseProgress(exercise.id, { weeks }),
+    enabled: !!exercise,
+  });
+  // Unscoped: Lifts isn't inside a routine, so the server picks the prescription. Same
+  // key prefix as the session's scoped query so a saved call invalidates both.
+  const { data: suggestions = [] } = useQuery({ queryKey: ['suggestions', null], queryFn: () => getSuggestions() });
+  const { data: notes = [] } = useQuery({ queryKey: ['coach-notes'], queryFn: getCoachNotes, staleTime: 5 * 60_000 });
+
+  const sug = exercise ? suggestions.find((s) => s.exercise_id === exercise.id) : null;
+  const aim = sug?.aim ?? null;
+  const note = aim?.note_id ? notes.find((n) => n.id === aim.note_id) : null;
+
+  return (
+    <section className="space-y-4">
+      <button
+        type="button"
+        onClick={onPick}
+        className="flex items-center gap-2 w-full text-left min-h-11"
+        aria-label={exercise ? `Exercise: ${exercise.name} — change` : 'Pick an exercise'}
+      >
+        <span className={`flex-1 min-w-0 truncate text-xl font-semibold tracking-tight ${exercise ? 'text-neutral-200' : 'text-neutral-400'}`}>
+          {exercise ? exercise.name : 'Pick an exercise'}
+        </span>
+        <span className="text-xs text-neutral-400 shrink-0 inline-flex items-center gap-0.5">change <ChevronIcon /></span>
+      </button>
+
+      {!exercise ? (
+        <p className="text-sm text-neutral-400 py-8 text-center">Pick an exercise to see how it’s going.</p>
+      ) : isLoading ? (
+        <Skeleton className="h-[240px] w-full" />
+      ) : rows.length === 0 ? (
+        <p className="text-sm text-neutral-400 py-8 text-center">Nothing logged for this lift in the last {weeks} weeks.</p>
+      ) : (
+        <ResponsiveContainer width="100%" height={240}>
+          <LineChart data={rows} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke={CHART.grid} />
+            <XAxis dataKey="date" tickFormatter={formatDate} tick={{ fontSize: 11, fill: CHART.text }} stroke={CHART.grid} />
+            <YAxis yAxisId="left" tick={{ fontSize: 11, fill: CHART.text }} stroke={CHART.grid} />
+            <YAxis yAxisId="rir" orientation="right" width={28} domain={[0, (max) => Math.max(4, Math.ceil(Number.isFinite(max) ? max : 0))]} allowDecimals={false} tick={{ fontSize: 11, fill: CHART.text }} stroke={CHART.grid} />
+            <Tooltip labelFormatter={formatDate} contentStyle={TOOLTIP} />
+            <Legend wrapperStyle={{ fontSize: 11 }} />
+            <Line yAxisId="left" type="monotone" dataKey="max_weight" stroke={CHART.accent} strokeWidth={1.5} dot={{ r: 3 }} name="Max weight (kg)" />
+            <Line yAxisId="left" type="monotone" dataKey="total_reps" stroke={CHART.accentAlt} strokeWidth={1.5} dot={{ r: 3 }} name="Total reps" />
+            <Line yAxisId="rir" type="monotone" dataKey="avg_rir" stroke={CHART.accentAlt} strokeDasharray="4 2" strokeWidth={1.5} dot={{ r: 2 }} name="Avg RIR" connectNulls />
+          </LineChart>
+        </ResponsiveContainer>
+      )}
+
+      {exercise && (
+        <div className="grid grid-cols-3 gap-3">
+          <Best
+            label="Best set"
+            value={pb ? `${pb.best_weight != null ? formatKg(pb.best_weight) : 'BW'} × ${pb.reps}` : '—'}
+            sub={pb ? formatDay(pb.date, { month: 'short', day: 'numeric', year: 'numeric' }) : 'no working sets'}
+          />
+          {/* Epley on an assisted lift (negative load) is a negative number — say nothing. */}
+          <Best label="e1RM" value={pb?.est_1rm > 0 ? formatKg(pb.est_1rm) : '—'} sub={pb && pb.est_1rm == null ? 'over 12 reps' : pb?.est_1rm <= 0 ? 'assisted' : null} />
+          <Best label="Sessions" value={rows.length} sub={`last ${weeks} wk`} />
+        </div>
+      )}
+
+      {exercise && (
+        aim ? (
+          <AimLine aim={aim} cues={sug?.cues ?? []} onEdit={() => setEditing(true)} />
+        ) : (
+          <div className="flex items-center gap-2 text-sm min-h-11">
+            <span className="text-neutral-400">No aim yet</span>
+            <button type="button" onClick={() => setEditing(true)} className="ml-auto h-11 pl-3 pr-2 -mr-2 text-xs text-neutral-400 hover:text-neutral-200">
+              set one ›
+            </button>
+          </div>
+        )
+      )}
+
+      {editing && exercise && (
+        <AimEditSheet exercise={exercise} aim={aim} note={note} onClose={() => setEditing(false)} />
+      )}
+    </section>
+  );
+}
+
+function WeeklyVolume({ weeks }) {
+  const { data = [], isLoading } = useQuery({
     queryKey: ['volume-progress', weeks],
     queryFn: () => getVolumeProgress({ weeks }),
   });
+  if (isLoading) return <Skeleton className="h-[200px] w-full" />;
+  if (data.length === 0) return <p className="text-center text-neutral-400 py-8 text-sm">Log workouts to see volume trends.</p>;
+  return (
+    <ResponsiveContainer width="100%" height={200}>
+      <BarChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke={CHART.grid} />
+        <XAxis dataKey="week_start" tickFormatter={formatDate} tick={{ fontSize: 11, fill: CHART.text }} stroke={CHART.grid} />
+        <YAxis tick={{ fontSize: 11, fill: CHART.text }} stroke={CHART.grid} />
+        <Tooltip labelFormatter={formatDate} formatter={(v) => [`${Math.round(v).toLocaleString()} kg`, 'Volume']} contentStyle={TOOLTIP} />
+        <Bar dataKey="total_volume" fill={CHART.accent} radius={[2, 2, 0, 0]} name="Volume (kg)" />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+function AllBests({ pbs, loading, onPick }) {
+  if (loading) {
+    return (
+      <div className="space-y-2 py-2">
+        {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-7 w-full" />)}
+      </div>
+    );
+  }
+  if (pbs.length === 0) return <p className="text-center text-neutral-400 py-8 text-sm">Log workouts to see your personal bests.</p>;
+  // Tapping a row selects that lift up top — the list doubles as a second picker.
+  return (
+    <ul className="divide-y divide-neutral-800">
+      {pbs.map((pb) => (
+        <li key={pb.exercise_id}>
+          <button type="button" onClick={() => onPick(pb.exercise_id)} className="w-full text-left py-2.5 min-h-11">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="font-medium truncate">{pb.exercise_name}</span>
+              <span className="font-semibold tabular-nums shrink-0">
+                {pb.best_weight != null ? formatKg(pb.best_weight) : 'BW'} × {pb.reps}
+              </span>
+            </div>
+            <p className="text-xs text-neutral-400 mt-0.5">
+              {pb.muscle_group}
+              {pb.est_1rm != null && ` · ${formatKg(pb.est_1rm)} e1RM`}
+              {' · '}
+              {formatDay(pb.date, { month: 'short', day: 'numeric', year: 'numeric' })}
+            </p>
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+export default function Progress() {
+  const [weeks, setWeeks] = useState(12);
+  const [exerciseId, setExerciseId] = useState(readRemembered);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [showVolume, setShowVolume] = useState(false);
+  const [showBests, setShowBests] = useState(false);
+
+  const { data: stats, isLoading: statsLoading } = useQuery({ queryKey: ['stats'], queryFn: getStats, staleTime: 10 * 60_000 });
   const { data: allExercises = [] } = useQuery({ queryKey: ['exercises'], queryFn: getExercises });
-  const { data: exerciseProgress = [], isLoading: exerciseProgressLoading } = useQuery({
-    queryKey: ['exercise-progress', selectedExerciseId, weeks],
-    queryFn: () => getExerciseProgress(selectedExerciseId, { weeks }),
-    enabled: !!selectedExerciseId,
-  });
   const { data: pbs = [], isLoading: pbsLoading } = useQuery({ queryKey: ['personal-bests'], queryFn: getPersonalBests });
 
-  const formatDate = (dateStr) => formatDay(dateStr, { month: 'short', day: 'numeric' });
+  // First visit: the lift with the most recent best, so the page opens on something
+  // he's actually training (the list is ranked on load, so [0] was a one-off from May).
+  useEffect(() => {
+    if (exerciseId != null || !pbs.length) return;
+    setExerciseId(pbs.reduce((a, b) => (b.date > a.date ? b : a)).exercise_id);
+  }, [exerciseId, pbs]);
+
+  const pick = (id) => {
+    setExerciseId(id);
+    try { localStorage.setItem(REMEMBER_KEY, String(id)); } catch { /* private mode */ }
+  };
+
+  const exercise = useMemo(() => allExercises.find((e) => e.id === exerciseId) ?? null, [allExercises, exerciseId]);
+  const pb = useMemo(() => pbs.find((p) => p.exercise_id === exerciseId) ?? null, [pbs, exerciseId]);
+
+  const volume = stats ? (stats.total_volume_kg < 1000
+    ? Math.round(stats.total_volume_kg).toLocaleString()
+    : (stats.total_volume_kg / 1000).toLocaleString(undefined, stats.total_volume_kg < 10000
+        ? { minimumFractionDigits: 1, maximumFractionDigits: 1 }
+        : { maximumFractionDigits: 0 })) : '—';
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <Page>
+      <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold tracking-tight">Lifts</h1>
-        <select className="input w-40 h-11 py-0" value={weeks} onChange={(e) => setWeeks(Number(e.target.value))} aria-label="Time range — drives every card on this page">
-          <option value={4}>Last 4 weeks</option>
-          <option value={8}>Last 8 weeks</option>
-          <option value={12}>Last 12 weeks</option>
-          <option value={24}>Last 24 weeks</option>
-          <option value={52}>Last 52 weeks</option>
-        </select>
-      </div>
-
-      <MuscleVolume weeks={Math.min(weeks, 52)} />
-      <BodyweightCard />
-
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard label="Total workouts" value={stats?.total_workouts} loading={statsLoading} />
-        <StatCard label="This week" value={stats?.workouts_this_week} loading={statsLoading} />
-        <StatCard label="Total sets" value={stats?.total_sets} loading={statsLoading} />
-        <StatCard
-          label="Total volume"
-          value={stats ? (stats.total_volume_kg < 1000
-            ? Math.round(stats.total_volume_kg).toLocaleString()
-            : (stats.total_volume_kg / 1000).toLocaleString(undefined, stats.total_volume_kg < 10000
-                ? { minimumFractionDigits: 1, maximumFractionDigits: 1 }
-                : { maximumFractionDigits: 0 })) : '—'}
-          unit={stats ? (stats.total_volume_kg < 1000 ? 'kg' : 't') : ''}
-          loading={statsLoading}
-        />
-      </div>
-
-      <section className="border-t border-neutral-800 pt-4">
-        <h2 className="section-label mb-4">Weekly training volume (kg)</h2>
-        {volumeLoading ? (
-          <Skeleton className="h-[240px] w-full" />
-        ) : volumeData.length === 0 ? (
-          <p className="text-center text-neutral-400 py-12 text-sm">Log workouts to see volume trends.</p>
-        ) : (
-          <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={volumeData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={theme.grid} />
-              <XAxis dataKey="week_start" tickFormatter={formatDate} tick={{ fontSize: 11, fill: theme.text }} stroke={theme.grid} />
-              <YAxis tick={{ fontSize: 11, fill: theme.text }} stroke={theme.grid} />
-              <Tooltip
-                labelFormatter={formatDate}
-                formatter={(v) => [`${Math.round(v).toLocaleString()} kg`, 'Volume']}
-                contentStyle={{ background: 'rgba(0,0,0,0.85)', border: 'none', borderRadius: 6, color: '#fff', fontSize: 12 }}
-              />
-              <Bar dataKey="total_volume" fill={theme.accent} radius={[2, 2, 0, 0]} name="Volume (kg)" />
-            </BarChart>
-          </ResponsiveContainer>
-        )}
-      </section>
-
-      <section className="border-t border-neutral-800 pt-4 space-y-4">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="section-label shrink-0">Exercise progress</h2>
-          <button
-            type="button"
-            onClick={() => setPickerOpen(true)}
-            className="flex items-center gap-1.5 text-left min-w-0 max-w-[60%] px-3 min-h-11 md:min-h-0 md:py-1.5 rounded border border-neutral-800 hover:bg-neutral-900 transition-colors"
-          >
-            <span className={`flex-1 min-w-0 truncate text-sm ${selectedExerciseId ? 'text-neutral-200' : 'text-neutral-400'}`}>
-              {selectedExerciseId
-                ? allExercises.find((e) => String(e.id) === String(selectedExerciseId))?.name || 'Pick an exercise'
-                : 'Pick an exercise'}
-            </span>
-            <span className="text-neutral-400 shrink-0"><ChevronIcon /></span>
-          </button>
+        <div className="flex gap-1.5" role="group" aria-label="Time range — drives every chart on this page">
+          {RANGES.map((w) => (
+            <button key={w} type="button" onClick={() => setWeeks(w)} aria-pressed={weeks === w} className={weeks === w ? 'chip-solid' : 'chip'}>
+              {w}w
+            </button>
+          ))}
         </div>
-        {!selectedExerciseId ? (
-          <p className="text-center text-neutral-400 py-12 text-sm">Select an exercise to see your progress.</p>
-        ) : exerciseProgressLoading ? (
-          <Skeleton className="h-[240px] w-full" />
-        ) : exerciseProgress.length === 0 ? (
-          <p className="text-center text-neutral-400 py-12 text-sm">No data for this exercise in the selected period.</p>
-        ) : (
-          <ResponsiveContainer width="100%" height={240}>
-            <LineChart data={exerciseProgress} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={theme.grid} />
-              <XAxis dataKey="date" tickFormatter={formatDate} tick={{ fontSize: 11, fill: theme.text }} stroke={theme.grid} />
-              <YAxis yAxisId="left" tick={{ fontSize: 11, fill: theme.text }} stroke={theme.grid} />
-              <YAxis yAxisId="rir" orientation="right" width={28} domain={[0, (max) => Math.max(4, Math.ceil(Number.isFinite(max) ? max : 0))]} allowDecimals={false} tick={{ fontSize: 11, fill: theme.text }} stroke={theme.grid} />
-              <Tooltip
-                labelFormatter={formatDate}
-                contentStyle={{ background: 'rgba(0,0,0,0.85)', border: 'none', borderRadius: 6, color: '#fff', fontSize: 12 }}
-              />
-              <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Line yAxisId="left" type="monotone" dataKey="max_weight" stroke={theme.accent} strokeWidth={1.5} dot={{ r: 3 }} name="Max weight (kg)" />
-              <Line yAxisId="left" type="monotone" dataKey="total_reps" stroke={theme.accentAlt} strokeWidth={1.5} dot={{ r: 3 }} name="Total reps" />
-              <Line yAxisId="rir" type="monotone" dataKey="avg_rir" stroke={theme.accentAlt} strokeDasharray="4 2" strokeWidth={1.5} dot={{ r: 2 }} name="Avg RIR" connectNulls />
-            </LineChart>
-          </ResponsiveContainer>
-        )}
-      </section>
+      </div>
 
-      <section className="border-t border-neutral-800 pt-4">
-        <h2 className="section-label mb-2">Personal bests</h2>
-        {pbsLoading ? (
-          <div className="space-y-2 py-2">
-            {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-7 w-full" />)}
-          </div>
-        ) : pbs.length === 0 ? (
-          <p className="text-center text-neutral-400 py-8 text-sm">Log workouts to see your personal bests.</p>
-        ) : (
-          <>
-            {/* Six columns don't fit a phone, and `w-full` meant the overflow container
-                never scrolled — it just squashed every cell into a two-line wrap. */}
-            <ul className="md:hidden divide-y divide-neutral-800">
-              {pbs.map((pb) => (
-                <li key={pb.exercise_id} className="py-2.5">
-                  <div className="flex items-baseline justify-between gap-3">
-                    <span className="font-medium truncate">{pb.exercise_name}</span>
-                    <span className="font-semibold tabular-nums shrink-0">
-                      {pb.best_weight != null ? formatKg(pb.best_weight) : 'BW'} × {pb.reps}
-                    </span>
-                  </div>
-                  <p className="text-xs text-neutral-400 mt-0.5">
-                    {pb.muscle_group}
-                    {pb.est_1rm != null && ` · ${formatKg(pb.est_1rm)} e1RM`}
-                    {' · '}
-                    {formatDay(pb.date, { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </p>
-                </li>
-              ))}
-            </ul>
-            <div className="hidden md:block overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-xs uppercase tracking-wide text-neutral-400 border-b border-neutral-800">
-                    <th className="pb-2 font-medium">Exercise</th>
-                    <th className="pb-2 font-medium">Muscle</th>
-                    <th className="pb-2 font-medium">Best</th>
-                    <th className="pb-2 font-medium">Reps</th>
-                    <th className="pb-2 font-medium">Est. 1RM</th>
-                    <th className="pb-2 font-medium">Date</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pbs.map((pb) => (
-                    <tr key={pb.exercise_id} className="border-t border-neutral-800">
-                      <td className="py-2 font-medium">{pb.exercise_name}</td>
-                      <td className="py-2 text-neutral-400">{pb.muscle_group}</td>
-                      <td className="py-2 font-semibold">{pb.best_weight != null ? formatKg(pb.best_weight) : 'BW'}</td>
-                      <td className="py-2">{pb.reps}</td>
-                      <td className="py-2 text-neutral-400">{formatKg(pb.est_1rm)}</td>
-                      <td className="py-2 text-neutral-400">
-                        {formatDay(pb.date, { month: 'short', day: 'numeric', year: 'numeric' })}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </>
-        )}
-      </section>
+      <ExerciseCard exercise={exercise} weeks={weeks} pb={pb} onPick={() => setPickerOpen(true)} />
+
+      <Section><MuscleVolume weeks={weeks} /></Section>
+
+      <Section label="All time">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <StatCard label="Workouts" value={stats?.total_workouts} loading={statsLoading} />
+          <StatCard label="This week" value={stats?.workouts_this_week} loading={statsLoading} />
+          <StatCard label="Sets" value={stats?.total_sets} loading={statsLoading} />
+          <StatCard label="Volume" value={volume} unit={stats ? (stats.total_volume_kg < 1000 ? 'kg' : 't') : ''} loading={statsLoading} />
+        </div>
+      </Section>
+
+      <Section label="Weekly volume" action={<Disclosure open={showVolume} label={showVolume ? 'Hide' : 'Show'} onClick={() => setShowVolume((v) => !v)} />}>
+        {showVolume && <WeeklyVolume weeks={weeks} />}
+      </Section>
+
+      <Section label="Personal bests" action={<Disclosure open={showBests} label={showBests ? 'Hide' : `${pbs.length} lifts`} onClick={() => setShowBests((v) => !v)} />}>
+        {showBests && <AllBests pbs={pbs} loading={pbsLoading} onPick={(id) => { pick(id); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />}
+      </Section>
+
+      <BodyweightCard />
 
       <ExercisePickerSheet
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
-        onSelect={(picked) => setSelectedExerciseId(String(picked.id))}
+        onSelect={(picked) => pick(picked.id)}
         title="Pick an exercise"
-        currentExerciseId={selectedExerciseId ? parseInt(selectedExerciseId) : null}
+        currentExerciseId={exerciseId}
       />
-    </div>
+    </Page>
   );
 }

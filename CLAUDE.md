@@ -26,26 +26,29 @@ backend/
       programs.js            Programs CRUD + /start /end /active
       workouts.js            Workouts (start from routine, update, complete, history)
       progress.js            Stats, weekly volume, per-exercise progress, PRs, /suggestions
+      coach.js               Hub reads + coach_notes (GET list, POST create, PATCH edit/resolve)
     util/aim.js              Aim precedence for /suggestions: coach load-call beats the engine
   vercel.json                Legacy v2 config (see Deployment — don't "modernize")
 frontend/
   src/
     api/client.js            All HTTP calls (axios). Single source for endpoint URLs.
     components/
-      Layout.jsx / Navbar.jsx  Bottom bar = FOUR tabs: Home, Trends, Lifts, More (desktop flattens More)
+      Layout.jsx / Navbar.jsx  Bottom bar = FOUR tabs: Today, Trends, Train, Lifts (same four on desktop)
       CheckinCard.jsx        Daily check-in (mood/energy/soreness + evening-ramp toggles) — Home's check-in block (`compact` = no heading); each half folds to one line once answered
-      WeekPlan.jsx           WeekStrip (7 dots + today's slot, tap → DayRow list) from /api/coach/week; exports DayRow + useWeek
+      WeekPlan.jsx           WeekStrip (7 dots + today's slot, a Link to /train) from /api/coach/week; exports DayRow (expands to detail + Open workout) + useWeek
       TodayTiles.jsx         Battery · Sleep · Weight · Bed vs 10-day baselines (readiness + trends), each a link to Health
       CoachCard.jsx          One coach line (fresh weekly headline, else newest coach note) → Sheet with the full text
       LatestNotes.jsx        Newest body notes (from /api/coach/week) — on Trends
-      AimLine.jsx            The ONE "Aim 52.5 kg × 6 · RIR 1 · ENGINE|COACH · why ›" line + sheets
+      AimLine.jsx            The ONE "Aim 52.5 kg × 6 · RIR 1 · ENGINE|COACH · why ›" line + sheets (`onEdit` adds "edit ›" — Lifts only)
+      AimEditSheet.jsx       Writes/edits/resolves the coach_notes row behind an aim (POST/PATCH /api/coach/notes)
+      WorkoutRow.jsx         The one row for a logged workout (Train's history)
       FinishSheet.jsx        Post-Finish summary (duration/sets/volume/↑/★) + RPE grid
     pages/
       Dashboard.jsx          Today: week strip, session ⇄ check-in hero (one open, flips at 19:00), tiles, coach line
       Trends.jsx             Read-only recovery + endurance data, latest notes, weight goal, weekly review
-      Progress.jsx           "Lifts" tab: volume charts + exercise progress + PRs (Recharts)
-      More.jsx               Overflow: Program, Exercises, History
-      Program.jsx            View/edit active program; switch between programs
+      Progress.jsx           "Lifts" tab: exercise picker (remembered) → chart · bests · aim line with edit; then muscle sets, totals, weekly volume, all PBs, bodyweight
+      Train.jsx              This week (DayRows) · Program (ProgramView: name, week, the one Start, routines) · History (infinite); Exercises is a link
+      ProgramEdit.jsx        /program/new and /program/:id/edit — ProgramEditor as a route (back gesture works, nav hides)
       WorkoutSession.jsx     /session/:id — sticky header + progress bar, 3-state exercise list, ledger
       WorkoutDetail.jsx      /workouts/:id — read-only past workout
       ExerciseLibrary.jsx    Browse/add exercises
@@ -70,7 +73,7 @@ Program → Routines → Workouts (logged sessions). Set up once, follow forever
 Sequence-driven, no day-of-week binding. `next_routine = routines[(completed_count + skipped_count) % routines_per_cycle]`. Skip days freely; the sequence picks up where you left off. Computed server-side in `GET /api/programs/active` as `program.progress`.
 
 ### Skipping a workout
-A skip is a real `workouts` row with `status = 'skipped'` and no logged sets — rows are what advance the sequence, so skipping "Lower 1" makes the next routine come up instead. Two entry points: `POST /api/workouts/skip { routine_id }` skips the upcoming session outright (Dashboard / Program page), `POST /api/workouts/:id/skip` bails out of a session already started (session page). Every stats query filters on `status = 'completed'`, so skips never touch volume, PRs, or counters. Deleting the skipped workout is the undo — it hands the slot back to that routine.
+A skip is a real `workouts` row with `status = 'skipped'` and no logged sets — rows are what advance the sequence, so skipping "Lower 1" makes the next routine come up instead. Two entry points: `POST /api/workouts/skip { routine_id }` skips the upcoming session outright (Today only), `POST /api/workouts/:id/skip` bails out of a session already started (session page). Every stats query filters on `status = 'completed'`, so skips never touch volume, PRs, or counters. Deleting the skipped workout is the undo — it hands the slot back to that routine.
 
 ### "Previous set" hint
 `GET /api/workouts/last-by-exercise/:id?exclude=<current_workout_id>` returns the most recent completed sets for an exercise. Shown under each set input as "prev 27.5kg x 8" — drives progressive overload.
@@ -201,6 +204,12 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
   check-in + week plan onto Home) came from two weeks of nav dwell times: sub-2s visits mean
   the tab was passed through, not used. Query telemetry before moving anything again.
   `/week` and `/coach` stay as redirects — installed PWAs keep old routes in their history.
+  The 2026-09-08 redesign (PR 4) folded Program + History + More into **Train** on the same
+  evidence: 30 days of nav enters put Program+Exercises+History+More (43) above Lifts (25),
+  so Train is the third tab and Lifts the fourth. `/program`, `/history`, `/more` redirect
+  to `/train`. Train has **the only Start outside Today and no Skip** — skipping lives on
+  Today alone. The program editor is a route (`/program/new`, `/program/:id/edit`), never a
+  mode of a page.
 - Locale is never hardcoded. Pass `undefined` to `toLocale*String` so it follows the device.
 - **Back buttons use `useSmartBack(fallback)`**, never a hard-coded Link — a workout opened
   from History must return to History. The hook falls back when the tab has no in-app
@@ -218,6 +227,11 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
   are cues. Newest aim-carrying note wins. The ledger ghosts come from `aim`, so a coach call
   changes what the empty cells show. `coach_notes.internal = true` hides coach-to-coach memos
   from both `/coach/notes` and `/suggestions` — set it rather than deleting the memo.
+  **Lifts is where a call gets written from the phone**: `AimEditSheet` POSTs a note for the
+  exercise (or PATCHes the one behind a COACH aim; `resolved: true` stamps `resolved_at` and
+  hands the aim back to the engine). A note needs text or a number; aim weight may be negative
+  (assisted pull-ups are logged at -18). Saving invalidates the `['suggestions']` prefix so
+  the session's routine-scoped query and Lifts' unscoped one both refetch.
 - **Exercise blocks have three states, decided by the page, not the block.** `done` (every
   set has reps) collapses to `✓ name · 40 × 8 · 7 · 6`; `next` is a muted one-liner with the
   prescription and aim weight; exactly one block is `open` — the pinned one if the user tapped,
