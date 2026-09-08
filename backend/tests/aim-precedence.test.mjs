@@ -171,6 +171,8 @@ console.log('\n─── the phone can write a call: POST / PATCH /coach/notes (
 
   const done = await api('PATCH', `/api/coach/notes/${made.body.id}`, { resolved: true });
   ok(done.status === 200 && done.body.resolved_at, 'resolve stamps resolved_at', JSON.stringify(done.body));
+  const again = await api('PATCH', `/api/coach/notes/${made.body.id}`, { resolved: true });
+  ok(again.body.resolved_at === done.body.resolved_at, 'a retried resolve keeps the first timestamp', `${again.body.resolved_at} vs ${done.body.resolved_at}`);
   const after = (await suggestions()).find((x) => x.exercise_name === 'Squat');
   ok(after.aim?.source === 'engine', 'a resolved phone call hands the aim back to the engine', after.aim?.source);
   const { body: notes } = await api('GET', '/api/coach/notes');

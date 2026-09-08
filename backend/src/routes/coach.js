@@ -313,7 +313,7 @@ router.patch('/notes/:id', async (req, res) => {
            aim_weight_kg = CASE WHEN $4::boolean THEN $5::numeric ELSE aim_weight_kg END,
            aim_reps      = CASE WHEN $6::boolean THEN $7::int ELSE aim_reps END,
            aim_rir       = CASE WHEN $8::boolean THEN $9::int ELSE aim_rir END,
-           resolved_at   = CASE WHEN $10::boolean THEN NOW() ELSE resolved_at END
+           resolved_at   = CASE WHEN $10::boolean THEN COALESCE(resolved_at, NOW()) ELSE resolved_at END
          WHERE id = $1 AND NOT internal
          RETURNING *)
        SELECT ${NOTE_COLS}, n.resolved_at FROM upd n LEFT JOIN exercises e ON e.id = n.exercise_id`,
