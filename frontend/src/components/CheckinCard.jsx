@@ -8,6 +8,11 @@ import RatingRow from './RatingRow';
 // per field, so a half-finished check-in is still a check-in and there's nothing to
 // submit or lose. The note is deliberately behind a toggle: asking for prose every
 // morning is how you end up with no check-ins at all.
+export const RAMP_FIELDS = ['no_caffeine_pm', 'food_by_cutoff', 'screens_by_cutoff'];
+export const checkinStarted = (c) => !!c && (c.mood != null || c.energy != null || c.soreness != null);
+export const ratingsComplete = (c) => !!c && c.mood != null && c.energy != null && c.soreness != null;
+export const rampComplete = (c) => !!c && RAMP_FIELDS.every((f) => c[f] != null);
+
 export default function CheckinCard({ compact = false }) {
   const qc = useQueryClient();
   const [noteOpen, setNoteOpen] = useState(false);
@@ -51,14 +56,14 @@ export default function CheckinCard({ compact = false }) {
     },
   });
 
-  const done = checkin && (checkin.mood != null || checkin.energy != null || checkin.soreness != null);
-  const ratingsDone = checkin && checkin.mood != null && checkin.energy != null && checkin.soreness != null;
+  const done = checkinStarted(checkin);
+  const ratingsDone = ratingsComplete(checkin);
   const RAMP = [
     { field: 'no_caffeine_pm', label: 'Caffeine', hint: 'none after 12:00' },
     { field: 'food_by_cutoff', label: 'Last food', hint: 'by 19:30' },
     { field: 'screens_by_cutoff', label: 'Screens', hint: 'down by 21:30' },
   ];
-  const rampDone = checkin && RAMP.every(({ field }) => checkin[field] != null);
+  const rampDone = rampComplete(checkin);
   const foldLink = (text, onClick) => (
     <button type="button" onClick={onClick} className="text-xs text-neutral-400 underline-offset-2 hover:underline min-h-11 md:min-h-0 pl-3 shrink-0">
       {text}
@@ -67,10 +72,13 @@ export default function CheckinCard({ compact = false }) {
 
   return (
     <section className={compact ? '' : 'border-t border-neutral-800 pt-4'}>
-      <div className="flex items-baseline justify-between mb-1">
-        <h2 className="section-label">Today’s check-in</h2>
-        {done && <span className="text-[11px] text-emerald-400">Saved</span>}
-      </div>
+      {/* compact = Home's hero block, which draws its own heading and saved state. */}
+      {!compact && (
+        <div className="flex items-baseline justify-between mb-1">
+          <h2 className="section-label">Today’s check-in</h2>
+          {done && <span className="text-[11px] text-emerald-400">Saved</span>}
+        </div>
+      )}
 
       {isLoading ? (
         <div className="h-40" />

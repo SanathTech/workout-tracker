@@ -10,7 +10,7 @@ import AuthGate from './components/AuthGate';
 import ErrorBoundary from './components/ErrorBoundary';
 import UpdatePrompt from './components/UpdatePrompt';
 import {
-  getActiveProgram, getInProgressWorkout, getStats, getRecentWorkouts,
+  getActiveProgram, getInProgressWorkout,
 } from './api/client';
 import './index.css';
 import { installTelemetry } from './util/telemetry';
@@ -37,8 +37,6 @@ const persister = createSyncStoragePersister({
 
 queryClient.prefetchQuery({ queryKey: ['active-program'], queryFn: getActiveProgram });
 queryClient.prefetchQuery({ queryKey: ['in-progress-workout'], queryFn: getInProgressWorkout });
-queryClient.prefetchQuery({ queryKey: ['stats'], queryFn: getStats });
-queryClient.prefetchQuery({ queryKey: ['recent-workouts'], queryFn: getRecentWorkouts });
 
 // Outside React: a re-render must not be able to double up the listeners, and a crash
 // inside the tree should still get its events out.

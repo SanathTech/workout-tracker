@@ -214,9 +214,11 @@ router.get('/week', async (req, res) => {
 router.get('/notes', async (req, res) => {
   try {
     const { rows } = await db.query(
-      `SELECT id, exercise_id, routine_id, note,
-              aim_weight_kg::float, aim_reps, aim_rir, created_at
-         FROM coach_notes WHERE resolved_at IS NULL AND NOT internal ORDER BY created_at`
+      `SELECT n.id, n.exercise_id, e.name AS exercise_name, n.routine_id, n.note,
+              n.aim_weight_kg::float, n.aim_reps, n.aim_rir, n.created_at
+         FROM coach_notes n
+         LEFT JOIN exercises e ON e.id = n.exercise_id
+        WHERE n.resolved_at IS NULL AND NOT n.internal ORDER BY n.created_at`
     );
     res.json(rows);
   } catch (err) {
