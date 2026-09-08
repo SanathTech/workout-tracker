@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { ChevronIcon, CloseIcon } from './icons';
 
 // The page primitives (2026-09-08 redesign, PR 1). Every screen is built from these so
@@ -6,6 +7,8 @@ import { ChevronIcon, CloseIcon } from './icons';
 //   Page     — one column, one vertical rhythm (24px between sections; `dense` = 16px, Today only).
 //   Section  — hairline on top, 11px label, optional right-hand action.
 //   Sheet    — the one bottom sheet: backdrop, Escape, tap-outside, safe-area padding.
+//   Tile     — one reading in a raised box: label, number, one-line sub. Today's four and
+//              Health's last-night row are the same tile, so a number reads the same on both.
 // Width lives in Layout (max-w-2xl), not here: it's a phone app that happens to run on desktop.
 
 // `dense` is Today's rhythm (16px): the one screen that's operated more than read.
@@ -24,6 +27,23 @@ export function Section({ label, action, className = '', children }) {
       )}
       {children}
     </section>
+  );
+}
+
+// `to` makes it a link (Today's tiles land on Health); without it it's a plain box.
+export function Tile({ label, value, sub, subClass = 'text-neutral-400', srLabel, to }) {
+  const cls = 'block rounded-lg bg-neutral-900 px-2.5 py-2 min-w-0';
+  const body = (
+    <>
+      <p className="text-[11px] uppercase tracking-wide text-neutral-400 truncate">{label}</p>
+      <p className="text-lg font-semibold tabular-nums text-neutral-200 leading-tight mt-0.5">{value}</p>
+      <p className={`text-[11px] tabular-nums truncate ${subClass}`}>{sub || '\u00a0'}</p>
+    </>
+  );
+  return to ? (
+    <Link to={to} className={`${cls} hover:bg-neutral-800 transition-colors`} aria-label={srLabel}>{body}</Link>
+  ) : (
+    <div className={cls} aria-label={srLabel}>{body}</div>
   );
 }
 

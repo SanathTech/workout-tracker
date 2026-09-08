@@ -1,13 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
 import { getReadiness, getTrends } from '../api/client';
 import { Skeleton } from './Skeleton';
+import { Tile } from './ui';
+import { localDate } from '../util/format';
 
 // Four numbers from last night, each against its own ten-day baseline, each a link to
-// the reading on /trends (the Trends tab — Health once PR 5 renames it). They share that page's queries (['readiness'] and
+// the reading on /health. They share that page's queries (['readiness'] and
 // ['trends', 90]) so the tap lands on a screen that's already loaded. Battery and sleep
 // come from /readiness because that's the endpoint that knows about THIS morning —
-// /trends' wellness series deliberately ends yesterday.
+// the `/coach/trends` wellness series deliberately ends yesterday.
 //
 // Colour is direction-vs-good, not magnitude: emerald when the delta helps, amber when
 // it doesn't, muted when it's inside the noise. Weight's "good" direction comes from the
@@ -25,12 +26,6 @@ function hmm(mins) {
   return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`;
 }
 
-function localDate(offsetDays = 0) {
-  const d = new Date();
-  d.setDate(d.getDate() + offsetDays);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
 function tone(delta, good, threshold) {
   if (delta == null || Math.abs(delta) < threshold) return 'text-neutral-400';
   return (delta > 0) === (good === 'up') ? 'text-emerald-400' : 'text-amber-400';
@@ -38,20 +33,6 @@ function tone(delta, good, threshold) {
 
 function arrow(delta) {
   return delta > 0 ? '▲' : delta < 0 ? '▼' : '=';
-}
-
-function Tile({ label, value, sub, subClass = 'text-neutral-400', srLabel }) {
-  return (
-    <Link
-      to="/trends"
-      className="block rounded-lg bg-neutral-900 px-2.5 py-2 min-w-0 hover:bg-neutral-800 transition-colors"
-      aria-label={srLabel}
-    >
-      <p className="text-[11px] uppercase tracking-wide text-neutral-400">{label}</p>
-      <p className="text-lg font-semibold tabular-nums text-neutral-200 leading-tight mt-0.5">{value}</p>
-      <p className={`text-[11px] tabular-nums truncate ${subClass}`}>{sub}</p>
-    </Link>
-  );
 }
 
 export function buildTiles({ readiness, trends }) {
@@ -139,7 +120,7 @@ export default function TodayTiles() {
 
   return (
     <div className="grid grid-cols-4 gap-2">
-      {buildTiles({ readiness, trends }).map((t) => <Tile key={t.label} {...t} />)}
+      {buildTiles({ readiness, trends }).map((t) => <Tile key={t.label} to="/health" {...t} />)}
     </div>
   );
 }

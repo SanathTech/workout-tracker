@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { localDate } from '../util/format';
 
 const baseURL = import.meta.env.VITE_API_URL
   ? `${import.meta.env.VITE_API_URL}/api`
@@ -31,13 +32,8 @@ api.interceptors.response.use(
 );
 
 // The workout `date` is the calendar day *you* trained, so it has to come from the
-// device. Deriving it server-side put every pre-10am Melbourne session on the
-// previous day, which then skewed the weekly volume buckets.
-function localDate() {
-  const d = new Date();
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
+// device (util/format's localDate). Deriving it server-side put every pre-10am
+// Melbourne session on the previous day, which then skewed the weekly volume buckets.
 
 // ── Auth ─────────────────────────────────────────────────────
 export const getAuthStatus = () => api.get('/auth/me').then((r) => r.data);
