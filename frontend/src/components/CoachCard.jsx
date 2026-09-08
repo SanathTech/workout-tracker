@@ -13,8 +13,9 @@ import { formatDay } from '../util/format';
 const REVIEW_FRESH_DAYS = 2;
 
 function daysSince(dateStr) {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  const then = new Date(y, m - 1, d);
+  const m3 = typeof dateStr === 'string' && dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m3) return Infinity; // no date = not fresh
+  const then = new Date(Number(m3[1]), Number(m3[2]) - 1, Number(m3[3]));
   const now = new Date();
   now.setHours(0, 0, 0, 0);
   return Math.round((now - then) / 86_400_000);
@@ -67,7 +68,7 @@ function WeeklyBody({ entry }) {
       )}
       <p className="text-xs text-neutral-400">
         {formatDay(entry.for_date, { weekday: 'long', day: 'numeric', month: 'short' })} ·{' '}
-        <Link to="/trends" className="underline underline-offset-2">Next week's plan on Health</Link>
+        <Link to="/trends" className="underline underline-offset-2">Next week's plan on Trends</Link>
       </p>
     </div>
   );
