@@ -30,7 +30,7 @@ function useEvening() {
     const check = () => setEvening(new Date().getHours() >= EVENING_HOUR);
     const now = new Date();
     const next = new Date(now);
-    next.setHours(now.getHours() >= EVENING_HOUR ? 24 : EVENING_HOUR, 0, 1, 0);
+    next.setHours(now.getHours() >= EVENING_HOUR ? 24 : EVENING_HOUR, 0, 0, 0);
     const timer = setTimeout(check, next - now);
     document.addEventListener('visibilitychange', check);
     return () => { clearTimeout(timer); document.removeEventListener('visibilitychange', check); };

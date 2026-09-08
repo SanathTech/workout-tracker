@@ -12,13 +12,13 @@ import { formatDay } from '../util/format';
 
 const REVIEW_FRESH_DAYS = 2;
 
+// Same UTC-midnight day arithmetic as Trends' nightsAgo, so DST can't shift a day.
 function daysSince(dateStr) {
   const m3 = typeof dateStr === 'string' && dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (!m3) return Infinity; // no date = not fresh
-  const then = new Date(Number(m3[1]), Number(m3[2]) - 1, Number(m3[3]));
   const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  return Math.round((now - then) / 86_400_000);
+  const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  return Math.round((Date.parse(`${todayIso}T00:00:00Z`) - Date.parse(`${m3[0]}T00:00:00Z`)) / 86_400_000);
 }
 
 export function pickCoachItem({ latest, notes }) {
