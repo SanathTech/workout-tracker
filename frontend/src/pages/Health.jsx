@@ -193,8 +193,7 @@ function TrendRow({ row, window30, window90, open, onToggle }) {
         type="button"
         onClick={onToggle}
         aria-expanded={open}
-        className="w-full flex items-center gap-3 py-1 min-h-11 md:min-h-0 text-left rounded-md
- hover:bg-neutral-900/50 transition-colors"
+        className="w-full flex items-center gap-3 py-1 min-h-11 md:min-h-0 text-left rounded-md hover:bg-neutral-900/50 transition-colors"
       >
         <span className="w-14 shrink-0 text-xs text-neutral-400">{row.label}</span>
         <Sparkline
@@ -287,8 +286,9 @@ function WeighIn() {
     onSuccess: () => {
       setValue('');
       track('save', 'weigh-in');
-      // Every reader of the series — this page and Today's tile — reads ['trends'].
-      qc.invalidateQueries({ queryKey: ['trends'] });
+      // Every reader of the series — this page and Today's tile — keys on ['trends', days].
+      // Prefix match on purpose: whatever the window, the row that changed is today's.
+      qc.invalidateQueries({ queryKey: ['trends'], exact: false });
     },
   });
   const parsed = Number(value);
