@@ -12,7 +12,7 @@ import { formatDay } from '../util/format';
 
 const REVIEW_FRESH_DAYS = 2;
 
-// Same UTC-midnight day arithmetic as Trends' nightsAgo, so DST can't shift a day.
+// Same UTC-midnight day arithmetic as Health's nightsAgo, so DST can't shift a day.
 function daysSince(dateStr) {
   const m3 = typeof dateStr === 'string' && dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (!m3) return Infinity; // no date = not fresh
@@ -67,7 +67,7 @@ function WeeklyBody({ entry }) {
       )}
       <p className="text-xs text-neutral-400">
         {formatDay(entry.for_date, { weekday: 'long', day: 'numeric', month: 'short' })} ·{' '}
-        <Link to="/trends" className="underline underline-offset-2">Next week's plan on Trends</Link>
+        <Link to="/health" className="underline underline-offset-2">Next week's plan on Health</Link>
       </p>
     </div>
   );

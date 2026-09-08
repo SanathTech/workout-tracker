@@ -13,7 +13,6 @@ import { Page, Section, Disclosure } from '../components/ui';
 import { ChevronIcon } from '../components/icons';
 import { formatDay, formatKg } from '../util/format';
 import MuscleVolume from '../components/MuscleVolume';
-import BodyweightCard from '../components/BodyweightCard';
 
 // Lifts (2026-09-08, PR 4): one exercise at a time. The picker is the first thing on the
 // page because "how is my RDL going" is the question this tab answers — the old layout
@@ -22,7 +21,7 @@ import BodyweightCard from '../components/BodyweightCard';
 // bests sit under the chart, and the aim line is the same component the session shows,
 // with edit — this is where a coach call gets written from the phone. Everything about
 // training as a whole (muscle sets, totals, weekly volume, all PBs) comes after.
-// Bodyweight is here until Health takes it in PR 5.
+// Bodyweight lives on Health (PR 5) and nowhere else: it's a body number, not a lift.
 
 // Chart ink for the one (dark) theme: neutral-200 line, neutral-400 text, neutral-800 grid.
 const CHART = { accent: '#e5e5e5', accentAlt: '#a3a3a3', grid: '#262626', text: '#a3a3a3' };
@@ -268,8 +267,6 @@ export default function Progress() {
       <Section label="Personal bests" action={<Disclosure open={showBests} label={showBests ? 'Hide' : pbsLoading ? 'Loading…' : `${pbs.length} lifts`} onClick={() => setShowBests((v) => !v)} />}>
         {showBests && <AllBests pbs={pbs} loading={pbsLoading} onPick={(id) => { pick(id); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />}
       </Section>
-
-      <BodyweightCard />
 
       <ExercisePickerSheet
         open={pickerOpen}

@@ -33,20 +33,19 @@ frontend/
   src/
     api/client.js            All HTTP calls (axios). Single source for endpoint URLs.
     components/
-      Layout.jsx / Navbar.jsx  Bottom bar = FOUR tabs: Today, Trends, Train, Lifts (same four on desktop)
+      Layout.jsx / Navbar.jsx  Bottom bar = FOUR tabs: Today, Health, Train, Lifts (same four on desktop)
       CheckinCard.jsx        Daily check-in (mood/energy/soreness + evening-ramp toggles) — Home's check-in block (`compact` = no heading); each half folds to one line once answered
       WeekPlan.jsx           WeekStrip (7 dots + today's slot, a Link to /train) from /api/coach/week; exports DayRow (expands to detail + Open workout) + useWeek
-      TodayTiles.jsx         Battery · Sleep · Weight · Bed vs 10-day baselines (readiness + trends), each a link to Health
+      TodayTiles.jsx         Battery · Sleep · Weight · Bed vs 10-day baselines (readiness + trends), each a `Tile` (ui.jsx) linking to /health
       CoachCard.jsx          One coach line (fresh weekly headline, else newest coach note) → Sheet with the full text
-      LatestNotes.jsx        Newest body notes (from /api/coach/week) — on Trends
       AimLine.jsx            The ONE "Aim 52.5 kg × 6 · RIR 1 · ENGINE|COACH · why ›" line + sheets (`onEdit` adds "edit ›" — Lifts only)
       AimEditSheet.jsx       Writes/edits/resolves the coach_notes row behind an aim (POST/PATCH /api/coach/notes)
       WorkoutRow.jsx         The one row for a logged workout (Train's history)
       FinishSheet.jsx        Post-Finish summary (duration/sets/volume/↑/★) + RPE grid
     pages/
       Dashboard.jsx          Today: week strip, session ⇄ check-in hero (one open, flips at 19:00), tiles, coach line
-      Trends.jsx             Read-only recovery + endurance data, latest notes, weight goal, weekly review
-      Progress.jsx           "Lifts" tab: exercise picker (remembered) → chart · bests · aim line with edit; then muscle sets, totals, weekly volume, all PBs, bodyweight
+      Health.jsx             Week review (headline, tap to expand) · Recovery (last-night tiles, 30-day rows → 90-day detail, fitness chart) · Protocol (bedtime dots, ramp, weight + THE weigh-in logger, check-in history) · Endurance (fortnight by default, ⓘ explainers)
+      Progress.jsx           "Lifts" tab: exercise picker (remembered) → chart · bests · aim line with edit; then muscle sets, totals, weekly volume, all PBs (no bodyweight — that's Health)
       Train.jsx              This week (DayRows) · Program (ProgramView: name, week, the one Start, routines) · History (infinite); Exercises is a link
       ProgramEdit.jsx        /program/new and /program/:id/edit — ProgramEditor as a route (back gesture works, nav hides)
       WorkoutSession.jsx     /session/:id — sticky header + progress bar, 3-state exercise list, ledger
@@ -203,13 +202,16 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
 - **Layout is decided by `app_events`, not by taste.** The 2026-09-05 consolidation (6 tabs → 4;
   check-in + week plan onto Home) came from two weeks of nav dwell times: sub-2s visits mean
   the tab was passed through, not used. Query telemetry before moving anything again.
-  `/week` and `/coach` stay as redirects — installed PWAs keep old routes in their history.
+  `/week`, `/coach` and `/trends` stay as redirects — installed PWAs keep old routes in their history.
   The 2026-09-08 redesign (PR 4) folded Program + History + More into **Train** on the same
   evidence: 30 days of nav enters put Program+Exercises+History+More (43) above Lifts (25),
   so Train is the third tab and Lifts the fourth. `/program`, `/history`, `/more` redirect
   to `/train`. Train has **the only Start outside Today and no Skip** — skipping lives on
   Today alone. The program editor is a route (`/program/new`, `/program/:id/edit`), never a
-  mode of a page.
+  mode of a page. PR 5 renamed Trends to **Health** (`/health`) and regrouped it by question —
+  review first, then Recovery / Protocol / Endurance — without moving anything between tabs;
+  the one exception is the bodyweight logger, which left Lifts: **a weigh-in is typed in on
+  Health and nowhere else**. Explainer prose sits behind ⓘ toggles, not under every block.
 - Locale is never hardcoded. Pass `undefined` to `toLocale*String` so it follows the device.
 - **Back buttons use `useSmartBack(fallback)`**, never a hard-coded Link — a workout opened
   from History must return to History. The hook falls back when the tab has no in-app

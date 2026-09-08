@@ -1,7 +1,7 @@
 // A 30-day trend line, drawn by hand rather than by Recharts.
 //
 // Recharts is ~525kB and already lazy-loaded for the one route that needs a real chart.
-// These are four rows at the top of the Trends tab: pulling the library in for them
+// These are the rows under Recovery on the Health tab: pulling the library in for them
 // would block the numbers behind a bundle download on gym wifi, to draw a line 40px
 // tall. Plain SVG costs nothing and renders on the first paint.
 //
@@ -45,7 +45,7 @@ export default function Sparkline({
 
   // A reverse loop rather than findLastIndex: that method is ES2023, Vite's build
   // target does not down-level runtime methods, and this component renders on every
-  // Trends row — an older browser would take the whole tab down, not just the dot.
+  // Health row — an older browser would take the whole tab down, not just the dot.
   let lastIdx = -1;
   for (let i = values.length - 1; i >= 0; i -= 1) {
     if (values[i] != null && Number.isFinite(values[i])) { lastIdx = i; break; }
