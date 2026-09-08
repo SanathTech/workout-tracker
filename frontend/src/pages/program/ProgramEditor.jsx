@@ -60,6 +60,8 @@ export default function ProgramEditor({ initial, onCancel, onSaved }) {
       qc.invalidateQueries({ queryKey: ['active-program'] });
       qc.invalidateQueries({ queryKey: ['programs'] });
       qc.invalidateQueries({ queryKey: ['program', data.id] });
+      // The week's gym rows name the main lifts, which the editor may have changed.
+      qc.invalidateQueries({ queryKey: ['week'] });
       onSaved(data);
     },
   });

@@ -207,20 +207,127 @@ router.get('/week', async (req, res) => {
 
 // GET /api/coach/notes — standing guidance from coaching conversations, active until
 // resolved. The session page matches these to its exercises; a row with no exercise_id
-// applies to the whole session. Read-only by design: notes are written and resolved
-// from the coaching side, so the app can never end up arguing with itself about state.
-// Internal memos (coach-to-coach) are filtered here, not client-side — the client has no
-// business knowing they exist.
+// applies to the whole session. Internal memos (coach-to-coach) are filtered here, not
+// client-side — the client has no business knowing they exist.
+//
+// Notes were read-only from the phone until the 2026-09-08 redesign. Lifts now writes
+// the exercise-scoped load calls too ("OHP back to 40" needed a home), through the same
+// table and the same precedence, so a call made on the phone and one made in a coaching
+// conversation are the same kind of row. Resolving is PATCH { resolved: true } — the
+// row stays for the ledger, it just stops being the aim.
+const NOTE_COLS = `n.id, n.exercise_id, e.name AS exercise_name, n.routine_id, n.note,
+              n.aim_weight_kg::float, n.aim_reps, n.aim_rir, n.created_at`;
+
 router.get('/notes', async (req, res) => {
   try {
     const { rows } = await db.query(
-      `SELECT n.id, n.exercise_id, e.name AS exercise_name, n.routine_id, n.note,
-              n.aim_weight_kg::float, n.aim_reps, n.aim_rir, n.created_at
+      `SELECT ${NOTE_COLS}
          FROM coach_notes n
          LEFT JOIN exercises e ON e.id = n.exercise_id
         WHERE n.resolved_at IS NULL AND NOT n.internal ORDER BY n.created_at`
     );
     res.json(rows);
+  } catch (err) {
+    serverError(res, err);
+  }
+});
+
+// The aim fields, validated the way the session validates a set: a number or null,
+// weight to 2 dp (negative allowed — assisted pull-ups are logged as -18 kg), reps and
+// RIR whole and non-negative. `undefined` means "not sent" so PATCH can leave a field
+// alone; an explicit null clears it.
+function readAim(body) {
+  const out = {};
+  const num = (key, { int = false, min = 0, max }) => {
+    if (!Object.prototype.hasOwnProperty.call(body, key)) return undefined;
+    const raw = body[key];
+    if (raw === null || raw === '') return null;
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < min || n > max || (int && !Number.isInteger(n))) return NaN;
+    return int ? n : Math.round(n * 100) / 100;
+  };
+  out.aim_weight_kg = num('aim_weight_kg', { min: -1000, max: 1000 });
+  out.aim_reps = num('aim_reps', { int: true, max: 1000 });
+  out.aim_rir = num('aim_rir', { int: true, max: 10 });
+  return out;
+}
+const aimInvalid = (aim) => Object.values(aim).some((v) => Number.isNaN(v));
+const hasCall = (aim) => aim.aim_weight_kg != null || aim.aim_reps != null || aim.aim_rir != null;
+
+// POST /api/coach/notes — a new standing call for one exercise. A note needs either
+// words or numbers; an empty row would be a cue that says nothing.
+router.post('/notes', async (req, res) => {
+  const exerciseId = Number(req.body?.exercise_id);
+  if (!Number.isInteger(exerciseId) || exerciseId <= 0) {
+    return res.status(400).json({ error: 'exercise_id is required' });
+  }
+  const note = readNote(req.body || {}) ?? null;
+  const aim = readAim(req.body || {});
+  if (aimInvalid(aim)) return res.status(400).json({ error: 'aim fields must be numbers' });
+  if (!note && !hasCall(aim)) return res.status(400).json({ error: 'a note needs text or an aim' });
+  try {
+    const { rows } = await db.query(
+      `WITH ins AS (
+         INSERT INTO coach_notes (exercise_id, note, aim_weight_kg, aim_reps, aim_rir)
+         VALUES ($1, $2, $3, $4, $5) RETURNING *)
+       SELECT ${NOTE_COLS} FROM ins n LEFT JOIN exercises e ON e.id = n.exercise_id`,
+      [exerciseId, note || '', aim.aim_weight_kg ?? null, aim.aim_reps ?? null, aim.aim_rir ?? null]
+    );
+    res.status(201).json(rows[0]);
+  } catch (err) {
+    if (err.code === '23503') return res.status(400).json({ error: 'exercise not found' });
+    serverError(res, err);
+  }
+});
+
+// PATCH /api/coach/notes/:id — edit the call, or resolve it. Only fields sent change;
+// the CASE-WHEN-sent pattern from workouts.notes, so clearing a number is possible.
+router.patch('/notes/:id', async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) return res.status(400).json({ error: 'bad id' });
+  const body = req.body || {};
+  const note = readNote(body);
+  const aim = readAim(body);
+  if (aimInvalid(aim)) return res.status(400).json({ error: 'aim fields must be numbers' });
+  const resolved = body.resolved === true;
+  try {
+    // An edit that empties the row would leave a cue that says nothing — refuse it;
+    // resolving is the way to retire a call.
+    const { rows: cur } = await db.query(
+      `SELECT note, aim_weight_kg::float, aim_reps, aim_rir FROM coach_notes WHERE id = $1 AND NOT internal`, [id]
+    );
+    if (!cur.length) return res.status(404).json({ error: 'note not found' });
+    const merged = {
+      note: note === undefined ? cur[0].note : note,
+      aim_weight_kg: aim.aim_weight_kg === undefined ? cur[0].aim_weight_kg : aim.aim_weight_kg,
+      aim_reps: aim.aim_reps === undefined ? cur[0].aim_reps : aim.aim_reps,
+      aim_rir: aim.aim_rir === undefined ? cur[0].aim_rir : aim.aim_rir,
+    };
+    if (!resolved && !merged.note && !hasCall(merged)) {
+      return res.status(400).json({ error: 'a note needs text or an aim' });
+    }
+    const { rows } = await db.query(
+      `WITH upd AS (
+         UPDATE coach_notes SET
+           note          = CASE WHEN $2::boolean THEN $3 ELSE note END,
+           aim_weight_kg = CASE WHEN $4::boolean THEN $5::numeric ELSE aim_weight_kg END,
+           aim_reps      = CASE WHEN $6::boolean THEN $7::int ELSE aim_reps END,
+           aim_rir       = CASE WHEN $8::boolean THEN $9::int ELSE aim_rir END,
+           resolved_at   = CASE WHEN $10::boolean THEN COALESCE(resolved_at, NOW()) ELSE resolved_at END
+         WHERE id = $1 AND NOT internal
+         RETURNING *)
+       SELECT ${NOTE_COLS}, n.resolved_at FROM upd n LEFT JOIN exercises e ON e.id = n.exercise_id`,
+      [
+        id,
+        note !== undefined, note ?? '',
+        aim.aim_weight_kg !== undefined, aim.aim_weight_kg ?? null,
+        aim.aim_reps !== undefined, aim.aim_reps ?? null,
+        aim.aim_rir !== undefined, aim.aim_rir ?? null,
+        resolved,
+      ]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'note not found' });
+    res.json(rows[0]);
   } catch (err) {
     serverError(res, err);
   }

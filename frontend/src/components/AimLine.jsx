@@ -7,8 +7,8 @@ import { Sheet } from './ui';
 // nothing else — the four-voices problem (chip + ghosts + reason + amber note, all
 // disagreeing on the pull-up card on 2026-09-07) was a client that merged them itself.
 //
-// Shared with Lifts, where the same line sits above the chart and the coach note is
-// edited. Keep it free of session state.
+// Shared with Lifts, where the same line sits above the chart and `onEdit` opens the
+// coach-note editor (the session never edits). Keep it free of session state.
 
 const SOURCE_TAG = {
   engine: 'bg-emerald-400/15 text-emerald-400',
@@ -32,7 +32,7 @@ export function formatAim(aim) {
   return parts.join(' · ');
 }
 
-export default function AimLine({ aim, cues = [], className = '' }) {
+export default function AimLine({ aim, cues = [], onEdit, className = '' }) {
   const [sheet, setSheet] = useState(null); // 'why' | cue id
   if (!aim && cues.length === 0) return null;
   const text = formatAim(aim);
@@ -46,13 +46,24 @@ export default function AimLine({ aim, cues = [], className = '' }) {
           <span className={`shrink-0 text-[10.5px] leading-4 uppercase tracking-wider px-1.5 rounded ${SOURCE_TAG[aim.source]}`}>
             {aim.source}
           </span>
-          <button
-            type="button"
-            onClick={() => setSheet('why')}
-            className="ml-auto shrink-0 h-11 pl-3 pr-2 -mr-2 text-xs text-neutral-400 hover:text-neutral-200"
-          >
-            why ›
-          </button>
+          <span className="ml-auto shrink-0 flex items-center -mr-2">
+            <button
+              type="button"
+              onClick={() => setSheet('why')}
+              className="h-11 px-2 text-xs text-neutral-400 hover:text-neutral-200"
+            >
+              why ›
+            </button>
+            {onEdit && (
+              <button
+                type="button"
+                onClick={onEdit}
+                className="h-11 px-2 text-xs text-neutral-400 hover:text-neutral-200"
+              >
+                edit ›
+              </button>
+            )}
+          </span>
         </div>
       )}
       {/* Cues: standing coach notes with no load call. Two lines on the card, the

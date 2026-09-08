@@ -1,13 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { startProgram, endProgram, deleteProgram, startWorkout, skipUpcomingWorkout } from '../../api/client';
+import { startProgram, endProgram, deleteProgram, startWorkout } from '../../api/client';
 import { formatRestRange, formatWarmup } from '../../util/format';
 import { ChevronIcon } from '../../components/icons';
 import MainBadge from '../../components/MainBadge';
 import MoreMenu from '../../components/MoreMenu';
 
-export default function ProgramView({ program, onEdit, onDeleted }) {
+// The Program section of Train (2026-09-08): name, where the cycle stands, the one Start
+// outside Today, and the routines expandable to their exercises. Edit is a route
+// (/program/:id/edit) so back works and the nav hides itself properly.
+export default function ProgramView({ program, onDeleted }) {
   const qc = useQueryClient();
   const navigate = useNavigate();
 
@@ -37,15 +40,6 @@ export default function ProgramView({ program, onEdit, onDeleted }) {
     },
   });
 
-  const skipWorkoutMut = useMutation({
-    mutationFn: (routineId) => skipUpcomingWorkout({ routine_id: routineId }),
-    onSuccess: () => {
-      invalidateAll();
-      qc.invalidateQueries({ queryKey: ['recent-workouts'] });
-      qc.invalidateQueries({ queryKey: ['workouts-history'] });
-    },
-  });
-
   const isActive = program.status === 'active';
   const nextRoutine = isActive ? program.progress?.next_routine : null;
 
@@ -63,52 +57,52 @@ export default function ProgramView({ program, onEdit, onDeleted }) {
     return next;
   });
 
+  const p = program.progress;
+  // "Week 6 · 17 done · 2 skipped" for the active program; the shape for the others.
+  const meta = isActive && p
+    ? [
+        `Week ${p.week}${program.total_weeks ? ` of ${program.total_weeks}` : ''}`,
+        `${p.completed_workouts} done`,
+        p.skipped_workouts ? `${p.skipped_workouts} skipped` : null,
+      ].filter(Boolean).join(' · ')
+    : [
+        program.total_weeks ? `${program.total_weeks} weeks` : 'Ongoing',
+        `${program.routines.length} routines`,
+        program.status,
+      ].join(' · ');
+
   return (
     <div className="space-y-4">
       <section className="space-y-3">
-        <div className="space-y-2">
+        <div className="space-y-1">
           <div className="flex items-start gap-2">
-            <h1 className="text-2xl font-semibold tracking-tight flex-1 min-w-0">{program.name}</h1>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-lg font-semibold tracking-tight leading-snug">{program.name}</h3>
+              <p className="text-sm text-neutral-400 tabular-nums">{meta}</p>
+            </div>
             <MoreMenu
               label={`Options for ${program.name}`}
               items={[
-                { label: 'Edit program', onSelect: onEdit },
+                { label: 'Edit program', onSelect: () => navigate(`/program/${program.id}/edit`) },
+                { label: 'New program', onSelect: () => navigate('/program/new') },
                 isActive && { label: 'End program', confirm: 'End — archive it?', danger: true, onSelect: () => { if (!endMut.isPending) endMut.mutate(); } },
                 !isActive && { label: 'Delete program', confirm: 'Delete — sure?', danger: true, onSelect: () => { if (!deleteMut.isPending) deleteMut.mutate(); } },
               ]}
             />
           </div>
-          <div className="flex flex-wrap gap-1.5">
-            <span className="tag">{program.total_weeks ? `${program.total_weeks} weeks` : 'Ongoing'}</span>
-            <span className="tag">{program.routines.length} routines</span>
-            <span className={isActive
-              ? 'tag !bg-emerald-500/15 !text-emerald-400'
-              : 'tag'}>{program.status}</span>
-          </div>
           {program.description && <ClampedDescription text={program.description} />}
         </div>
 
+        {/* The one Start outside Today. Skip lives on Today only — it was here too until
+            2026-09-08, and two places to skip a session is one too many. */}
         {isActive && nextRoutine && (
-          <div className="space-y-2">
-            <button
-              onClick={() => startWorkoutMut.mutate(nextRoutine.id)}
-              disabled={startWorkoutMut.isPending || skipWorkoutMut.isPending}
-              className="btn-primary w-full justify-center py-3"
-            >
-              {startWorkoutMut.isPending ? 'Starting…' : `Start ${nextRoutine.name} · Week ${program.progress.week}`}
-            </button>
-            <button
-              onClick={() => {
-                if (confirm(`Skip ${nextRoutine.name}? Nothing gets logged, and the next routine moves up.`)) {
-                  skipWorkoutMut.mutate(nextRoutine.id);
-                }
-              }}
-              disabled={startWorkoutMut.isPending || skipWorkoutMut.isPending}
-              className="btn-ghost w-full justify-center"
-            >
-              {skipWorkoutMut.isPending ? 'Skipping…' : 'Skip this workout'}
-            </button>
-          </div>
+          <button
+            onClick={() => startWorkoutMut.mutate(nextRoutine.id)}
+            disabled={startWorkoutMut.isPending}
+            className="btn-primary w-full justify-center"
+          >
+            {startWorkoutMut.isPending ? 'Starting…' : `Start ${nextRoutine.name.split(' — ')[0]}`}
+          </button>
         )}
 
         {!isActive && program.status !== 'completed' && (
@@ -122,7 +116,7 @@ export default function ProgramView({ program, onEdit, onDeleted }) {
       </section>
 
       <div className="divide-y divide-neutral-800 border-t border-neutral-800">
-      {program.routines.map((r, i) => {
+      {program.routines.map((r) => {
         const open = openRoutines.has(r.id);
         const isNext = nextRoutine?.id === r.id;
         return (
@@ -136,10 +130,9 @@ export default function ProgramView({ program, onEdit, onDeleted }) {
               aria-expanded={open}
               className="flex items-center gap-2 w-full text-left min-h-11"
             >
-              <span className="text-sm text-neutral-400 w-6 shrink-0">{String(i + 1).padStart(2, '0')}</span>
               <span className="flex-1 min-w-0">
                 <span className="flex items-center gap-2">
-                  <h2 className="font-semibold truncate">{r.name}</h2>
+                  <h4 className="font-semibold truncate">{r.name}</h4>
                   {isNext && <span className="badge-solid shrink-0">Next</span>}
                 </span>
                 <span className="block text-xs text-neutral-400">

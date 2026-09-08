@@ -2,12 +2,11 @@ import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
-import Program from './pages/Program';
+import Train from './pages/Train';
+import ProgramEdit from './pages/ProgramEdit';
 import WorkoutSession from './pages/WorkoutSession';
 import WorkoutDetail from './pages/WorkoutDetail';
-import History from './pages/History';
 import Trends from './pages/Trends';
-import More from './pages/More';
 import ExerciseLibrary from './pages/ExerciseLibrary';
 import { Skeleton } from './components/Skeleton';
 
@@ -31,16 +30,20 @@ export default function App() {
       <Route path="/" element={<Layout />}>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
-        <Route path="program" element={<Program />} />
+        <Route path="train" element={<Train />} />
+        <Route path="program/new" element={<ProgramEdit />} />
+        <Route path="program/:id/edit" element={<ProgramEdit />} />
         <Route path="workouts/:id" element={<WorkoutDetail />} />
-        <Route path="history" element={<History />} />
         <Route path="trends" element={<Trends />} />
-        <Route path="more" element={<More />} />
-        {/* A phone that hasn't taken the update yet still has /coach and /week in its
-            history and possibly in the installed shell's start state. Redirect rather
-            than 404: Coach became Trends (2026-08-16), Week folded into Home (2026-09-05). */}
+        {/* A phone that hasn't taken the update yet still has old routes in its history
+            and possibly in the installed shell's start state. Redirect rather than 404:
+            Coach became Trends (2026-08-16), Week folded into Home (2026-09-05), and
+            Program / History / More became Train (2026-09-08). */}
         <Route path="coach" element={<Navigate to="/trends" replace />} />
         <Route path="week" element={<Navigate to="/dashboard" replace />} />
+        <Route path="program" element={<Navigate to="/train" replace />} />
+        <Route path="history" element={<Navigate to="/train" replace />} />
+        <Route path="more" element={<Navigate to="/train" replace />} />
         <Route path="session/:id" element={<WorkoutSession />} />
         <Route
           path="progress"

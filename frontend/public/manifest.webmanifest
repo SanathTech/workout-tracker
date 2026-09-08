@@ -16,8 +16,8 @@
       "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     },
     {
-      "name": "Progress",
-      "short_name": "Progress",
+      "name": "Lifts",
+      "short_name": "Lifts",
       "url": "/progress",
       "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     }

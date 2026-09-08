@@ -147,7 +147,7 @@ function NextWorkoutBlock({ program }) {
           {progress?.skipped_workouts ? ` · ${progress.skipped_workouts} skipped` : ''}
         </p>
         <p className="text-sm text-neutral-400 mt-1">Program complete. Start a new one when you're ready.</p>
-        <Link to="/program" className="btn-primary mt-4 inline-flex">New program</Link>
+        <Link to="/program/new" className="btn-primary mt-4 inline-flex">New program</Link>
       </div>
     );
   }
@@ -197,7 +197,7 @@ function NoProgramBlock() {
       <p className="text-sm text-neutral-400 mt-1">
         Set up a program (e.g. 12-week split with Upper/Lower routines), then start it to track workouts.
       </p>
-      <Link to="/program" className="btn-primary mt-4 inline-flex">Set up a program</Link>
+      <Link to="/program/new" className="btn-primary mt-4 inline-flex">Set up a program</Link>
     </div>
   );
 }

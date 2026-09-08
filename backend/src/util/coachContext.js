@@ -902,6 +902,8 @@ async function weekPlan() {
     const actual = [
       ...sessions.map((r) => ({
         kind: 'gym',
+        // So Train's week rows can open the logged workout (2026-09-08).
+        workout_id: r.id,
         label: r.status === 'skipped' ? `${r.routine_name} — skipped` : r.routine_name,
         meta: r.status === 'skipped'
           ? null

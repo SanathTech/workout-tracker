@@ -141,6 +141,51 @@ console.log('\n─── resolving the call hands the aim back to the engine ─
   ok(squat.aim?.source === 'engine', 'resolved calls no longer apply', squat.aim?.source);
 }
 
+console.log('\n─── the phone can write a call: POST / PATCH /coach/notes (Lifts, 2026-09-08) ───');
+{
+  const bad = await api('POST', '/api/coach/notes', { exercise_id: ex['Squat'] });
+  ok(bad.status === 400, 'a note with neither text nor numbers is refused', `got ${bad.status}`);
+  const nan = await api('POST', '/api/coach/notes', { exercise_id: ex['Squat'], aim_weight_kg: 'heavy' });
+  ok(nan.status === 400, 'non-numeric aim fields are refused', `got ${nan.status}`);
+  const assisted = await api('POST', '/api/coach/notes', { exercise_id: ex['Squat'], aim_weight_kg: -18 });
+  ok(assisted.status === 201 && assisted.body.aim_weight_kg === -18, 'a negative (assisted) weight is a valid call', JSON.stringify(assisted.body));
+  await api('PATCH', `/api/coach/notes/${assisted.body.id}`, { resolved: true });
+  const noEx = await api('POST', '/api/coach/notes', { note: 'x', aim_weight_kg: 90 });
+  ok(noEx.status === 400, 'exercise_id is required', `got ${noEx.status}`);
+
+  const made = await api('POST', '/api/coach/notes', { exercise_id: ex['Squat'], note: 'OHP back to 90.', aim_weight_kg: '90', aim_reps: 5, aim_rir: '' });
+  ok(made.status === 201 && made.body.id > 0, 'a call is created', JSON.stringify(made.body));
+  ok(made.body.aim_weight_kg === 90 && made.body.aim_reps === 5 && made.body.aim_rir === null, 'numbers parsed, blank RIR stored as null', JSON.stringify(made.body));
+  ok(made.body.exercise_name === 'Squat', 'the created row comes back with its exercise name');
+  const squat = (await suggestions()).find((x) => x.exercise_name === 'Squat');
+  ok(squat.aim?.source === 'coach' && squat.aim?.note_id === made.body.id && squat.aim?.weight_kg === 90,
+    'the phone-written call is the aim', JSON.stringify(squat.aim));
+
+  const edited = await api('PATCH', `/api/coach/notes/${made.body.id}`, { aim_weight_kg: 92.5, aim_reps: null });
+  ok(edited.status === 200 && edited.body.aim_weight_kg === 92.5 && edited.body.aim_reps === null && edited.body.note === 'OHP back to 90.',
+    'PATCH changes only the fields sent; explicit null clears', JSON.stringify(edited.body));
+  const empty = await api('PATCH', `/api/coach/notes/${made.body.id}`, { note: '', aim_weight_kg: null });
+  ok(empty.status === 400, 'an edit that would leave nothing is refused', `got ${empty.status}`);
+  const gone = await api('PATCH', '/api/coach/notes/999999', { aim_rir: 1 });
+  ok(gone.status === 404, 'unknown note → 404', `got ${gone.status}`);
+
+  const done = await api('PATCH', `/api/coach/notes/${made.body.id}`, { resolved: true });
+  ok(done.status === 200 && done.body.resolved_at, 'resolve stamps resolved_at', JSON.stringify(done.body));
+  const again = await api('PATCH', `/api/coach/notes/${made.body.id}`, { resolved: true });
+  ok(again.body.resolved_at === done.body.resolved_at, 'a retried resolve keeps the first timestamp', `${again.body.resolved_at} vs ${done.body.resolved_at}`);
+  const after = (await suggestions()).find((x) => x.exercise_name === 'Squat');
+  ok(after.aim?.source === 'engine', 'a resolved phone call hands the aim back to the engine', after.aim?.source);
+  const { body: notes } = await api('GET', '/api/coach/notes');
+  ok(!notes.some((n) => n.id === made.body.id), 'resolved notes leave /coach/notes');
+}
+
+console.log('\n─── /coach/week carries the workout id on logged gym days ───');
+{
+  const { body: week } = await api('GET', '/api/coach/week');
+  const gym = week.days.flatMap((d) => d.actual).filter((a) => a.kind === 'gym');
+  ok(gym.length > 0 && gym.every((a) => Number.isInteger(a.workout_id)), 'gym rows have workout_id', JSON.stringify(gym));
+}
+
 await db.end();
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

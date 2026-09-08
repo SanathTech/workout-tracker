@@ -126,6 +126,9 @@ export const getAdherence = (params) =>
 export const getWeek = () => api.get('/coach/week').then((r) => r.data);
 
 export const getCoachNotes = () => api.get('/coach/notes').then((r) => r.data);
+// Lifts writes the exercise-scoped load calls (2026-09-08). Resolve = { resolved: true }.
+export const createCoachNote = (data) => api.post('/coach/notes', data).then((r) => r.data);
+export const updateCoachNote = (id, data) => api.patch(`/coach/notes/${id}`, data).then((r) => r.data);
 
 export const getTrends = (params) =>
   api.get('/coach/trends', { params }).then((r) => r.data);
