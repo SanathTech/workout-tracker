@@ -4,7 +4,7 @@ import { getReadiness, getTrends } from '../api/client';
 import { Skeleton } from './Skeleton';
 
 // Four numbers from last night, each against its own ten-day baseline, each a link to
-// the reading on Health. They share the Health page's queries (['readiness'] and
+// the reading on /trends (the Trends tab — Health once PR 5 renames it). They share that page's queries (['readiness'] and
 // ['trends', 90]) so the tap lands on a screen that's already loaded. Battery and sleep
 // come from /readiness because that's the endpoint that knows about THIS morning —
 // /trends' wellness series deliberately ends yesterday.

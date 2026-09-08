@@ -22,6 +22,22 @@ import { track } from '../util/telemetry';
 // week, four numbers, the coach's line) and a tap away from its full reading.
 const EVENING_HOUR = 19;
 
+// True from 19:00. Re-evaluates at the next flip, so a page left open across 19:00
+// (or brought back from the background by the PWA) swaps without a reload.
+function useEvening() {
+  const [evening, setEvening] = useState(() => new Date().getHours() >= EVENING_HOUR);
+  useEffect(() => {
+    const check = () => setEvening(new Date().getHours() >= EVENING_HOUR);
+    const now = new Date();
+    const next = new Date(now);
+    next.setHours(now.getHours() >= EVENING_HOUR ? 24 : EVENING_HOUR, 0, 1, 0);
+    const timer = setTimeout(check, next - now);
+    document.addEventListener('visibilitychange', check);
+    return () => { clearTimeout(timer); document.removeEventListener('visibilitychange', check); };
+  }, [evening]);
+  return evening;
+}
+
 // ---------- session block ----------
 
 function isBlank(v) { return v == null || v === ''; }
@@ -289,7 +305,7 @@ export default function Dashboard() {
   // unfinished session always opens first, whatever the hour. The choice remembers which
   // session (if any) it was made under, so folding the session to check in mid-workout
   // sticks, but a session that starts afterwards still comes up open.
-  const evening = new Date().getHours() >= EVENING_HOUR;
+  const evening = useEvening();
   const sessionId = inProgress?.id ?? null;
   const [chosen, setChosen] = useState(null);
   const choice = chosen && chosen.sessionId === sessionId ? chosen.to : null;
