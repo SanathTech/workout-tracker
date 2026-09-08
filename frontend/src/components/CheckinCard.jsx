@@ -9,7 +9,7 @@ import RatingRow from './RatingRow';
 // submit or lose. The note is deliberately behind a toggle: asking for prose every
 // morning is how you end up with no check-ins at all.
 export const RAMP_FIELDS = ['no_caffeine_pm', 'food_by_cutoff', 'screens_by_cutoff'];
-// Any answer counts as saved — a ramp-only evening or a bare note is a row too (Copilot, PR 6).
+// Any answer counts as saved — a ramp-only evening or a bare note is a row too.
 export const checkinStarted = (c) =>
   !!c && (['mood', 'energy', 'soreness', ...RAMP_FIELDS].some((f) => c[f] != null) || !!c.note);
 export const ratingsComplete = (c) => !!c && c.mood != null && c.energy != null && c.soreness != null;

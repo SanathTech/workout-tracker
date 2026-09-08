@@ -3,7 +3,7 @@ import { ChevronIcon, CloseIcon } from './icons';
 
 // The page primitives (2026-09-08 redesign, PR 1). Every screen is built from these so
 // rhythm, width and hairlines can't drift screen by screen again.
-//   Page     — one column, one vertical rhythm (24px between sections).
+//   Page     — one column, one vertical rhythm (24px between sections; `dense` = 16px, Today only).
 //   Section  — hairline on top, 11px label, optional right-hand action.
 //   Sheet    — the one bottom sheet: backdrop, Escape, tap-outside, safe-area padding.
 // Width lives in Layout (max-w-2xl), not here: it's a phone app that happens to run on desktop.
