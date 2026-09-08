@@ -9,7 +9,9 @@ import RatingRow from './RatingRow';
 // submit or lose. The note is deliberately behind a toggle: asking for prose every
 // morning is how you end up with no check-ins at all.
 export const RAMP_FIELDS = ['no_caffeine_pm', 'food_by_cutoff', 'screens_by_cutoff'];
-export const checkinStarted = (c) => !!c && (c.mood != null || c.energy != null || c.soreness != null);
+// Any answer counts as saved — a ramp-only evening or a bare note is a row too.
+export const checkinStarted = (c) =>
+  !!c && (['mood', 'energy', 'soreness', ...RAMP_FIELDS].some((f) => c[f] != null) || !!c.note);
 export const ratingsComplete = (c) => !!c && c.mood != null && c.energy != null && c.soreness != null;
 export const rampComplete = (c) => !!c && RAMP_FIELDS.every((f) => c[f] != null);
 
@@ -59,13 +61,14 @@ export default function CheckinCard({ compact = false }) {
   const done = checkinStarted(checkin);
   const ratingsDone = ratingsComplete(checkin);
   const RAMP = [
-    { field: 'no_caffeine_pm', label: 'Caffeine', hint: 'none after 12:00' },
-    { field: 'food_by_cutoff', label: 'Last food', hint: 'by 19:30' },
-    { field: 'screens_by_cutoff', label: 'Screens', hint: 'down by 21:30' },
+    { field: 'no_caffeine_pm', label: 'Caffeine', short: 'Caffeine', hint: 'none after 12:00' },
+    { field: 'food_by_cutoff', label: 'Last food', short: 'Food', hint: 'by 19:30' },
+    { field: 'screens_by_cutoff', label: 'Screens', short: 'Screens', hint: 'down by 21:30' },
   ];
   const rampDone = rampComplete(checkin);
+  // 44px tap target, negative margin so the folded row itself stays 32px tall.
   const foldLink = (text, onClick) => (
-    <button type="button" onClick={onClick} className="text-xs text-neutral-400 underline-offset-2 hover:underline min-h-11 md:min-h-0 pl-3 shrink-0">
+    <button type="button" onClick={onClick} className="text-xs text-neutral-400 underline-offset-2 hover:underline min-h-11 -my-1.5 md:min-h-0 md:my-0 pl-3 shrink-0">
       {text}
     </button>
   );
@@ -85,7 +88,7 @@ export default function CheckinCard({ compact = false }) {
       ) : (
         <>
           {ratingsDone && !ratingsOpen ? (
-            <div className="flex items-center justify-between py-1.5">
+            <div className="flex items-center justify-between">
               <p className="text-sm text-neutral-300 tabular-nums">
                 Mood {checkin.mood} · Energy {checkin.energy} · Soreness {checkin.soreness}
               </p>
@@ -117,14 +120,15 @@ export default function CheckinCard({ compact = false }) {
               an answer can be changed but not cleared, and unanswered stays unanswered —
               the coach reads NULL as unknown, never as a broken rule. Best answered at
               the 21:30 wind-down ping, when all three are known. */}
-          <div className="mt-1 pt-2 border-t border-neutral-800">
+          <div className={compact ? '' : 'mt-1 pt-2 border-t border-neutral-800'}>
             {rampDone && !rampOpen ? (
-              <div className="flex items-center justify-between py-1.5">
+              <div className="flex items-center justify-between">
+                {/* Short labels + nowrap pairs: the long form wrapped at 390px (PR 6). */}
                 <p className="text-sm text-neutral-300">
-                  <span className="text-[11px] text-neutral-400 mr-2">Evening ramp</span>
-                  {RAMP.map(({ field, label }) => (
-                    <span key={field} className={`mr-2 ${checkin[field] ? '' : 'text-amber-400'}`}>
-                      {label} {checkin[field] ? '✓' : '✗'}
+                  <span className="text-[11px] text-neutral-400 mr-2">Ramp</span>
+                  {RAMP.map(({ field, short }) => (
+                    <span key={field} className={`mr-2 whitespace-nowrap ${checkin[field] ? '' : 'text-amber-400'}`}>
+                      {short} {checkin[field] ? '✓' : '✗'}
                     </span>
                   ))}
                 </p>
@@ -215,7 +219,7 @@ export default function CheckinCard({ compact = false }) {
             <button
               type="button"
               onClick={() => { setNote(checkin?.note || ''); setNoteOpen(true); }}
-              className="btn-ghost text-xs mt-1 -ml-1"
+              className="btn-ghost text-xs -ml-1"
             >
               {checkin?.note ? 'Edit note' : '+ Add a note'}
             </button>
