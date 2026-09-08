@@ -9,7 +9,9 @@ import RatingRow from './RatingRow';
 // submit or lose. The note is deliberately behind a toggle: asking for prose every
 // morning is how you end up with no check-ins at all.
 export const RAMP_FIELDS = ['no_caffeine_pm', 'food_by_cutoff', 'screens_by_cutoff'];
-export const checkinStarted = (c) => !!c && (c.mood != null || c.energy != null || c.soreness != null);
+// Any answer counts as saved — a ramp-only evening or a bare note is a row too (Copilot, PR 6).
+export const checkinStarted = (c) =>
+  !!c && (['mood', 'energy', 'soreness', ...RAMP_FIELDS].some((f) => c[f] != null) || !!c.note);
 export const ratingsComplete = (c) => !!c && c.mood != null && c.energy != null && c.soreness != null;
 export const rampComplete = (c) => !!c && RAMP_FIELDS.every((f) => c[f] != null);
 
@@ -64,8 +66,9 @@ export default function CheckinCard({ compact = false }) {
     { field: 'screens_by_cutoff', label: 'Screens', short: 'Screens', hint: 'down by 21:30' },
   ];
   const rampDone = rampComplete(checkin);
+  // 44px tap target, negative margin so the folded row itself stays 32px tall.
   const foldLink = (text, onClick) => (
-    <button type="button" onClick={onClick} className="text-xs text-neutral-400 underline-offset-2 hover:underline min-h-9 md:min-h-0 pl-3 shrink-0">
+    <button type="button" onClick={onClick} className="text-xs text-neutral-400 underline-offset-2 hover:underline min-h-11 -my-1.5 md:min-h-0 md:my-0 pl-3 shrink-0">
       {text}
     </button>
   );
