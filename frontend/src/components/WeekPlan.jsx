@@ -167,27 +167,34 @@ export default function WeekStrip() {
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
+        aria-label={open ? 'This week' : 'This week — show each day'}
         className="w-full flex items-stretch -mx-1 px-1 py-1 rounded-lg hover:bg-neutral-900 transition-colors"
       >
-        {/* No aria-label here: the per-day sr-only text below is the accessible name. */}
-        <span className="sr-only">This week{open ? '' : ' — show each day'}.</span>
         {data.days.map((d) => {
           const isToday = d.state === 'today';
-          const missed = d.state === 'past' && !d.done;
           return (
             <span key={d.date} className="flex-1 flex flex-col items-center gap-2 py-1">
               <span className={`text-[11px] tracking-wide ${isToday ? 'text-emerald-400 font-semibold' : 'text-neutral-400'}`}>
                 {d.weekday.slice(0, 1)}
               </span>
               <Dot day={d} />
-              <span className="sr-only">
-                {d.weekday}: {KIND_LABELS[d.planned.kind] || d.planned.kind}, {d.planned.title}
-                {d.done ? ', done' : missed ? ', nothing logged' : isToday ? ', today' : ''}
-              </span>
             </span>
           );
         })}
       </button>
+      {/* The dots in words, for screen readers — outside the button so its own name stays
+          short, and always present so the summary doesn't depend on expanding the rows. */}
+      <ul className="sr-only">
+        {data.days.map((d) => {
+          const missed = d.state === 'past' && !d.done;
+          return (
+            <li key={d.date}>
+              {d.weekday}: {KIND_LABELS[d.planned.kind] || d.planned.kind}, {d.planned.title}
+              {d.done ? ', done' : missed ? ', nothing logged' : d.state === 'today' ? ', today' : ''}
+            </li>
+          );
+        })}
+      </ul>
 
       {/* Today's slot in words, because the session block only knows about gym days —
           on a Wednesday the answer is the swim, and the program can't say so. */}

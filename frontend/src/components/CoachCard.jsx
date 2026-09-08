@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { getCoachLatest, getCoachNotes, getExercises } from '../api/client';
+import { getCoachLatest, getCoachNotes } from '../api/client';
 import { Sheet } from './ui';
 import { formatDay } from '../util/format';
 
@@ -21,7 +21,7 @@ function daysSince(dateStr) {
   return Math.round((now - then) / 86_400_000);
 }
 
-export function pickCoachItem({ latest, notes, exercises }) {
+export function pickCoachItem({ latest, notes }) {
   const weekly = latest?.weekly;
   if (weekly?.advice?.headline && daysSince(weekly.for_date) <= REVIEW_FRESH_DAYS) {
     return { kind: 'weekly', title: 'Week review', line: weekly.advice.headline, entry: weekly };
@@ -31,8 +31,7 @@ export function pickCoachItem({ latest, notes, exercises }) {
     null
   );
   if (newest) {
-    const name = exercises?.find((e) => e.id === newest.exercise_id)?.name;
-    return { kind: 'note', title: name || 'Coach note', line: newest.note, entry: newest };
+    return { kind: 'note', title: newest.exercise_name || 'Coach note', line: newest.note, entry: newest };
   }
   if (weekly?.advice?.headline) {
     return { kind: 'weekly', title: 'Week review', line: weekly.advice.headline, entry: weekly };
@@ -78,9 +77,8 @@ export default function CoachCard() {
   const [open, setOpen] = useState(false);
   const { data: latest } = useQuery({ queryKey: ['coach-latest'], queryFn: getCoachLatest, staleTime: 5 * 60_000 });
   const { data: notes } = useQuery({ queryKey: ['coach-notes'], queryFn: getCoachNotes, staleTime: 5 * 60_000 });
-  const { data: exercises } = useQuery({ queryKey: ['exercises'], queryFn: () => getExercises(), staleTime: 10 * 60_000 });
 
-  const item = pickCoachItem({ latest, notes, exercises });
+  const item = pickCoachItem({ latest, notes });
   if (!item) return null;
 
   return (

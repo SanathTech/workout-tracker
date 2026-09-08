@@ -131,6 +131,7 @@ await note({ exercise_id: ex['Lateral Raise'], routine_id: dayA, note: 'Slow ecc
   const { body: notes } = await api('GET', '/api/coach/notes');
   ok(!notes.some((n) => n.internal || /Do not prescribe/.test(n.note)), '/coach/notes hides internal memos');
   ok(notes.some((n) => n.id === callId && n.aim_weight_kg === 95), '/coach/notes exposes the aim columns');
+  ok(notes.find((n) => n.id === callId)?.exercise_name === 'Squat', '/coach/notes joins the exercise name');
 }
 
 console.log('\n─── resolving the call hands the aim back to the engine ───');
