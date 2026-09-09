@@ -345,6 +345,19 @@ router.get('/load-history', async (req, res) => {
   }
 });
 
+// GET /api/coach/endurance?days=182 — the run and swim sessions as a series long enough
+// to trend (2026-09-09). /trends keeps its six weeks for the log rows; the Health tab's
+// endurance charts want half a year, and like the fitness chart they fetch it lazily,
+// behind the chart library, so the bundled trends round trip stays the size it is.
+router.get('/endurance', async (req, res) => {
+  const days = windowDays(req.query.days, 182, 365);
+  try {
+    res.json({ sessions: await enduranceSessions(days), hr_ceiling: HR_CEILING });
+  } catch (err) {
+    serverError(res, err);
+  }
+});
+
 // GET /api/coach/checkin — today's check-in, or null if it hasn't been done.
 router.get('/checkin', async (req, res) => {
   const date = resolveWorkoutDate(req.query.date);
