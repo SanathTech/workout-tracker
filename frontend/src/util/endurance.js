@@ -24,10 +24,10 @@ const iso = (d) => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
 
-// Monday of the week that holds `day`, as YYYY-MM-DD.
-// Clone before shifting: parseDay hands back the same object when given a Date.
 const byDate = (a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
 
+// Monday of the week that holds `day`, as YYYY-MM-DD. Clone before shifting: parseDay
+// hands back the same object when given a Date.
 export function weekStart(day) {
   const d = new Date(parseDay(day));
   d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
