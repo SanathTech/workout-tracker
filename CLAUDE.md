@@ -239,7 +239,10 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
   set has reps) collapses to `✓ name · 40 × 8 · 7 · 6`; `next` is a muted one-liner with the
   prescription and aim weight; exactly one block is `open` — the pinned one if the user tapped,
   otherwise the first not-done. The pin clears itself when that exercise becomes done, so
-  logging flows down the list without taps. `+ Add exercise`, workout notes and Skip live in
+  logging flows down the list without taps — but a done block stays open while the keyboard
+  is in it (`typingIn`, focus-within): reps is the field before RIR, and collapsing on the
+  last set's reps took the RIR field away mid-entry (2026-09-10). Focus leaving the block
+  is what collapses it. `+ Add exercise`, workout notes and Skip live in
   the header's ⋯ menu; there is no bottom bar and no save sentence in the body (the dot in the
   header sub-line is the save status; a red one is a retry button).
 - **Today has two blocks, both always open, nothing folded.** The session block (in
