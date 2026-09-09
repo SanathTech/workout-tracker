@@ -338,7 +338,7 @@ function CheckIcon({ size = 14 }) {
 // of what you did; 'next' is a muted one-liner with the prescription and the aim's
 // weight so you can see what's coming; 'open' is the ledger. Typical scroll: one
 // exercise. Tap a collapsed line to open it.
-function ExerciseBlock({ block, workoutId, state, onToggle, onOpenPicker, onChange, onTargetChange, onRemove, suggestion }) {
+function ExerciseBlock({ block, workoutId, state, onToggle, onOpenPicker, onChange, onTargetChange, onRemove, suggestion, onFocusChange }) {
   const qc = useQueryClient();
   const [showNote, setShowNote] = useState(false);
   // Open the editor whenever a note already exists, so an existing note is never
@@ -469,7 +469,13 @@ function ExerciseBlock({ block, workoutId, state, onToggle, onOpenPicker, onChan
   }
 
   return (
-    <div className="py-3">
+    <div
+      className="py-3"
+      // Focus-within, reported to the page: React's focus/blur bubble, and a blur whose
+      // relatedTarget is still inside the block is a move between fields, not a leave.
+      onFocus={() => onFocusChange?.(true)}
+      onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) onFocusChange?.(false); }}
+    >
       <div className="flex items-center gap-1">
         <button
           type="button"
@@ -677,6 +683,12 @@ export default function WorkoutSession() {
   // unpins so the next one opens on its own. (Auto-collapse: Boostcamp's pattern — the
   // scroll is one exercise, not the whole workout.)
   const [pinned, setPinned] = useState(null);
+  // The exercise the keyboard is in. Done is "every set has reps", and reps is the
+  // field before RIR — so typing the last set's reps collapsed the ledger under his
+  // thumb before the RIR could go in (2026-09-10). Focus leaving the block (keyboard
+  // dismissed, a tap elsewhere) is the signal he is finished with it; until then a
+  // done exercise stays open.
+  const [typingIn, setTypingIn] = useState(null);
   const flushRef = useRef(null);       // latest flush(), for the retry timer to call
   const mountedRef = useRef(true);
   // The save loop lives in util/saveLoop.js so its invariants can be tested without a
@@ -781,8 +793,11 @@ export default function WorkoutSession() {
     if (pinned != null && doneIds.has(pinned) && !prevDoneRef.current.has(pinned)) setPinned(null);
     prevDoneRef.current = doneIds;
   }, [doneIds, pinned]);
+  const exists = (cid) => cid != null && exercises.some((ex) => ex.client_id === cid);
   const openId = pinned === NONE ? null
-    : (pinned != null && exercises.some((ex) => ex.client_id === pinned)) ? pinned : firstOpenId;
+    : exists(pinned) ? pinned
+    : (exists(typingIn) && doneIds.has(typingIn)) ? typingIn
+    : firstOpenId;
 
   // Hydrate local state once from the fresh mount-fetch. If that fetch errored but
   // cached data exists (e.g. offline), hydrate from cache instead of hanging on the
@@ -1273,6 +1288,7 @@ export default function WorkoutSession() {
             onTargetChange={(target) => setExercises((prev) => prev.map((x) => x.client_id === ex.client_id ? { ...x, target } : x))}
             onRemove={() => setExercises(exercises.filter((_, j) => j !== i))}
             suggestion={suggestionByExercise[ex.exercise_id]}
+            onFocusChange={(inside) => setTypingIn((cur) => (inside ? ex.client_id : cur === ex.client_id ? null : cur))}
           />
         ))}
         {exercises.length === 0 && (
