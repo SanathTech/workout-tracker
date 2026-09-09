@@ -27,6 +27,7 @@ import { track } from '../util/telemetry';
 // plain SVG and paints on the first render.
 const FitnessChart = lazy(() => import('../components/FitnessChart'));
 const MetricDetail = lazy(() => import('../components/MetricDetail'));
+const EnduranceTrends = lazy(() => import('../components/EnduranceTrends'));
 
 function hours(secs) {
   if (!secs) return null;
@@ -618,27 +619,54 @@ function SessionRow({ children, date }) {
 // long, and the recent ones are the ones the week review is talking about.
 const RECENT_DAYS = 14;
 
+// One discipline at a time (2026-09-09). The charts came first — "trends, not just a
+// log list" — and six charts plus two logs stacked was the three-screen tab again. The
+// chip scopes the whole section: the trend charts, then the recent sessions under them.
+// Runs by default: the limiter for the 70.3 and the discipline the HR cap is about.
+const DISCIPLINES = [
+  { key: 'run', label: 'Runs', match: (s) => s.type === 'Run' || s.type === 'VirtualRun' },
+  { key: 'swim', label: 'Swims', match: (s) => s.type === 'Swim' },
+];
+
 function Endurance({ sessions, ceiling }) {
   const [info, setInfo] = useState(false);
   const [all, setAll] = useState(false);
+  const [disc, setDisc] = useState('run');
+  const discipline = DISCIPLINES.find((d) => d.key === disc);
   const cutoff = localDate(-RECENT_DAYS);
-  const shown = all ? sessions || [] : (sessions || []).filter((s) => String(s.date).slice(0, 10) >= cutoff);
-  const older = (sessions?.length || 0) - shown.length;
-  const runs = shown.filter((s) => s.type === 'Run' || s.type === 'VirtualRun');
-  const swims = shown.filter((s) => s.type === 'Swim');
+  const mine = (sessions || []).filter(discipline.match);
+  const shown = all ? mine : mine.filter((s) => String(s.date).slice(0, 10) >= cutoff);
+  const older = mine.length - shown.length;
+  const runs = disc === 'run' ? shown : [];
+  const swims = disc === 'swim' ? shown : [];
 
   return (
     <Section
-      label="Endurance · last 6 weeks"
-      action={sessions?.length > 0 && (
-        <InfoToggle open={info} onClick={() => setInfo((o) => !o)} label="How the endurance rows are read" />
-      )}
+      label="Endurance"
+      action={
+        <InfoToggle open={info} onClick={() => setInfo((o) => !o)} label="How the endurance charts and rows are read" />
+      }
     >
-      {/* An empty section, not a vanished one: no endurance work in six weeks is itself
-          the finding, and a section that silently disappears reads as a bug rather than
-          a fact. */}
-      {!sessions?.length ? (
-        <p className="text-sm text-neutral-400">No runs or swims in the last six weeks.</p>
+      <div className="flex gap-1.5 mb-3" role="group" aria-label="Discipline — drives the charts and the sessions below">
+        {DISCIPLINES.map((d) => (
+          <button key={d.key} type="button" onClick={() => setDisc(d.key)} aria-pressed={disc === d.key} className={disc === d.key ? 'chip-solid' : 'chip'}>
+            {d.label}
+          </button>
+        ))}
+      </div>
+
+      <Suspense fallback={<Skeleton className="h-64 w-full" />}>
+        <EnduranceTrends discipline={disc} />
+      </Suspense>
+
+      <p className="text-[11px] uppercase tracking-wide text-neutral-600 mt-4">
+        {discipline.label} · last {all ? '6 weeks' : 'fortnight'}
+      </p>
+      {/* An empty block, not a vanished one: no sessions in the window is itself the
+          finding, and a block that silently disappears reads as a bug rather than a
+          fact. */}
+      {!mine.length ? (
+        <p className="text-sm text-neutral-400">No {discipline.label.toLowerCase()} in the last six weeks.</p>
       ) : !shown.length ? (
         <p className="text-sm text-neutral-400">Nothing in the last fortnight.</p>
       ) : null}
@@ -662,7 +690,6 @@ function Endurance({ sessions, ceiling }) {
 
       {runs.length > 0 && (
         <>
-          <p className="text-[11px] uppercase tracking-wide text-neutral-600">Runs</p>
           <div className="divide-y divide-neutral-800">
             {runs.map((r) => {
               const mins = Number(r.minutes_over_hr_ceiling) || 0;
@@ -726,7 +753,6 @@ function Endurance({ sessions, ceiling }) {
 
       {swims.length > 0 && (
         <>
-          <p className={`text-[11px] uppercase tracking-wide text-neutral-600 ${runs.length ? 'mt-3' : ''}`}>Swims</p>
           <div className="divide-y divide-neutral-800">
             {swims.map((w) => (
               <SessionRow key={w.date + w.name} date={w.date}>

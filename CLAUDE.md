@@ -42,9 +42,10 @@ frontend/
       AimEditSheet.jsx       Writes/edits/resolves the coach_notes row behind an aim (POST/PATCH /api/coach/notes)
       WorkoutRow.jsx         The one row for a logged workout (Train's history)
       FinishSheet.jsx        Post-Finish summary (duration/sets/volume/↑/★) + RPE grid
+      EnduranceTrends.jsx    Runs: weekly km · pace vs HR (pace reversed, ceiling line) · drift; Swims: weekly min · pace vs wall rest · m/stroke. Series shaped in `util/endurance.js` (pure, tested; scraps <2 km / <200 m dropped, Monday weeks, zero weeks kept)
     pages/
       Dashboard.jsx          Today: week strip, session block (lift preview + Start) and check-in block both open, tiles, coach line
-      Health.jsx             Week review (headline, tap to expand) · Recovery (last-night tiles, 30-day rows → 90-day detail, fitness chart) · Protocol (bedtime dots, ramp, weight + THE weigh-in logger, check-in history) · Endurance (fortnight by default, ⓘ explainers)
+      Health.jsx             Week review (headline, tap to expand) · Recovery (last-night tiles, 30-day rows → 90-day detail, fitness chart) · Protocol (bedtime dots, ramp, weight + THE weigh-in logger, check-in history) · Endurance (Runs|Swims chip scopes it: 3 trend charts over 26 weeks — `EnduranceTrends.jsx`, lazy, `/api/coach/endurance` — then that discipline's fortnight of rows, ⓘ explainers)
       Progress.jsx           "Lifts" tab: exercise picker (remembered) → chart · bests · aim line with edit; then muscle sets, totals, weekly volume, all PBs (no bodyweight — that's Health)
       Train.jsx              This week (DayRows) · Program (ProgramView: name, week, the one Start, routines) · History (infinite); Exercises is a link
       ProgramEdit.jsx        /program/new and /program/:id/edit — ProgramEditor as a route (back gesture works, nav hides)
