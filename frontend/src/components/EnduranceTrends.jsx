@@ -22,7 +22,10 @@ import { runSeries, runSessions, swimSeries, swimSessions, weeklyTotals } from '
 const WEEKS = 26;
 const DAYS = WEEKS * 7;
 
+// A missing value is a dash, never "0:00" — a swim without stream rest did not rest for
+// zero seconds, and a run without HR is not "HR null".
 const mmss = (s) => {
+  if (s == null) return '—';
   const t = Math.round(s);
   return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
 };
@@ -81,7 +84,7 @@ function Runs({ sessions, ceiling }) {
       <Weekly rows={weeks} dataKey="km" unit="km" title={`Weekly km · ${WEEKS} weeks`} />
       <Chart
         title="Pace & heart rate"
-        latest={<><span className="text-emerald-400">● {mmss(last.pace_s)}/km</span> · <span className="text-amber-400">● HR {last.hr}</span></>}
+        latest={<><span className="text-emerald-400">● {mmss(last.pace_s)}/km</span>{last.hr != null && <> · <span className="text-amber-400">● HR {last.hr}</span></>}</>}
         hint={`Pace is the running samples only where the stream allows. The base is built when pace comes back with HR held under ${ceiling}.`}
       >
         <ComposedChart data={points} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
@@ -92,7 +95,7 @@ function Runs({ sessions, ceiling }) {
           <YAxis yAxisId="hr" hide domain={['dataMin - 10', 'dataMax + 5']} />
           <Tooltip
             contentStyle={tooltipStyle} labelFormatter={tooltipDay}
-            formatter={(v, n) => (n === 'Pace' ? [`${mmss(v)}/km`, n] : [`${v} bpm`, n])}
+            formatter={(v, n) => (n === 'Pace' ? [`${mmss(v)}/km`, n] : [v == null ? '—' : `${v} bpm`, n])}
           />
           <ReferenceLine yAxisId="hr" y={ceiling} stroke="#fbbf24" strokeDasharray="2 4" strokeOpacity={0.5} />
           <Area yAxisId="hr" type="monotone" dataKey="hr" name="HR" stroke="#fbbf24" strokeOpacity={0.5} fill="#fbbf24" fillOpacity={0.08} strokeWidth={1} dot={false} isAnimationActive={false} />

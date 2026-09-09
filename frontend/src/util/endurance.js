@@ -25,8 +25,11 @@ const iso = (d) => {
 };
 
 // Monday of the week that holds `day`, as YYYY-MM-DD.
+// Clone before shifting: parseDay hands back the same object when given a Date.
+const byDate = (a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+
 export function weekStart(day) {
-  const d = parseDay(day);
+  const d = new Date(parseDay(day));
   d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
   return iso(d);
 }
@@ -37,13 +40,13 @@ const num = (v) => (v == null || v === '' ? null : Number(v));
 export function runSessions(sessions) {
   return (sessions || [])
     .filter((s) => isRun(s.type) && num(s.distance_m) >= MIN_RUN_M && s.moving_time > 0)
-    .sort((a, b) => (a.date < b.date ? -1 : 1));
+    .sort(byDate);
 }
 
 export function swimSessions(sessions) {
   return (sessions || [])
     .filter((s) => isSwim(s.type) && num(s.distance_m) >= MIN_SWIM_M && s.moving_time > 0)
-    .sort((a, b) => (a.date < b.date ? -1 : 1));
+    .sort(byDate);
 }
 
 // One bucket per calendar week over the last `weeks` weeks (ending on the week that
