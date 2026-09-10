@@ -21,12 +21,12 @@ const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frida
 // deferred a Saturday gym day to "Monday" (2026-08-15).
 const RHYTHM = {
   Monday: 'gym (next in the A->B->C cycle)',
-  Tuesday: 'easy run 30-45min, finishing with 4-6 strides',
+  Tuesday: 'easy run 30-45min, time-boxed — no strides (office day)',
   Wednesday: 'swim — a fixture, plus sauna and dog walk',
   Thursday: 'gym (next in the A->B->C cycle)',
-  Friday: 'recovery walk',
+  Friday: 'recovery walk plus the ~12min mobility block',
   Saturday: 'gym (next in the A->B->C cycle)',
-  Sunday: 'longer easy run 45-60min or a ride',
+  Sunday: 'longer easy run 45-60min, finishing with 4-6 strides, or a ride',
 };
 
 // The same template as RHYTHM, but structured — the app renders from this, the coach
@@ -36,15 +36,16 @@ const RHYTHM = {
 // depends on where the A->B->C cycle stands, so it is resolved per-week in weekPlan().
 const PLAN = {
   Monday:    { kind: 'gym',  title: 'Gym' },
-  Tuesday:   { kind: 'run',  title: 'Easy run + strides',
-               detail: '30-45min at HR 145-153 (ceiling 153), then 4-6 x 20sec strides with 60-90sec walk recovery' },
+  Tuesday:   { kind: 'run',  title: 'Easy run',
+               detail: '30-45min at HR 145-153 (ceiling 153). Office day — time-boxed, strides live on Sunday' },
   Wednesday: { kind: 'swim', title: 'Swim + sauna + walk',
-               detail: '~35min continuous. Slow the freestyle down and hold it longer between breaststroke recoveries — distance is the result, not the target. Then ~15min sauna and the dog walk' },
+               detail: '~45min continuous freestyle at the same relaxed pace — duration is the lever now, distance is the result. Then ~15min sauna and the dog walk' },
   Thursday:  { kind: 'gym',  title: 'Gym' },
-  Friday:    { kind: 'walk', title: 'Recovery walk', detail: '20-30min easy' },
+  Friday:    { kind: 'walk', title: 'Recovery walk + mobility',
+               detail: '20-30min easy, then ~12min mobility: knee-to-wall ankle (measure both sides), half-kneeling hip flexor, open-book or roller extensions, wall slides' },
   Saturday:  { kind: 'gym',  title: 'Gym' },
-  Sunday:    { kind: 'run',  title: 'Long easy run or ride',
-               detail: '45-60min at HR 145-153 (ceiling 153)' },
+  Sunday:    { kind: 'run',  title: 'Long easy run + strides, or a ride',
+               detail: '45-60min at HR 145-153 (ceiling 153), then 4-6 x 20sec strides with 60-90sec walk recovery' },
 };
 
 // Every date the coach sees is labelled here rather than left as a bare ISO string.

@@ -50,8 +50,8 @@ resumes with C on Monday, A on Thursday, B on Saturday; the skipped routines' li
 wait for their next slot. Plan next week on the weekday->routine mapping above, not on
 "whichever routine is next in the rotation".
 Mon gym · Tue easy run 30-45min (office day, time-boxed — no strides) · Wed swim (a
-fixture — never schedule gym over it) · Thu gym · Fri recovery walk · Sat gym · Sun
-longer easy run 45-60min + strides, or a ride. Sequence the gym cycle A->B->C across the Mon/Thu/Sat slots from wherever it
+fixture — never schedule gym over it) · Thu gym · Fri recovery walk + mobility · Sat
+gym · Sun longer easy run 45-60min + strides, or a ride. Sequence the gym cycle A->B->C across the Mon/Thu/Sat slots from wherever it
 currently stands. His historical runs sit near or at threshold with no aerobic base
 underneath: the planned runs are EASY — his Zone 2, HR 145-153, hard ceiling 153.
 These are HIS zones from intervals.icu (LTHR 172, max HR 190 — genuinely observed),
@@ -142,6 +142,27 @@ that rule; do not invent a verdict, and do not escalate a "bit sore" into a stop
 Relevant context if he asks why now: his running time-on-feet roughly doubled in August
 (sessions went from ~31min to 43-48min, and from fortnightly to weekly), and the first
 knee report landed the day of his first easy run.
+
+FRIDAY CARRIES A ~12MIN MOBILITY BLOCK alongside the recovery walk (added 2026-09-11).
+It is NOT training load and never counts as a session: the walk is still Friday's
+movement credit, and a Friday of walk-only is a partial, not a miss. It targets two
+restrictions his own notes named, and nothing else — do not let it grow into a generic
+stretching routine, and do not prescribe it on gym days:
+  - ANKLE DORSIFLEXION, because of the 20 Aug squat note ("I have to lean forward when
+    squatting to keep balance, which results in more loading on my lower back") and the
+    13 Aug left-ankle pain. Limited dorsiflexion forces that lean and is a
+    patellofemoral load in its own right, so this sits on top of the knee problem. The
+    block opens with the knee-to-wall test MEASURED IN CM ON BOTH SIDES — that number
+    and its left/right gap are the tracked outcome; ask for it if he has not reported
+    one, and compare against the last.
+  - THORACIC EXTENSION AND OVERHEAD SHOULDER, because the neck on overhead press is now
+    three reports across Day C (17 Aug, 31 Aug, 7 Sep "felt the neck flare up
+    slightly"). If it survives several weeks of this, the answer is a pressing
+    variation (landmine, incline), NOT more stretching — say so rather than repeating
+    the mobility advice.
+The rest: half-kneeling hip flexor, open-book or roller extensions, wall slides,
+optional 90/90 hip switches. Same monitored-pain rule as the gym — nothing loaded,
+nothing that provokes the knee.
 
 He is a reliable reporter of how his body feels: he writes niggles into the check-in
 and gym notes as he notices them. So when a NEWER note exists and does not mention an
