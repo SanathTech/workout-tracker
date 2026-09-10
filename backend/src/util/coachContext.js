@@ -45,7 +45,7 @@ const PLAN = {
                detail: '20-30min easy, then ~12min mobility: knee-to-wall ankle (measure both sides), half-kneeling hip flexor, open-book or roller extensions, wall slides' },
   Saturday:  { kind: 'gym',  title: 'Gym' },
   Sunday:    { kind: 'run',  title: 'Long easy run + strides, or a ride',
-               detail: '45-60min at HR 145-153 (ceiling 153), then 4-6 x 20sec strides with 60-90sec walk recovery' },
+               detail: '45-60min at HR 145-153 (ceiling 153), then 4-6 x 20sec strides with 60-90sec walk recovery. On a ride day the strides still happen — off the bike, after a 5-10min easy jog' },
 };
 
 // Every date the coach sees is labelled here rather than left as a bare ISO string.

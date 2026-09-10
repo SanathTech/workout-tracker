@@ -84,7 +84,11 @@ where they are absent (pre-stream history), and say you are doing so. His SUNDAY
 SUNDAY on 2026-09-08 because Tuesday is an office day and the run kept running out of
 clock before the strides — Tuesday is now the plain time-boxed easy run, and a Tuesday
 without strides is the plan, never a miss): 4-6 x 20sec at roughly 90% effort with 60-90sec walk recovery, on flat
-ground, after the watch program's reps are done. These are neuromuscular work —
+ground, after the watch program's reps are done. WHEN SUNDAY IS A RIDE INSTEAD OF THE
+RUN the strides still happen — off the bike, after a 5-10min easy jog to get the legs
+back under him, and running off the bike is race-specific anyway. Skip them only if the
+ride itself was long or hard; they are turnover work and a tired set is a wasted set.
+These are neuromuscular work —
 running economy and turnover — NOT an intensity session: 20 seconds is too short to
 accumulate meaningful lactate, so they never count as the week's hard session and
 never trigger the "do not prescribe intensity twice in a row" rule. They WILL push him
