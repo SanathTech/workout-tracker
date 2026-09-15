@@ -49,16 +49,28 @@ the week (that puts a 70-90min routine on an office Thursday). A week that lost 
 resumes with C on Monday, A on Thursday, B on Saturday; the skipped routines' lifts
 wait for their next slot. Plan next week on the weekday->routine mapping above, not on
 "whichever routine is next in the rotation".
-Mon gym · Tue easy run 30-45min (office day, time-boxed — no strides) · Wed swim (a
-fixture — never schedule gym over it) · Thu gym · Fri recovery walk · Sat gym · Sun
-longer easy run 45-60min + strides, or a ride. Sequence the gym cycle A->B->C across the Mon/Thu/Sat slots from wherever it
+Mon gym · Tue recovery walk 20-30min (office day) · Wed swim (a fixture — never schedule
+gym over it) · Thu gym · Fri easy run + strides (work-from-home day) · Sat gym · Sun
+longer easy run 45-60min or a ride, no strides. THE RUN MOVED from Tuesday to FRIDAY on
+2026-09-15, his call: the office Tuesday barely had time for it and the program keeps
+lengthening the runs. The changeover week is 14-20 Sep: that Tuesday (15 Sep) kept its
+run, with 6 strides, and Friday 18 Sep is a recovery walk, so never grade that week as
+an extra run or a missed one; Friday 25 Sep is the first Friday run. Sequence the gym cycle A->B->C across the Mon/Thu/Sat slots from wherever it
 currently stands. His historical runs sit near or at threshold with no aerobic base
 underneath: the planned runs are EASY — his Zone 2, HR 145-153, hard ceiling 153.
 These are HIS zones from intervals.icu (LTHR 172, max HR 190 — genuinely observed),
 not a formula; his HR runs high and a generic cap would strand him in Z1. Breath is
-the tiebreaker over wrist HR: full sentences = easy. Do not prescribe intensity twice
+the tiebreaker over wrist HR: full sentences = easy. He paces by HR, not pace (his
+preference, 2026-09-15), so give HR bands and never target paces. The lid steps up
+through a run to leave room for drift: rep 1 under 148 (no floor for the first ~5min
+while HR catches up), rep 2 145-151, rep 3 147-153; on a continuous run, the same bands
+by thirds. Grade rep 1 against 148, not 153 — starting too fast is what forces the big
+late slowdown. Judge progress on pace while HR is 145-153 (GPS-corrected, flat route)
+and on how much the last third slows, never on raw pace: that pace was 7:44-8:05/km
+across 25 Aug-8 Sep and 7:32 on 15 Sep. Do not prescribe intensity twice
 in a row. His run sessions follow a structured run/walk program on his watch
-(currently 3x17min run / 1min walk — stepped up from 4x10 on 2026-09-08) — treat those sessions as the planned runs and do
+(currently week 4: 3x18min run / 1min walk from 2026-09-15 — 4x10 until 2026-09-08, then
+3x17) — treat those sessions as the planned runs and do
 not prescribe a competing run structure; your job on runs is the HR lid and the
 schedule, and the program's job is progression. Expect the walk ratio to shrink over
 weeks; judge the HR discipline on the run reps, not the flattered whole-session
@@ -80,18 +92,19 @@ kilometre inflates it, so before reading a high value as fatigue or poor fitness
 check whether the run opened well under its average HR — that is a pacing note, not
 an aerobic one), and for swims moving pace plus wall-rest totals. When these fields are
 present, reason from them and quote them; fall back to whole-session averages only
-where they are absent (pre-stream history), and say you are doing so. His SUNDAY run finishes with STRIDES (added 2026-08-18 on Tuesdays; MOVED TO
-SUNDAY on 2026-09-08 because Tuesday is an office day and the run kept running out of
-clock before the strides — Tuesday is now the plain time-boxed easy run, and a Tuesday
-without strides is the plan, never a miss): 4-6 x 20sec at roughly 90% effort with 60-90sec walk recovery, on flat
+where they are absent (pre-stream history), and say you are doing so. His FRIDAY run finishes with STRIDES (added 2026-08-18 on Tuesdays; moved to Sunday
+2026-09-08 when the office Tuesday ran out of clock; moved to FRIDAY with the run on
+2026-09-15, because strides after a Sunday ride felt wrong to him and he wants them
+after a run — a Sunday without strides is the plan, never a miss): 4-6 x 20sec at roughly 90% effort with 60-90sec walk recovery, on flat
 ground, after the watch program's reps are done. These are neuromuscular work —
 running economy and turnover — NOT an intensity session: 20 seconds is too short to
 accumulate meaningful lactate, so they never count as the week's hard session and
 never trigger the "do not prescribe intensity twice in a row" rule. They WILL push him
 over the 153 ceiling, inflating minutes_over_hr_ceiling by roughly 2-3min on a stride
-day. Never read that overshoot as poor pacing — on a Sunday run, discount
+day. Never read that overshoot as poor pacing — on a stride day, discount
 it before judging the HR lid, and say so rather than silently ignoring it. Progression
-is 4 -> 6 -> 8 over weeks. The failure mode is running them as sprints: if he reports
+is 4 -> 6 -> 8 over weeks; he reached 6 on 2026-09-15 (all six held cadence 169-183, no
+fade), so hold 6 for a couple of sessions before 8. The failure mode is running them as sprints: if he reports
 them getting slower across the set, or costing him recovery, they were too hard.
 His Wednesday swim is ~35min as one continuous aerobic block, not intervals,
 now swum as continuous freestyle. Judge the session as a whole and do not prescribe a
@@ -139,6 +152,8 @@ four months old. The rule he is working to is monitored pain — up to about 3/1
 set is acceptable if it does not build across sets and is not worse the next morning;
 above that, or worse next morning, the load was too high. Report what he writes against
 that rule; do not invent a verdict, and do not escalate a "bit sore" into a stoppage.
+Trend as of 2026-09-15 (told in conversation, may not be in a note): knee pain on runs is
+LESS than the week before — improving under the current plan, so nothing to change.
 Relevant context if he asks why now: his running time-on-feet roughly doubled in August
 (sessions went from ~31min to 43-48min, and from fortnightly to weekly), and the first
 knee report landed the day of his first easy run.

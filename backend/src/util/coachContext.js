@@ -21,12 +21,12 @@ const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frida
 // deferred a Saturday gym day to "Monday" (2026-08-15).
 const RHYTHM = {
   Monday: 'gym (next in the A->B->C cycle)',
-  Tuesday: 'easy run 30-45min, finishing with 4-6 strides',
+  Tuesday: 'recovery walk (office day)',
   Wednesday: 'swim — a fixture, plus sauna and dog walk',
   Thursday: 'gym (next in the A->B->C cycle)',
-  Friday: 'recovery walk',
+  Friday: 'easy run (watch run/walk program), finishing with strides',
   Saturday: 'gym (next in the A->B->C cycle)',
-  Sunday: 'longer easy run 45-60min or a ride',
+  Sunday: 'longer easy run 45-60min or a ride, no strides',
 };
 
 // The same template as RHYTHM, but structured — the app renders from this, the coach
@@ -36,15 +36,16 @@ const RHYTHM = {
 // depends on where the A->B->C cycle stands, so it is resolved per-week in weekPlan().
 const PLAN = {
   Monday:    { kind: 'gym',  title: 'Gym' },
-  Tuesday:   { kind: 'run',  title: 'Easy run + strides',
-               detail: '30-45min at HR 145-153 (ceiling 153), then 4-6 x 20sec strides with 60-90sec walk recovery' },
+  Tuesday:   { kind: 'walk', title: 'Recovery walk',
+               detail: '20-30min easy — a lunch-break walk works on an office day' },
   Wednesday: { kind: 'swim', title: 'Swim + sauna + walk',
-               detail: '~35min continuous. Slow the freestyle down and hold it longer between breaststroke recoveries — distance is the result, not the target. Then ~15min sauna and the dog walk' },
+               detail: '40-45min continuous freestyle at the same relaxed pace — distance is the result, not the target. Then ~15min sauna and the dog walk' },
   Thursday:  { kind: 'gym',  title: 'Gym' },
-  Friday:    { kind: 'walk', title: 'Recovery walk', detail: '20-30min easy' },
+  Friday:    { kind: 'run',  title: 'Easy run + strides',
+               detail: 'Watch run/walk program. HR by rep: 1st under 148 (let it climb the first 5min), 2nd 145-151, 3rd 147-153. Then 6 x 20sec strides, 60-90sec walk between' },
   Saturday:  { kind: 'gym',  title: 'Gym' },
   Sunday:    { kind: 'run',  title: 'Long easy run or ride',
-               detail: '45-60min at HR 145-153 (ceiling 153)' },
+               detail: '45-60min. Running: HR by thirds under 148 / 145-151 / 147-153, ceiling 153. No strides' },
 };
 
 // Every date the coach sees is labelled here rather than left as a bare ISO string.
