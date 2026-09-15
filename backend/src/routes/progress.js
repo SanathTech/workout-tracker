@@ -57,7 +57,12 @@ router.get('/last-session', async (req, res) => {
            JOIN workout_exercises we ON we.workout_id = w.id
            JOIN exercises e ON e.id = we.exercise_id
            JOIN workout_sets ws ON ws.workout_exercise_id = we.id
+           CROSS JOIN last
           WHERE w.status = 'completed' AND ws.set_type <> 'warmup' AND ws.reps > 0
+            -- Only the last session's lifts, and only up to it, so the scan is the size of
+            -- those lifts' history rather than every set ever logged.
+            AND w.date <= last.date
+            AND we.exercise_id IN (SELECT exercise_id FROM workout_exercises WHERE workout_id = last.id)
        )
        SELECT last.id AS workout_id, last.date, last.routine_name,
               cur.exercise_id, cur.name, cur.weight, cur.reps,

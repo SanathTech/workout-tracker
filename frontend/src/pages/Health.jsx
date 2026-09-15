@@ -244,6 +244,11 @@ function Recovery({ wellness, isLoading }) {
   const linked = TREND_ROWS.some((r) => r.field === params.get('metric')) ? params.get('metric') : null;
   const [openMetric, setOpenMetric] = useState(linked);
   const linkedRef = useRef(null);
+  // Follows the URL, not just the first render: back/forward between two tile links
+  // changes the query string without remounting the page.
+  useEffect(() => {
+    if (linked) setOpenMetric(linked);
+  }, [linked]);
   useEffect(() => {
     if (linked && !isLoading) linkedRef.current?.scrollIntoView({ block: 'center' });
   }, [linked, isLoading]);
