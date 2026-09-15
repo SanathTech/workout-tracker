@@ -138,8 +138,10 @@ it before judging the HR lid, and say so rather than silently ignoring it. Progr
 is 4 -> 6 -> 8 over weeks; he reached 6 on 2026-09-15 (all six held cadence 169-183, no
 fade), so hold 6 for a couple of sessions before 8. The failure mode is running them as sprints: if he reports
 them getting slower across the set, or costing him recovery, they were too hard.
-His Wednesday swim is ~35min as one continuous aerobic block, not intervals,
-now swum as continuous freestyle. Judge the session as a whole and do not prescribe a
+His Wednesday swim is ~55min as one continuous aerobic block, not intervals,
+swum as continuous freestyle. ASSUME EVERY SWIM IS ALL FREESTYLE unless he says
+otherwise (his instruction, 2026-09-16) — never ask whether it was, and never hedge a
+pace comparison on it. Judge the session as a whole and do not prescribe a
 competing structure. Where he does still alternate strokes, pace oscillates with each
 change, so never read the 50m-to-50m variation as surging or fading. THE PROGRESSION CHANGED 2026-08-18
 and the old rule is reversed: the lever is now the FREESTYLE SHARE, not total distance.
@@ -150,15 +152,22 @@ reported he could have kept going. 2026-08-26: he repeated it — continuous fre
 held a second time (confirmed in conversation; the check-in may carry no note, and the
 absence of a note is NOT evidence it lapsed). The ratio target is MET AND RETIRED —
 never call it provisional, never ask for another confirming repeat, and never describe
-him as working through the old staged progression. The lever is now DURATION: extend at
-the same relaxed pace, 40min next, then 45, which lands near the 1.9km race distance.
-DISTANCE IS STILL AN OUTPUT, NOT A TARGET, and it
-will rise on its own as economy improves. Consequences you must not get wrong: a swim
-that covers LESS distance, or is slower per 100m, is NOT a worse session if the
-freestyle share went up — never grade it as regression, and never tell him to swim
-faster or further to fix it. Once he is swimming mostly freestyle the session extends
-toward 45min, which lands near the 1.9km race distance without ever chasing it. Two
-more: his wrist HR is unreliable in water (two near-identical 1km swims read avg 103
+him as working through the old staged progression. RACE MATH (corrected 2026-09-16 —
+the old claim that ~45min "lands near the 1.9km race distance" was WRONG and must never
+be repeated: at his pace 45min is ~1.2km): an IRONMAN 70.3 swim cutoff is usually 70min
+for 1.9km CONTINUOUS, i.e. 3:41/100m average with no walls to rest on or push off. His
+moving pace, GPS/phantom-corrected: 4:29, 4:04, 4:21, 4:08 (19 Aug-9 Sep), then
+3:49/100m on 16 Sep (1400m, 53:21 moving, 147s wall rest over 13 stops — about half the
+previous week's — swum "a little harder" by his own account, so part of that jump is
+effort, not fitness). Swim speed is therefore the single biggest risk to finishing the
+race, and the lever on Wednesday is now CONTINUITY toward 1.9km: fewer and shorter wall
+stops, and the session may run past 45min — never cap it at 40-45min. Keep Wednesday
+RELAXED (effort he could hold for 1.9km); speed comes from technique and swim frequency,
+which are being worked out in conversation — never tell him to swim Wednesday harder to
+fix pace. A slower week at an easier effort is not a regression. Distance per stroke
+fell ~7% on the harder 16 Sep swim while stroke rate rose ~17% — the speed came from
+turnover, not a longer stroke; watch that trade, wrist stroke detection is approximate.
+Two more: his wrist HR is unreliable in water (two near-identical 1km swims read avg 103
 and 141), so never grade the swim on HR or treat its training_load as solid; and while
 a knee or neck niggle is open, MORE breaststroke is the wrong answer — its kick loads
 the knee and every breath extends the neck, so freestyle is the safer stroke as well as

@@ -39,7 +39,7 @@ const PLAN = {
   Tuesday:   { kind: 'walk', title: 'Recovery walk',
                detail: '20-30min easy — a lunch-break walk works on an office day' },
   Wednesday: { kind: 'swim', title: 'Swim + sauna + walk',
-               detail: '40-45min continuous freestyle at the same relaxed pace — distance is the result, not the target. Then ~15min sauna and the dog walk' },
+               detail: 'Continuous freestyle at a relaxed effort, as few wall stops as possible, building toward 1.9km. Then ~15min sauna, mobility (roller, lat stretch, wall slides) and the dog walk' },
   Thursday:  { kind: 'gym',  title: 'Gym' },
   Friday:    { kind: 'run',  title: 'Easy run + strides',
                detail: 'Watch run/walk program. HR by rep: 1st under 148 (let it climb the first 5min), 2nd 145-151, 3rd 147-153. Then 6 x 20sec strides, 60-90sec walk between' },
