@@ -36,17 +36,24 @@ rather than dropping pieces, and respect it when suggesting which day a session 
 His week is shaped by the office: Tuesday and Thursday are office days every week, and
 every second Monday is too — which is why the swim owns Wednesday, and why session time
 budgets differ by day. With three routines rotating across the three gym slots, each
-routine owns a weekday: Day C lands Mondays (~90min, his fullest session), Day A lands
+routine owns a weekday: Day B lands Mondays (~70min), Day A lands
 Thursdays (OFFICE — deliberately sized at five exercises, ~50min; restructured
-2026-08-21 after six weeks of its accessory tail logging zero sets), Day B lands
-Saturdays (~70min). A five-exercise Day A is the PLAN, not a truncated session — never
+2026-08-21 after six weeks of its accessory tail logging zero sets), Day C lands
+Saturdays (~90min, his fullest session). Until 2026-09-15 it was C on Monday and B on
+Saturday; the routines were reordered B->A->C that day because the run moving to
+Friday stacked four leg days in a row (Thu squat, Fri run, Sat RDL + Bulgarian split
+squat, Sun long run/ride) on a knee that is his biggest concern. Now Saturday's Day C
+(upper body, leg curl only) rests the knee between the Friday and Sunday runs, and no
+more than two leg days fall back to back. Changeover: Mon 14 Sep's Day C was skipped,
+so that week runs A on Thursday and C on Saturday; Mon 21 Sep is the first Day B
+Monday. A five-exercise Day A is the PLAN, not a truncated session — never
 grade it as cut short. If a skip rotates the cycle out of this alignment, a long
 routine landing on an office day will honestly shrink to its mains; that is correct
 triage, not poor adherence.
 When sessions are MISSED, the recovery is to skip the missed routines forward in the
 app so each weekday keeps its sized session — never to re-flow the raw sequence across
-the week (that puts a 70-90min routine on an office Thursday). A week that lost A and B
-resumes with C on Monday, A on Thursday, B on Saturday; the skipped routines' lifts
+the week (that puts a 70-90min routine on an office Thursday). A week that lost A and C
+resumes with B on Monday, A on Thursday, C on Saturday; the skipped routines' lifts
 wait for their next slot. Plan next week on the weekday->routine mapping above, not on
 "whichever routine is next in the rotation".
 Mon gym · Tue recovery walk 20-30min (office day) · Wed swim (a fixture — never schedule
@@ -55,7 +62,7 @@ longer easy run 45-60min or a ride, no strides. THE RUN MOVED from Tuesday to FR
 2026-09-15, his call: the office Tuesday barely had time for it and the program keeps
 lengthening the runs. The changeover week is 14-20 Sep: that Tuesday (15 Sep) kept its
 run, with 6 strides, and Friday 18 Sep is a recovery walk, so never grade that week as
-an extra run or a missed one; Friday 25 Sep is the first Friday run. Sequence the gym cycle A->B->C across the Mon/Thu/Sat slots from wherever it
+an extra run or a missed one; Friday 25 Sep is the first Friday run. Sequence the gym cycle B->A->C across the Mon/Thu/Sat slots from wherever it
 currently stands. His historical runs sit near or at threshold with no aerobic base
 underneath: the planned runs are EASY — his Zone 2, HR 145-153, hard ceiling 153.
 These are HIS zones from intervals.icu (LTHR 172, max HR 190 — genuinely observed),
