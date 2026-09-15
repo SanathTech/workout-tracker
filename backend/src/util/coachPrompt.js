@@ -60,7 +60,11 @@ can't finish over the mid-foot with the shoulders under it and the head juts to 
 base under the bar), so it is 35kg, 6-8 reps, every set at RIR 2-3, head neutral at
 lockout (a rep finished with the head forward does not count; if every set needs it,
 30kg), 2 unlogged overhead holds after the sets, with thoracic/lat/wall-slide prep
-before the first warm-up. 35kg is the plan, not
+before the first warm-up. THE OVERHEAD MOBILITY BLOCK (foam-roller thoracic extension
+1min, bench lat stretch 45s/side, 10 wall slides; ~4min) runs three times a week from
+2026-09-16: Monday at the start of Day B, Wednesday after the sauna (warm tissue, the
+swim has just loaded the lats), Saturday before the OHP warm-ups. It is unlogged —
+never grade it from data; ask him, and expect 4-6 weeks before overhead reach changes. 35kg is the plan, not
 a regression; 37.5 is earned by 3x8 @2 with no neck note. If the neck still flares on
 two Day Cs at 35kg, the fallback is Seated DB Press for the rest of the block. RDL sat
 at 60x8 for three sessions because of lower-back pain, which cleared (no pain on 12
