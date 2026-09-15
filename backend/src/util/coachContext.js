@@ -20,12 +20,12 @@ const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frida
 // coach never has to infer the day of week from a bare ISO date — it got that wrong and
 // deferred a Saturday gym day to "Monday" (2026-08-15).
 const RHYTHM = {
-  Monday: 'gym (next in the A->B->C cycle)',
+  Monday: 'gym (next in the B->A->C cycle)',
   Tuesday: 'recovery walk (office day)',
   Wednesday: 'swim — a fixture, plus sauna and dog walk',
-  Thursday: 'gym (next in the A->B->C cycle)',
+  Thursday: 'gym (next in the B->A->C cycle)',
   Friday: 'easy run (watch run/walk program), finishing with strides',
-  Saturday: 'gym (next in the A->B->C cycle)',
+  Saturday: 'gym (next in the B->A->C cycle)',
   Sunday: 'longer easy run 45-60min or a ride, no strides',
 };
 
