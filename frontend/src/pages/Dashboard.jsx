@@ -31,16 +31,16 @@ import { formatDay, localDate } from '../util/format';
 
 function isBlank(v) { return v == null || v === ''; }
 
-function duration(s) {
+// Rounded to whole seconds first, so 359.6 reads 6:00 and never 5:60.
+function duration(raw) {
+  const s = Math.round(raw);
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
-  const sec = String(Math.round(s % 60)).padStart(2, '0');
+  const sec = String(s % 60).padStart(2, '0');
   return h ? `${h}:${String(m).padStart(2, '0')}:${sec}` : `${m}:${sec}`;
 }
 
-function pace(s) {
-  return `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
-}
+const pace = duration;
 
 // Once a check-in half has been seen unanswered in this visit it stays on screen after
 // it's completed, as its own confirmation — the slot doesn't vanish under the thumb that
@@ -452,7 +452,9 @@ export default function Dashboard() {
 
       <WeekStrip week={week} isLoading={weekLoading} isError={weekError} />
 
-      <NowSlot gymDay={gymDay} readiness={readiness} />
+      {/* Not before the week is known: on a gym day the ratings belong on the Start card,
+          and guessing "not a gym day" while loading flashed them here first. */}
+      {!weekLoading && <NowSlot gymDay={gymDay} readiness={readiness} />}
 
       <TodayCard
         week={week} weekLoading={weekLoading}

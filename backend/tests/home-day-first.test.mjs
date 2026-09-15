@@ -98,6 +98,7 @@ console.log('\n─── /progress/last-session: top set vs the time before ─�
   ok(by[ex['Pull-Up']]?.change === 'up' && by[ex['Pull-Up']].weight_kg === -18, 'less assistance on an assisted lift → up', JSON.stringify(by[ex['Pull-Up']]));
   ok(body?.lifts?.some((l) => l.change === 'new'), 'a first-ever lift is new, not up');
   ok(body?.up === 2 && body?.compared === 3, 'up 2 of 3 compared (new lifts excluded)', `up=${body?.up} compared=${body?.compared}`);
+  ok(by[ex['Pull-Up']]?.weight_kg !== 0, 'a weightless set never reports as 0 kg');
   ok(body?.lifts?.[0]?.exercise_id === ex['Squat'], 'lifts come back in session order');
 }
 

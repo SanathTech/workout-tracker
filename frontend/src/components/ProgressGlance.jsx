@@ -8,8 +8,9 @@ import { formatDay } from '../util/format';
 // going up, where is the weight, is the engine growing, is the protocol holding. One line
 // each with its trend, and a tap to where that answer lives in full.
 
-function pace(s) {
-  return `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
+function pace(raw) {
+  const s = Math.round(raw);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
 function Row({ to, label, title, sub, series, field, stroke }) {

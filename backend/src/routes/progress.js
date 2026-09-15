@@ -50,7 +50,7 @@ router.get('/last-session', async (req, res) => {
        ),
        tops AS (
          SELECT we.id AS we_id, we.exercise_id, e.name, w.id AS workout_id, w.date,
-                COALESCE(ws.weight_kg, 0)::float AS weight, ws.reps,
+                ws.weight_kg::float AS weight, ws.reps,
                 ROW_NUMBER() OVER (PARTITION BY w.id, we.exercise_id
                                    ORDER BY ws.weight_kg DESC NULLS LAST, ws.reps DESC) AS rn
            FROM workouts w
@@ -79,10 +79,15 @@ router.get('/last-session', async (req, res) => {
     );
     if (!rows.length) return res.json(null);
     const lifts = rows.map((r) => {
+      // A top set with no weight logged is unknown load, not bodyweight: it compares on
+      // reps only against another weightless set, and otherwise isn't compared at all.
       let change = 'new';
-      if (r.prev_weight != null) {
-        const d = r.weight - r.prev_weight || r.reps - r.prev_reps;
-        change = d > 0 ? 'up' : d < 0 ? 'down' : 'same';
+      if (r.prev_reps != null) {
+        if ((r.weight == null) !== (r.prev_weight == null)) change = 'unknown';
+        else {
+          const d = (r.weight ?? 0) - (r.prev_weight ?? 0) || r.reps - r.prev_reps;
+          change = d > 0 ? 'up' : d < 0 ? 'down' : 'same';
+        }
       }
       return {
         exercise_id: r.exercise_id, name: r.name, weight_kg: r.weight, reps: r.reps,
@@ -95,7 +100,7 @@ router.get('/last-session', async (req, res) => {
       routine_name: rows[0].routine_name,
       lifts,
       up: lifts.filter((l) => l.change === 'up').length,
-      compared: lifts.filter((l) => l.change !== 'new').length,
+      compared: lifts.filter((l) => l.change !== 'new' && l.change !== 'unknown').length,
     });
   } catch (err) {
     serverError(res, err);
