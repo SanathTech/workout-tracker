@@ -28,6 +28,7 @@ backend/
       progress.js            Stats, weekly volume, per-exercise progress, PRs, /suggestions
       coach.js               Hub reads + coach_notes (GET list, POST create, PATCH edit/resolve)
     util/aim.js              Aim precedence for /suggestions: coach load-call beats the engine
+    util/activityStreams.js  intervals.icu stream fetch + presentation shaping (15 s buckets, walk breaks, km / 100 m splits) for the activity page
   vercel.json                Legacy v2 config (see Deployment — don't "modernize")
 frontend/
   src/
@@ -51,6 +52,7 @@ frontend/
       ProgramEdit.jsx        /program/new and /program/:id/edit — ProgramEditor as a route (back gesture works, nav hides)
       WorkoutSession.jsx     /session/:id — sticky header + progress bar, 3-state exercise list, ledger
       WorkoutDetail.jsx      /workouts/:id — read-only past workout
+      ActivityDetail.jsx     /activity/:id — one run or swim: stats, HR vs the 153 ceiling with walk breaks, zones, splits, strides, drift (swims: per-100 m, no wrist HR)
       ExerciseLibrary.jsx    Browse/add exercises
     components/ui.jsx        Page / Section / Disclosure / Sheet primitives (2026-09-08)
     index.css                Tailwind layers + the shared component classes (dark only)
@@ -110,7 +112,7 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
 - `workout-tracker-frontend` — Root Directory: `frontend`. Vite framework preset.
 
 **Env vars:**
-- Backend: `DATABASE_URL` (Neon — use the **pooled** `-pooler` host; the pool is capped at
+- Backend: `INTERVALS_API_KEY` (activity page streams; without it the page shows stored figures only), `DATABASE_URL` (Neon — use the **pooled** `-pooler` host; the pool is capped at
   `max: 1` per lambda), `NODE_ENV=production`, `AUTH_PASSWORD_HASH`, `SESSION_SECRET`,
   optional `APP_TIMEZONE` (defaults to `Australia/Melbourne`)
 - Frontend: `VITE_API_URL` must be **empty** in production. `frontend/vercel.json` rewrites
@@ -264,6 +266,11 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
     day they sit above Start instead), the ramp from 21:00 to 04:00, dated to the evening
     it describes. A half that was answered in this visit stays as its own confirmation;
     one already complete on arrival isn't shown.
+  - **Runs and swims open their activity page.** Today's result card, Health's endurance
+    rows and Train's week rows all link to `/activity/:id`. Streams are fetched from
+    intervals.icu on open (it holds the GPS- and phantom-length-corrected versions) and
+    cached in `activity_streams`, invalidated by `activities.synced_at` — never stored at
+    sync time, and never a second copy of the stream_summary figures streams.py computes.
   - **No coach output on screens.** The weekly review and coach card are gone; coaching
     happens in chat. Coach notes inside the session stay.
 - **The session's unsaved edits live in `localStorage`, not the query cache.** `util/draft.js`

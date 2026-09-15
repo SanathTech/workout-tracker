@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   getCheckins, getReadiness, getTrends, logBodyweight,
@@ -619,15 +619,21 @@ function pacePer100m(seconds, metres) {
   return mmss(seconds / (metres / 100));
 }
 
-function SessionRow({ children, date }) {
-  return (
-    <div className="flex gap-3 py-2">
+// Each row opens its activity page — a row of figures that couldn't be tapped was the
+// "clicking on the run stats does nothing" complaint.
+function SessionRow({ children, date, id }) {
+  const body = (
+    <>
       <span className="w-12 shrink-0 text-xs text-neutral-400 pt-0.5">
         {formatDay(date, { day: 'numeric', month: 'short' })}
       </span>
       <div className="min-w-0 flex-1">{children}</div>
-    </div>
+      {id && <span className="shrink-0 text-neutral-600 pt-0.5" aria-hidden="true">›</span>}
+    </>
   );
+  return id
+    ? <Link to={`/activity/${id}`} className="flex gap-3 py-2 hover:bg-neutral-900/50 rounded-md transition-colors">{body}</Link>
+    : <div className="flex gap-3 py-2">{body}</div>;
 }
 
 // A fortnight of sessions by default; the rest of the six weeks on tap. Twelve runs
@@ -720,7 +726,7 @@ function Endurance({ sessions, ceiling }) {
               const cadence = r.cadence != null ? Number(r.cadence) : null;
               const effortCount = Array.isArray(r.efforts) ? r.efforts.length : 0;
               return (
-                <SessionRow key={r.date + r.name} date={r.date}>
+                <SessionRow key={r.id || r.date + r.name} date={r.date} id={r.id}>
                   <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm tabular-nums">
                     <span className="font-medium">{(Number(r.distance_m) / 1000).toFixed(1)}km</span>
                     <span>{pacePerKm(r.moving_time, Number(r.distance_m))}/km</span>
@@ -771,7 +777,7 @@ function Endurance({ sessions, ceiling }) {
         <>
           <div className="divide-y divide-neutral-800">
             {swims.map((w) => (
-              <SessionRow key={w.date + w.name} date={w.date}>
+              <SessionRow key={w.id || w.date + w.name} date={w.date} id={w.id}>
                 <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm tabular-nums">
                   {/* Duration first, deliberately. It is the aerobic dose, and the pace
                       beside it will read slower on exactly the sessions that went best. */}

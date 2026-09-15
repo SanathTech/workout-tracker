@@ -775,7 +775,7 @@ const num = (expr) => NUM.replaceAll('$t$', expr);
 
 async function enduranceSessions(days = 42) {
   const { rows } = await db.query(
-    `SELECT date, type, name, moving_time, ROUND(distance) AS distance_m, average_hr,
+    `SELECT id, date, type, name, moving_time, ROUND(distance) AS distance_m, average_hr,
             ROUND(training_load) AS training_load,
             -- The raw column is a third-party payload, so every cast is guarded: one bad
             -- value would throw and take the WHOLE Trends tab down with it — sleep,

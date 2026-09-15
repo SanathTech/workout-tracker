@@ -8,6 +8,7 @@ const {
   runDiscipline, bodyweight, weekPlan, noteLedger, enduranceSessions,
   HR_CEILING,
 } = require('../util/coachContext');
+const { fetchStreams, shape: shapeStreams } = require('../util/activityStreams');
 
 // The hub tables (coach_advice, checkins, session_feel, wellness_daily, training_load)
 // come from schema_hub.sql, not schema.sql. They're written by the nas-laptop timers;
@@ -353,6 +354,80 @@ router.get('/endurance', async (req, res) => {
   const days = windowDays(req.query.days, 182, 365);
   try {
     res.json({ sessions: await enduranceSessions(days), hr_ceiling: HR_CEILING });
+  } catch (err) {
+    serverError(res, err);
+  }
+});
+
+// GET /api/coach/activity/:id — one run or swim, for the activity page: the stored row
+// and its stream_summary, plus the shaped second-by-second streams. Streams come from
+// intervals.icu (util/activityStreams) through a cache keyed to the activity's synced_at.
+// The page is useful without them — stats, zones, strides and drift are all stored — so
+// a missing key or an intervals outage returns the row with `streams: null` and a reason,
+// never a 5xx.
+router.get('/activity/:id', async (req, res) => {
+  const { id } = req.params;
+  if (!/^[A-Za-z0-9_-]{1,32}$/.test(id)) return res.status(400).json({ error: 'Bad activity id' });
+  try {
+    const { rows } = await db.query(
+      `SELECT id, type, name, date, to_char(start_date_local, 'HH24:MI') AS start_time, moving_time, elapsed_time,
+              ROUND(distance) AS distance_m, average_hr, max_hr, training_load,
+              hr_zone_times, stream_summary, synced_at,
+              (SELECT ROUND(SUM(z) / 60.0, 1) FROM unnest(hr_zone_times[3:]) AS z) AS over_ceiling_min
+         FROM activities WHERE id = $1`,
+      [id]
+    );
+    const act = rows[0];
+    if (!act) return res.status(404).json({ error: 'Activity not found' });
+
+    let streams = null;
+    let streamsError = null;
+    // The cache table arrives with db:init-hub; until it exists the page still works,
+    // it just fetches every time.
+    let cacheReady = true;
+    try {
+      const hit = await db.query(
+        'SELECT data FROM activity_streams WHERE activity_id = $1 AND fetched_at >= $2',
+        [id, act.synced_at]
+      );
+      streams = hit.rows[0]?.data ?? null;
+    } catch (err) {
+      if (err.code !== '42P01') throw err;
+      cacheReady = false;
+    }
+
+    if (!streams) {
+      if (!process.env.INTERVALS_API_KEY) {
+        streamsError = 'not_configured';
+      } else {
+        try {
+          streams = shapeStreams(act.type, await fetchStreams(id, process.env.INTERVALS_API_KEY));
+          if (!streams) streamsError = 'no_streams';
+          else if (cacheReady) {
+            await db.query(
+              `INSERT INTO activity_streams (activity_id, data, fetched_at) VALUES ($1, $2, NOW())
+               ON CONFLICT (activity_id) DO UPDATE SET data = EXCLUDED.data, fetched_at = NOW()`,
+              [id, streams]
+            );
+          }
+        } catch (err) {
+          console.error('activity streams:', err.message);
+          streamsError = 'unavailable';
+        }
+      }
+    }
+
+    const { synced_at, ...activity } = act;
+    res.json({
+      activity: {
+        ...activity,
+        date: String(activity.date).slice(0, 10),
+        over_ceiling_min: activity.over_ceiling_min == null ? null : Number(activity.over_ceiling_min),
+      },
+      streams,
+      streams_error: streamsError,
+      hr_ceiling: HR_CEILING,
+    });
   } catch (err) {
     serverError(res, err);
   }

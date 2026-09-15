@@ -54,6 +54,15 @@ ALTER TABLE activities ADD COLUMN IF NOT EXISTS stream_summary JSONB;
 CREATE INDEX IF NOT EXISTS idx_activities_date ON activities(date DESC);
 CREATE INDEX IF NOT EXISTS idx_activities_type ON activities(type);
 
+-- The activity page's shaped streams (15 s buckets, walk breaks, splits), cached after the
+-- first open. intervals.icu stays the source: a row older than its activity's synced_at
+-- is refetched, so a re-sync after a GPS or phantom-length correction replaces it.
+CREATE TABLE IF NOT EXISTS activity_streams (
+  activity_id  VARCHAR(32) PRIMARY KEY REFERENCES activities(id) ON DELETE CASCADE,
+  data         JSONB NOT NULL,
+  fetched_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- Daily training-load model from intervals.icu (its `wellness` endpoint). TSB is not a
 -- stored field anywhere — it is ctl - atl, so it is generated here rather than computed
 -- in every caller.
