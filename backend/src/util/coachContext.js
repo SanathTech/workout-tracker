@@ -831,9 +831,17 @@ async function weekPlan() {
   const start = currentWeekStart();
   const iso = today();
 
-  const [acts, gym, program] = await Promise.all([
+  // The same per-activity figures twice: this week's, and the most recent run and swim
+  // before today, so a plan card can say what last time looked like instead of carrying
+  // a prescription that goes stale (the "30-45min" line he was running well past).
+  const ACT_COLS = `id, date, type, moving_time, ROUND(distance) AS distance_m, average_hr,
+            (stream_summary->'run_only'->>'pace_s_per_km')::int AS run_pace_s,
+            (stream_summary->'moving'->>'pace_s_per_100m')::int AS swim_pace_s,
+            jsonb_array_length(COALESCE(stream_summary->'efforts', '[]'::jsonb)) AS efforts,
+            (SELECT ROUND(SUM(z) / 60.0, 1) FROM unnest(hr_zone_times[3:]) AS z) AS over_ceiling_min`;
+  const [acts, gym, program, previous] = await Promise.all([
     db.query(
-      `SELECT date, type, moving_time, ROUND(distance) AS distance_m, average_hr
+      `SELECT ${ACT_COLS}
          FROM activities WHERE date >= $1::date AND date < $1::date + 7
         ORDER BY start_date_local`,
       [start]
@@ -851,6 +859,14 @@ async function weekPlan() {
       [start]
     ),
     db.query(`SELECT id FROM programs WHERE status = 'active' LIMIT 1`),
+    db.query(
+      `SELECT DISTINCT ON (kind) kind, ${ACT_COLS}
+         FROM (SELECT *, CASE WHEN type = 'Swim' THEN 'swim' ELSE 'run' END AS kind
+                 FROM activities
+                WHERE date < $1::date AND type IN ('Run', 'VirtualRun', 'Swim')) a
+        ORDER BY kind, date DESC, start_date_local DESC`,
+      [iso]
+    ),
   ]);
 
   // Where the A->B->C cycle stands right now, and the ordered ring to walk forward.
@@ -888,8 +904,11 @@ async function weekPlan() {
     }
   }
 
+  // Eight days, not seven: on a Sunday "tomorrow" is next week's Monday, and it has to
+  // come off the same cycle walk or the one-line Tomorrow row would say something the
+  // week strip can't back up. Only the first seven are the week.
   const days = [];
-  for (let i = 0; i < 7; i += 1) {
+  for (let i = 0; i < 8; i += 1) {
     const date = addDaysIso(start, i);
     const weekday = WEEKDAYS[new Date(`${date}T00:00:00Z`).getUTCDay()];
     const template = PLAN[weekday];
@@ -912,13 +931,14 @@ async function weekPlan() {
         skipped: r.status === 'skipped',
       })),
       ...moves.map((r) => ({
-        kind: r.type === 'Swim' ? 'swim' : r.type === 'Walk' ? 'walk' : 'run',
+        kind: activityKind(r.type),
         label: r.type,
         meta: [
           r.distance_m ? `${(Number(r.distance_m) / 1000).toFixed(2)}km` : null,
           r.moving_time ? `${Math.round(r.moving_time / 60)}min` : null,
           r.average_hr ? `HR ${r.average_hr}` : null,
         ].filter(Boolean).join(' · '),
+        stats: activityStats(r),
       })),
     ];
 
@@ -957,7 +977,36 @@ async function weekPlan() {
     });
   }
 
-  return { week_start: start, today: iso, days };
+  const todayIndex = days.findIndex((d) => d.state === 'today');
+  const prev = Object.fromEntries(previous.rows.map((r) => [r.kind, { date: String(r.date).slice(0, 10), when: whenLabel(String(r.date).slice(0, 10)), label: r.type, stats: activityStats(r) }]));
+  return {
+    week_start: start,
+    today: iso,
+    days: days.slice(0, 7),
+    tomorrow: todayIndex >= 0 ? days[todayIndex + 1] : null,
+    previous: prev,
+  };
+}
+
+function activityKind(type) {
+  return type === 'Swim' ? 'swim' : type === 'Walk' ? 'walk' : 'run';
+}
+
+// Strides on an easy run leave 5-6 detected efforts; a run without them still throws up
+// one or two spurious ones, so fewer than three is "none".
+function activityStats(r) {
+  const n = (v) => (v == null ? null : Number(v));
+  const efforts = n(r.efforts);
+  return {
+    activity_id: r.id,
+    distance_m: n(r.distance_m),
+    moving_s: n(r.moving_time),
+    average_hr: n(r.average_hr),
+    run_pace_s: n(r.run_pace_s),
+    swim_pace_s: n(r.swim_pace_s),
+    over_ceiling_min: r.type === 'Swim' ? null : n(r.over_ceiling_min),
+    strides: efforts != null && efforts >= 3 ? efforts : null,
+  };
 }
 
 // ---------------------------------------------------------------- bundles

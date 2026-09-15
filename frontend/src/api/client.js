@@ -80,6 +80,7 @@ export const getLastByExercise = (exerciseId, params) =>
 // ── Progress ─────────────────────────────────────────────────
 export const getStats = () => api.get('/progress/stats').then((r) => r.data);
 export const getVolumeProgress = (params) => api.get('/progress/volume', { params }).then((r) => r.data);
+export const getLastSession = () => api.get('/progress/last-session').then((r) => r.data);
 export const getExerciseProgress = (id, params) =>
   api.get(`/progress/exercise/${id}`, { params }).then((r) => r.data);
 export const getPersonalBests = () => api.get('/progress/personal-bests').then((r) => r.data);
@@ -103,12 +104,11 @@ export const deleteBodyweight = (id) =>
   api.delete(`/progress/bodyweight/${id}`).then((r) => r.data);
 
 // ── Coach ────────────────────────────────────────────────────
-export const getCoachLatest = () => api.get('/coach/latest').then((r) => r.data);
 export const getCoachHistory = (params) =>
   api.get('/coach/history', { params }).then((r) => r.data);
 export const getReadiness = () => api.get('/coach/readiness').then((r) => r.data);
-export const getCheckin = () =>
-  api.get('/coach/checkin', { params: { date: localDate() } }).then((r) => r.data);
+export const getCheckin = (date = localDate()) =>
+  api.get('/coach/checkin', { params: { date } }).then((r) => r.data);
 export const getCheckins = (params) =>
   api.get('/coach/checkins', { params }).then((r) => r.data);
 export const saveCheckin = (data) =>

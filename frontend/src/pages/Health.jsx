@@ -1,7 +1,8 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  getCheckins, getCoachLatest, getReadiness, getTrends, logBodyweight,
+  getCheckins, getReadiness, getTrends, logBodyweight,
 } from '../api/client';
 import Sparkline from '../components/Sparkline';
 import { Skeleton } from '../components/Skeleton';
@@ -235,8 +236,22 @@ function TrendRow({ row, window30, window90, open, onToggle }) {
   );
 }
 
+// Home's tiles link here as /health?metric=<field> and land on that row, open — a tap on
+// Sleep that arrived at the whole page and needed a second tap was the walkthrough's
+// complaint (2026-09-15).
 function Recovery({ wellness, isLoading }) {
-  const [openMetric, setOpenMetric] = useState(null);
+  const [params] = useSearchParams();
+  const linked = TREND_ROWS.some((r) => r.field === params.get('metric')) ? params.get('metric') : null;
+  const [openMetric, setOpenMetric] = useState(linked);
+  const linkedRef = useRef(null);
+  // Follows the URL, not just the first render: back/forward between two tile links
+  // changes the query string without remounting the page.
+  useEffect(() => {
+    if (linked) setOpenMetric(linked);
+  }, [linked]);
+  useEffect(() => {
+    if (linked && !isLoading) linkedRef.current?.scrollIntoView({ block: 'center' });
+  }, [linked, isLoading]);
   const wellness30 = wellness.slice(-30);
   return (
     <Section label="Recovery">
@@ -250,14 +265,15 @@ function Recovery({ wellness, isLoading }) {
         <Skeleton className="h-40 w-full" />
       ) : wellness30.length > 1 ? (
         TREND_ROWS.map((row) => (
+          <div key={row.field} ref={row.field === linked ? linkedRef : undefined}>
           <TrendRow
-            key={row.field}
             row={row}
             window30={wellness30}
             window90={wellness}
             open={openMetric === row.field}
             onToggle={() => setOpenMetric((f) => (f === row.field ? null : row.field))}
           />
+          </div>
         ))
       ) : (
         <p className="text-sm text-neutral-400">
@@ -794,73 +810,6 @@ function Endurance({ sessions, ceiling }) {
   );
 }
 
-// ── Week review ─────────────────────────────────────────────
-
-// First on the page since PR 5: it was the last block on the longest tab, and it is the
-// one paragraph here that someone wrote. Headline always visible; the rest on tap.
-function WeeklyReview({ entry }) {
-  const [open, setOpen] = useState(false);
-  if (!entry) return null;
-  const a = entry.advice || {};
-  return (
-    <Section
-      label="Week review"
-      action={
-        <Disclosure
-          open={open}
-          label={formatDay(entry.for_date, { month: 'short', day: 'numeric' })}
-          onClick={() => setOpen((o) => !o)}
-        />
-      }
-    >
-      <h3 className="font-semibold tracking-tight text-neutral-200">{a.headline}</h3>
-      {open && (
-        <div className="space-y-3 mt-2">
-          {[
-            ['This week', a.week_review],
-            ['Adherence', a.adherence],
-            ['Load', a.load_assessment],
-            ['Strength', a.strength_note],
-          ].map(([label, text]) =>
-            text ? (
-              <div key={label}>
-                <p className="section-label">{label}</p>
-                <p className="text-sm text-neutral-300">{text}</p>
-              </div>
-            ) : null
-          )}
-          {a.next_week?.length > 0 && (
-            <div>
-              <p className="section-label">Next week</p>
-              <ul className="divide-y divide-neutral-800">
-                {a.next_week.map((d, i) => (
-                  <li key={i} className="py-1.5">
-                    <span className="text-sm font-medium">{d.day}</span>{' '}
-                    <span className="text-sm text-neutral-300">{d.focus}</span>
-                    {d.detail && (
-                      <div className="text-sm text-neutral-400">{d.detail}</div>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {a.flags?.length > 0 && (
-            <div>
-              <p className="section-label text-amber-400">Flags</p>
-              <ul className="space-y-0.5">
-                {a.flags.map((f, i) => (
-                  <li key={i} className="text-sm text-amber-400">· {f}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      )}
-    </Section>
-  );
-}
-
 export default function Health() {
   // 90 days in one request, rendered two ways: the sparklines take the last 30 (a
   // quarter's worth of daily points in a 200px line is noise), the expanded detail
@@ -869,11 +818,6 @@ export default function Health() {
   const { data: trends, isLoading } = useQuery({
     queryKey: ['trends', 90],
     queryFn: () => getTrends({ days: 90 }),
-    staleTime: 5 * 60_000,
-  });
-  const { data: coach } = useQuery({
-    queryKey: ['coach-latest'],
-    queryFn: getCoachLatest,
     staleTime: 5 * 60_000,
   });
 
@@ -906,7 +850,6 @@ export default function Health() {
   return (
     <Page>
       <h1 className="text-2xl font-semibold tracking-tight">Health</h1>
-      <WeeklyReview entry={coach?.weekly} />
       <Recovery wellness={wellness} isLoading={isLoading} />
       {isLoading ? (
         <Skeleton className="h-40 w-full" />

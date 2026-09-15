@@ -37,6 +37,76 @@ router.get('/exercise/:exerciseId', async (req, res) => {
   }
 });
 
+// GET /api/progress/last-session — Home's "am I progressing" line: each lift's top working
+// set in the most recent completed session against its top set the time before (any
+// routine). Ranked on weight_kg, then reps, the same axis as personal bests — -20.5 over
+// -23 on an assisted pull-up is up.
+router.get('/last-session', async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      `WITH last AS (
+         SELECT id, date, routine_name FROM workouts
+          WHERE status = 'completed' ORDER BY date DESC, id DESC LIMIT 1
+       ),
+       tops AS (
+         SELECT we.id AS we_id, we.exercise_id, e.name, w.id AS workout_id, w.date,
+                ws.weight_kg::float AS weight, ws.reps,
+                ROW_NUMBER() OVER (PARTITION BY w.id, we.exercise_id
+                                   ORDER BY ws.weight_kg DESC NULLS LAST, ws.reps DESC) AS rn
+           FROM workouts w
+           JOIN workout_exercises we ON we.workout_id = w.id
+           JOIN exercises e ON e.id = we.exercise_id
+           JOIN workout_sets ws ON ws.workout_exercise_id = we.id
+           CROSS JOIN last
+          WHERE w.status = 'completed' AND ws.set_type <> 'warmup' AND ws.reps > 0
+            -- Only the last session's lifts, and only up to it, so the scan is the size of
+            -- those lifts' history rather than every set ever logged.
+            AND w.date <= last.date
+            AND we.exercise_id IN (SELECT exercise_id FROM workout_exercises WHERE workout_id = last.id)
+       )
+       SELECT last.id AS workout_id, last.date, last.routine_name,
+              cur.exercise_id, cur.name, cur.weight, cur.reps,
+              prev.weight AS prev_weight, prev.reps AS prev_reps
+         FROM last
+         JOIN tops cur ON cur.workout_id = last.id AND cur.rn = 1
+         LEFT JOIN LATERAL (
+           SELECT t.weight, t.reps FROM tops t
+            WHERE t.exercise_id = cur.exercise_id AND t.rn = 1
+              AND (t.date < last.date OR (t.date = last.date AND t.workout_id < last.id))
+            ORDER BY t.date DESC, t.workout_id DESC LIMIT 1
+         ) prev ON true
+        ORDER BY cur.we_id`
+    );
+    if (!rows.length) return res.json(null);
+    const lifts = rows.map((r) => {
+      // A top set with no weight logged is unknown load, not bodyweight: it compares on
+      // reps only against another weightless set, and otherwise isn't compared at all.
+      let change = 'new';
+      if (r.prev_reps != null) {
+        if ((r.weight == null) !== (r.prev_weight == null)) change = 'unknown';
+        else {
+          const d = (r.weight ?? 0) - (r.prev_weight ?? 0) || r.reps - r.prev_reps;
+          change = d > 0 ? 'up' : d < 0 ? 'down' : 'same';
+        }
+      }
+      return {
+        exercise_id: r.exercise_id, name: r.name, weight_kg: r.weight, reps: r.reps,
+        prev_weight_kg: r.prev_weight, prev_reps: r.prev_reps, change,
+      };
+    });
+    res.json({
+      workout_id: rows[0].workout_id,
+      date: rows[0].date,
+      routine_name: rows[0].routine_name,
+      lifts,
+      up: lifts.filter((l) => l.change === 'up').length,
+      compared: lifts.filter((l) => l.change !== 'new' && l.change !== 'unknown').length,
+    });
+  } catch (err) {
+    serverError(res, err);
+  }
+});
+
 // GET /api/progress/volume — weekly total volume
 router.get('/volume', async (req, res) => {
   const { weeks = 12 } = req.query;

@@ -34,18 +34,18 @@ frontend/
     api/client.js            All HTTP calls (axios). Single source for endpoint URLs.
     components/
       Layout.jsx / Navbar.jsx  Bottom bar = FOUR tabs: Today, Health, Train, Lifts (same four on desktop)
-      CheckinCard.jsx        Daily check-in (mood/energy/soreness + evening-ramp toggles) — Home's check-in block (`compact` = no heading); each half folds to one line once answered
-      WeekPlan.jsx           WeekStrip (7 dots + today's slot, a Link to /train) from /api/coach/week; exports DayRow (expands to detail + Open workout) + useWeek
-      TodayTiles.jsx         Battery · Sleep · Weight · Bed vs 10-day baselines (readiness + trends), each a `Tile` (ui.jsx) linking to /health
-      CoachCard.jsx          One coach line (fresh weekly headline, else newest coach note) → Sheet with the full text
+      Checkin.jsx            Check-in pieces: useCheckin(date), Ratings (mood/energy/soreness), Ramp (evening Kept/Broke), NoteField — Home asks each half when it can be answered
+      WeekPlan.jsx           WeekStrip (7 lettered days — A/B/C, R, S, W; filled done, dashed skipped, never red; a Link to /train) from /api/coach/week; exports DayRow + useWeek
+      TodayTiles.jsx         Sleep · Battery · RHR · Weight (vs usual / to goal) with a 7-night line, each linking to /health?metric=<field> (opens that row)
+      ProgressGlance.jsx     Home's four progress rows: lifts up last session (/progress/last-session), weight avg, fitness + easy pace, bedtime hits
       AimLine.jsx            The ONE "Aim 52.5 kg × 6 · RIR 1 · ENGINE|COACH · why ›" line + sheets (`onEdit` adds "edit ›" — Lifts only)
       AimEditSheet.jsx       Writes/edits/resolves the coach_notes row behind an aim (POST/PATCH /api/coach/notes)
       WorkoutRow.jsx         The one row for a logged workout (Train's history)
       FinishSheet.jsx        Post-Finish summary (duration/sets/volume/↑/★) + RPE grid
       EnduranceTrends.jsx    Runs: weekly km · pace vs HR (pace reversed, ceiling line) · drift; Swims: weekly min · pace vs wall rest · m/stroke. Series shaped in `util/endurance.js` (pure, tested; scraps <2 km / <200 m dropped, Monday weeks, zero weeks kept)
     pages/
-      Dashboard.jsx          Today: week strip, session block (lift preview + Start) and check-in block both open, tiles, coach line
-      Health.jsx             Week review (headline, tap to expand) · Recovery (last-night tiles, 30-day rows → 90-day detail, fitness chart) · Protocol (bedtime dots, ramp, weight + THE weigh-in logger, check-in history) · Endurance (Runs|Swims chip scopes it: 3 trend charts over 26 weeks — `EnduranceTrends.jsx`, lazy, `/api/coach/endurance` — then that discipline's fortnight of rows, ⓘ explainers)
+      Dashboard.jsx          Today, day-first: week strip · Now slot (check-in half that's due) · today's card (plan → result) · last-night tiles · progress · Tomorrow (one line)
+      Health.jsx             Recovery (last-night tiles, 30-day rows → 90-day detail, fitness chart) · Protocol (bedtime dots, ramp, weight + THE weigh-in logger, check-in history) · Endurance (Runs|Swims chip scopes it: 3 trend charts over 26 weeks — `EnduranceTrends.jsx`, lazy, `/api/coach/endurance` — then that discipline's fortnight of rows, ⓘ explainers)
       Progress.jsx           "Lifts" tab: exercise picker (remembered) → chart · bests · aim line with edit; then muscle sets, totals, weekly volume, all PBs (no bodyweight — that's Health)
       Train.jsx              This week (DayRows) · Program (ProgramView: name, week, the one Start, routines) · History (infinite); Exercises is a link
       ProgramEdit.jsx        /program/new and /program/:id/edit — ProgramEditor as a route (back gesture works, nav hides)
@@ -200,7 +200,7 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
   API stays public and logs a warning; `GET /health` reports `auth: "on" | "off"`. That's
   deliberate — refusing everything would brick the live app on deploy, before there's any way
   to log in. Check `/health` after changing env vars.
-- **Layout is decided by `app_events`, not by taste.** The 2026-09-05 consolidation (6 tabs → 4;
+- **Layout is informed by `app_events`, and decided by watching him use it.** Telemetry says where he goes, never why: three weeks of dwell times missed every problem one spoken walkthrough found (2026-09-15). Ask for a walkthrough before a layout change; use telemetry to check it afterwards. The 2026-09-05 consolidation (6 tabs → 4;
   check-in + week plan onto Home) came from two weeks of nav dwell times: sub-2s visits mean
   the tab was passed through, not used. Query telemetry before moving anything again.
   `/week`, `/coach` and `/trends` stay as redirects — installed PWAs keep old routes in their history.
@@ -245,14 +245,27 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
   is what collapses it. `+ Add exercise`, workout notes and Skip live in
   the header's ⋯ menu; there is no bottom bar and no save sentence in the body (the dot in the
   header sub-line is the save status; a red one is a retry button).
-- **Today has two blocks, both always open, nothing folded.** The session block (in
-  progress → Continue · n/m sets; else Up next with the main lifts' aims from `/suggestions`
-  and the Start; else no-program / complete) and the check-in block (`CheckinCard compact`,
-  whose answered halves fold to one line each). PR 3 shipped them as a pair that swapped on
-  the clock (session before 19:00, check-in after); on a phone that read as two one-liners
-  over empty screen, so PR 6 opened both and cut the rhythm (`Page dense` = 16px). Don't
-  bring the swap back, and don't add a third thing to do to this screen — History and
-  Progress hold the recent-workouts list and the "N this week" stat.
+- **Today is day-first (2026-09-15 rethink, from his own walkthrough).** Fixed order: week
+  strip · Now · today's card · Last night tiles · Progress · Tomorrow. Rules that came from
+  what he said, and are easy to undo by accident:
+  - **Tapping a thing opens that thing.** Tiles go to `/health?metric=<field>` with that
+    row open, never to the page top. A link that lands on an overview repeating what was
+    tapped is the bug, not a shortcut.
+  - **Today gets the space; tomorrow gets one line.** `week.tomorrow` comes off the
+    weekday map (eight-day walk in `weekPlan`, so Sunday → Monday works). Never label
+    anything with `progress.next_routine` without a day on it — "Up next: Day A" on a
+    Tuesday made him read Thursday's session as Wednesday's.
+  - **Show what happened, not plan prose.** Non-gym days show the slot title plus last
+    time's figures (`week.previous`), then the day's activity once it syncs. `PLAN.detail`
+    text is not rendered on Today — it went stale ("30-45min" while he ran 68).
+  - **No red for choices.** A skipped day is dashed; a past day with nothing is a plain
+    outline.
+  - **The Now slot only holds what can be answered now**: ratings before 21:00 (on a gym
+    day they sit above Start instead), the ramp from 21:00 to 04:00, dated to the evening
+    it describes. A half that was answered in this visit stays as its own confirmation;
+    one already complete on arrival isn't shown.
+  - **No coach output on screens.** The weekly review and coach card are gone; coaching
+    happens in chat. Coach notes inside the session stay.
 - **The session's unsaved edits live in `localStorage`, not the query cache.** `util/draft.js`
   writes the pending payload *and* a snapshot of the workout shape on every edit, and clears
   it only when the server confirms that exact payload. A surviving draft therefore means
@@ -347,7 +360,8 @@ The daily run is a **brief, not a call** (2026-08-15): it reports last night's p
 figures, readiness numbers, today's rhythm slot and any unsettled niggle, and is
 explicitly forbidden to prescribe, adjust or decide anything — coaching judgement
 happens in conversation with Claude, which can interrogate the data. The Sunday weekly
-review still reviews and plans. Rows written before that change carry the old
+review's timer (`coach-weekly.timer` on nas-laptop) was disabled on 2026-09-15 — he
+never read it, and no screen shows coach output any more. Rows written before that change carry the old
 `call`/`why`/`session_guidance` shape; the Coach tab renders both.
 
 The AI coach's brain lives entirely in this repo: persona and prompts
