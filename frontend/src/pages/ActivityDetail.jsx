@@ -89,10 +89,10 @@ function HrChart({ series, walks, ceiling, duration }) {
 function Legend({ walks }) {
   return (
     <p className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-neutral-400">
-      <span><i className="inline-block w-2.5 h-[3px] rounded bg-emerald-400 align-middle mr-1" />HR</span>
-      <span><i className="inline-block w-2.5 h-[3px] rounded bg-amber-400 align-middle mr-1" />over the ceiling</span>
-      <span><i className="inline-block w-2.5 h-2 rounded-sm bg-emerald-400/20 align-middle mr-1" />easy zone</span>
-      {walks > 0 && <span><i className="inline-block w-2.5 h-[3px] rounded bg-neutral-600 align-middle mr-1" />walking</span>}
+      <span><i aria-hidden="true" className="inline-block w-2.5 h-[3px] rounded bg-emerald-400 align-middle mr-1" />HR</span>
+      <span><i aria-hidden="true" className="inline-block w-2.5 h-[3px] rounded bg-amber-400 align-middle mr-1" />over the ceiling</span>
+      <span><i aria-hidden="true" className="inline-block w-2.5 h-2 rounded-sm bg-emerald-400/20 align-middle mr-1" />easy zone</span>
+      {walks > 0 && <span><i aria-hidden="true" className="inline-block w-2.5 h-[3px] rounded bg-neutral-600 align-middle mr-1" />walking</span>}
     </p>
   );
 }
@@ -252,7 +252,14 @@ export default function ActivityDetail() {
       </Page>
     );
   }
-  if (isError || !data) return <p className="text-center text-neutral-400 py-20">Activity not found.</p>;
+  if (isError || !data) {
+    return (
+      <Page>
+        <button type="button" onClick={goBack} className="text-sm text-neutral-400 hover:text-neutral-200 inline-flex items-center min-h-11 md:min-h-0 -ml-1 pl-1 self-start">← Back</button>
+        <p className="text-center text-neutral-400 py-16">Activity not found.</p>
+      </Page>
+    );
+  }
 
   const { activity: a, streams, streams_error: streamsError, hr_ceiling: ceiling } = data;
   const summary = a.stream_summary || {};
