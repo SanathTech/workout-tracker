@@ -83,7 +83,8 @@ await logSession(dayA.id, shift(today, -9), [
 const lastId = await logSession(dayA.id, shift(today, -2), [
   [ex['Squat'], [[50, 6], [50, 6]]],
   [ex['Dips'], [[2.5, 8]]],
-  [ex['Pull-Up'], [[-18, 8], [-18, 7]]],
+  // The weightless set is a typo-shaped row: it must not rank as 0 kg over the assisted -18.
+  [ex['Pull-Up'], [[-18, 8], [-18, 7], [null, 3]]],
   [ex['Calf Raise'] ?? ex['Standing Calf Raise'] ?? ex['Plank'], [[20, 12]]],
 ]);
 

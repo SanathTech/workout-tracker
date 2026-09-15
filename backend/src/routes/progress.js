@@ -52,7 +52,7 @@ router.get('/last-session', async (req, res) => {
          SELECT we.id AS we_id, we.exercise_id, e.name, w.id AS workout_id, w.date,
                 COALESCE(ws.weight_kg, 0)::float AS weight, ws.reps,
                 ROW_NUMBER() OVER (PARTITION BY w.id, we.exercise_id
-                                   ORDER BY COALESCE(ws.weight_kg, 0) DESC, ws.reps DESC) AS rn
+                                   ORDER BY ws.weight_kg DESC NULLS LAST, ws.reps DESC) AS rn
            FROM workouts w
            JOIN workout_exercises we ON we.workout_id = w.id
            JOIN exercises e ON e.id = we.exercise_id

@@ -97,7 +97,7 @@ function LiftPreview({ routine }) {
           : aim.weight_kg != null ? `${Math.round(aim.weight_kg * 100) / 100} kg${aim.reps != null ? ` × ${aim.reps}` : ''}`
           : aim.reps != null ? `${aim.reps} reps` : null;
         return (
-          <li key={e.exercise_id} className="flex items-baseline justify-between gap-3 py-1.5 text-sm">
+          <li key={e.id} className="flex items-baseline justify-between gap-3 py-1.5 text-sm">
             <span className="text-neutral-200 truncate">{e.exercise_name}</span>
             {isLoading ? (
               <Skeleton className="h-3.5 w-14" />
