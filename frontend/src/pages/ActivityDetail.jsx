@@ -166,10 +166,12 @@ function SwimSplits({ splits }) {
           <div key={s.at_m} className="grid grid-cols-[3.5rem_3.5rem_1fr] items-center gap-2 py-1.5 text-sm tabular-nums">
             <span className="text-neutral-400">{s.at_m} m</span>
             <span className="text-neutral-200">{clock(s.pace_s)}</span>
-            <span
-              className="block h-1.5 rounded-full bg-cyan-400"
-              style={{ width: `${slow === fast ? 60 : 30 + ((slow - s.pace_s) / (slow - fast)) * 70}%` }}
-            />
+            {s.pace_s != null && (
+              <span
+                className="block h-1.5 rounded-full bg-cyan-400"
+                style={{ width: `${slow === fast ? 60 : 30 + ((slow - s.pace_s) / (slow - fast)) * 70}%` }}
+              />
+            )}
           </div>
         ))}
       </div>

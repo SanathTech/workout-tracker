@@ -252,11 +252,15 @@ function FactLine({ facts, className = '' }) {
 
 function ActivityResult({ entry, title, ceiling }) {
   const s = entry.stats || {};
+  // Linked only when there is an activity to open — a card without one stays a card.
+  const Wrap = s.activity_id
+    ? ({ children }) => <Link to={`/activity/${s.activity_id}`} className="block space-y-1 rounded-lg -mx-2 px-2 py-1 hover:bg-neutral-900 transition-colors">{children}</Link>
+    : ({ children }) => <div className="space-y-1">{children}</div>;
   return (
-    <Link to={`/activity/${s.activity_id}`} className="block space-y-1 rounded-lg -mx-2 px-2 py-1 hover:bg-neutral-900 transition-colors">
+    <Wrap>
       <h2 className="text-xl font-semibold tracking-tight flex items-baseline justify-between gap-3">
         {title}
-        <span className="text-neutral-400 text-base font-normal" aria-hidden="true">›</span>
+        {s.activity_id && <span className="text-neutral-400 text-base font-normal" aria-hidden="true">›</span>}
       </h2>
       <FactLine facts={activityFacts(entry)} />
       {entry.kind === 'run' && (s.over_ceiling_min != null || s.strides) && (
@@ -269,7 +273,7 @@ function ActivityResult({ entry, title, ceiling }) {
           {s.strides && <span> · {s.strides} strides{s.over_ceiling_min > 0 ? ' (~2–3 min of it)' : ''}</span>}
         </p>
       )}
-    </Link>
+    </Wrap>
   );
 }
 
