@@ -2,33 +2,67 @@ import { useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  getActiveProgram, getInProgressWorkout, getWorkout, getSuggestions, getCheckin,
+  getActiveProgram, getInProgressWorkout, getWorkout, getSuggestions, getReadiness, getTrends,
   startWorkout, skipUpcomingWorkout,
 } from '../api/client';
 import { Skeleton } from '../components/Skeleton';
 import { Page, Section } from '../components/ui';
-import CheckinCard, { checkinStarted } from '../components/CheckinCard';
+import { useCheckin, Ratings, Ramp, NoteField, SaveError, ratingsComplete, rampComplete } from '../components/Checkin';
 import WeekStrip, { useWeek } from '../components/WeekPlan';
 import TodayTiles from '../components/TodayTiles';
-import CoachCard from '../components/CoachCard';
+import ProgressGlance from '../components/ProgressGlance';
+import { formatDay, localDate } from '../util/format';
 
-// Today (2026-09-08 redesign, PR 3; density pass PR 6 the same day). Two things happen
-// on this screen and only two: a session gets started, a check-in gets done. Both
-// blocks are open, always. PR 3 shipped them as a pair that swapped on the clock — the
-// session until 19:00, the check-in after — and the first evening on a phone it read
-// as two folded one-liners over a screen of nothing: the lift preview and the Start
-// button were behind a chevron on the one day a week they matter. Nothing on this page
-// is folded now; the page is short because the rhythm is, not because it hides things.
+// Today, day-first (2026-09-15 rethink, from his walkthrough of the old screen). Top to
+// bottom, in the same order all day so it is learned rather than read:
+//
+//   week strip · Now (only when something is due) · today's card · last night · progress
+//   · tomorrow, one line
+//
+// Two things move with the day and nothing else does. The Now slot holds the check-in
+// half that can actually be answered — the ratings until evening, the ramp from 21:00 —
+// and is simply absent otherwise, because a block that can't be finished yet left "a
+// dissatisfying feeling of not completing a section". Today's card goes from plan to
+// result as the day's session lands. Tomorrow comes off the weekday map, never "next in
+// the rotation": that label with no day attached is how Thursday's Day A read as
+// Wednesday's session.
 
-// ---------- session block ----------
+// ---------- helpers ----------
 
 function isBlank(v) { return v == null || v === ''; }
 
+function duration(s) {
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = String(Math.round(s % 60)).padStart(2, '0');
+  return h ? `${h}:${String(m).padStart(2, '0')}:${sec}` : `${m}:${sec}`;
+}
+
+function pace(s) {
+  return `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
+}
+
+// Once a check-in half has been seen unanswered in this visit it stays on screen after
+// it's completed, as its own confirmation — the slot doesn't vanish under the thumb that
+// answered it. Next visit, a complete half isn't shown at all.
+function useShownWhileIncomplete(isLoading, complete) {
+  const seen = useRef(false);
+  if (!isLoading && !complete) seen.current = true;
+  return seen.current;
+}
+
+// ---------- today's card: gym ----------
+
 function InProgressBlock({ workout }) {
-  // The session page owns this key; reading it here means "Continue" already has the
-  // workout cached when it lands.
   const { data } = useQuery({ queryKey: ['workout', workout.id], queryFn: () => getWorkout(workout.id), staleTime: 0 });
-  const { logged, planned } = countSets(data);
+  let logged = 0;
+  let planned = 0;
+  for (const ex of data?.exercises || []) {
+    for (const s of ex.sets || []) {
+      planned += 1;
+      if (!isBlank(s.reps)) logged += 1;
+    }
+  }
   return (
     <div className="space-y-3">
       <div>
@@ -43,21 +77,8 @@ function InProgressBlock({ workout }) {
   );
 }
 
-function countSets(workout) {
-  let logged = 0;
-  let planned = 0;
-  for (const ex of workout?.exercises || []) {
-    for (const s of ex.sets || []) {
-      planned += 1;
-      if (!isBlank(s.reps)) logged += 1;
-    }
-  }
-  return { logged, planned };
-}
-
-// The main lifts with their aim, as the session will show them — so "what am I lifting
-// today" is answered before the bag is packed. Same source as the session's aim line:
-// the server has already decided whose call it is.
+// The lifts with their aim, as the session will show them — "what am I lifting today"
+// answered before the bag is packed. Same source as the session's aim line.
 function LiftPreview({ routine }) {
   const { data: suggestions, isLoading } = useQuery({
     queryKey: ['suggestions', routine.id],
@@ -65,17 +86,15 @@ function LiftPreview({ routine }) {
     staleTime: 60_000,
   });
   const byId = new Map((suggestions || []).map((s) => [s.exercise_id, s]));
-  const mains = routine.exercises.filter((e) => e.is_main);
-  const shown = (mains.length ? mains : routine.exercises).slice(0, 4);
   return (
     <ul className="divide-y divide-neutral-800">
-      {shown.map((e) => {
+      {routine.exercises.map((e) => {
         const aim = byId.get(e.exercise_id)?.aim;
         const up = aim?.source === 'engine' && aim.action === 'increase';
         const bodyweight = aim?.weight_kg != null && Number(aim.weight_kg) === 0;
         const load = aim == null ? null
           : bodyweight ? (aim.reps != null ? `${aim.reps} reps` : 'bodyweight')
-          : aim.weight_kg != null ? `${Math.round(aim.weight_kg * 100) / 100} kg`
+          : aim.weight_kg != null ? `${Math.round(aim.weight_kg * 100) / 100} kg${aim.reps != null ? ` × ${aim.reps}` : ''}`
           : aim.reps != null ? `${aim.reps} reps` : null;
         return (
           <li key={e.exercise_id} className="flex items-baseline justify-between gap-3 py-1.5 text-sm">
@@ -92,16 +111,16 @@ function LiftPreview({ routine }) {
           </li>
         );
       })}
-      {routine.exercises.length > shown.length && (
-        <li className="py-1.5 text-xs text-neutral-400">+ {routine.exercises.length - shown.length} more</li>
-      )}
     </ul>
   );
 }
 
-function NextWorkoutBlock({ program }) {
+function GymCard({ program }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const { checkin, isLoading: checkinLoading, save } = useCheckin(localDate());
+  const askRatings = useShownWhileIncomplete(checkinLoading, ratingsComplete(checkin));
+
   const start = useMutation({
     mutationFn: (routineId) => startWorkout({ routine_id: routineId }),
     onSuccess: (w) => {
@@ -135,14 +154,25 @@ function NextWorkoutBlock({ program }) {
   }
 
   const next = progress.next_routine;
+  const after = program.routines[progress.position_in_cycle % program.routines.length];
   return (
     <div className="space-y-2">
       <h2 className="text-xl font-semibold tracking-tight">
         {next.name}
-        <span className="text-sm font-normal text-neutral-400 ml-2">{next.exercises.length} exercises</span>
+        <span className="text-sm font-normal text-neutral-400 ml-2">{next.exercises.length} lifts</span>
       </h2>
-
       <LiftPreview routine={next} />
+
+      {/* On a gym day the morning questions sit on the way to Start, so starting the
+          session is what gets them answered — including a Saturday that slides to the
+          evening. Already answered this morning: not shown. */}
+      {askRatings && (
+        <div className="border-t border-neutral-800 pt-2">
+          <p className="section-label">Before you start</p>
+          <Ratings checkin={checkin} save={save} />
+          <SaveError save={save} />
+        </div>
+      )}
 
       <div className="space-y-1 pt-1">
         <button
@@ -153,23 +183,30 @@ function NextWorkoutBlock({ program }) {
           {start.isPending ? 'Starting…' : `Start ${next.name.split(' — ')[0]}`}
         </button>
         <button
-          onClick={() => { if (confirm(confirmSkip(program, progress))) skip.mutate(next.id); }}
+          onClick={() => {
+            if (confirm(`Skip ${next.name}? Nothing gets logged${after ? `, and ${after.name} moves up next` : ''}.`)) skip.mutate(next.id);
+          }}
           disabled={start.isPending || skip.isPending}
           className="btn-ghost w-full justify-center"
         >
           {skip.isPending ? 'Skipping…' : 'Skip this workout'}
         </button>
       </div>
-      {skip.isError && (
-        <p className="text-xs text-red-400">Could not skip this workout. Try again.</p>
-      )}
+      {skip.isError && <p className="text-xs text-red-400">Could not skip this workout. Try again.</p>}
     </div>
   );
 }
 
-function confirmSkip(program, progress) {
-  const after = program.routines[progress.position_in_cycle % program.routines.length];
-  return `Skip ${progress.next_routine.name}? Nothing gets logged${after ? `, and ${after.name} moves up next` : ''}.`;
+function GymDoneCard({ entry }) {
+  return (
+    <Link to={`/workouts/${entry.workout_id}`} className="flex items-center justify-between gap-3 py-1 min-h-11">
+      <span className="min-w-0">
+        <span className="block text-xl font-semibold tracking-tight truncate">{entry.label}</span>
+        {entry.meta && <span className="block text-sm text-neutral-400 tabular-nums">Done · {entry.meta}</span>}
+      </span>
+      <span className="text-neutral-400 shrink-0" aria-hidden="true">›</span>
+    </Link>
+  );
 }
 
 function NoProgramBlock() {
@@ -184,18 +221,178 @@ function NoProgramBlock() {
   );
 }
 
-function SessionSkeleton() {
+// ---------- today's card: run / swim / walk ----------
+
+// The figures that matter per discipline. Swims leave out HR on purpose: wrist HR in the
+// pool read 103 and 141 on two near-identical kilometres.
+function activityFacts(a) {
+  const s = a.stats || {};
+  const facts = [];
+  if (a.kind === 'swim') {
+    if (s.distance_m) facts.push(<><b>{Math.round(s.distance_m)}</b> m</>);
+    if (s.moving_s) facts.push(<b>{duration(s.moving_s)}</b>);
+    if (s.swim_pace_s) facts.push(<><b>{pace(s.swim_pace_s)}</b> /100 m</>);
+    return facts;
+  }
+  if (s.distance_m) facts.push(<><b>{(s.distance_m / 1000).toFixed(2)}</b> km</>);
+  if (s.moving_s) facts.push(<b>{duration(s.moving_s)}</b>);
+  if (s.run_pace_s) facts.push(<><b>{pace(s.run_pace_s)}</b> /km running</>);
+  else if (s.distance_m && s.moving_s) facts.push(<><b>{pace(s.moving_s / (s.distance_m / 1000))}</b> /km</>);
+  if (s.average_hr) facts.push(<>HR <b>{s.average_hr}</b></>);
+  return facts;
+}
+
+function FactLine({ facts, className = '' }) {
   return (
-    <div className="space-y-4">
-      <div className="space-y-2">
-        <Skeleton className="h-7 w-40" />
-        <Skeleton className="h-3 w-56" />
-      </div>
-      <Skeleton className="h-4 w-3/4" />
-      <Skeleton className="h-11 w-full" />
+    <p className={`flex flex-wrap gap-x-3 gap-y-0.5 text-sm text-neutral-400 tabular-nums [&_b]:text-neutral-200 [&_b]:font-semibold ${className}`}>
+      {facts.map((f, i) => <span key={i}>{f}</span>)}
+    </p>
+  );
+}
+
+function ActivityResult({ entry, title, ceiling }) {
+  const s = entry.stats || {};
+  return (
+    <div className="space-y-1">
+      <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
+      <FactLine facts={activityFacts(entry)} />
+      {entry.kind === 'run' && (s.over_ceiling_min != null || s.strides) && (
+        <p className="text-xs text-neutral-400 tabular-nums">
+          {s.over_ceiling_min != null && (
+            <span className={s.over_ceiling_min > 0 ? 'text-amber-400' : 'text-emerald-400'}>
+              {s.over_ceiling_min > 0 ? `${s.over_ceiling_min} min over ${ceiling}` : `nothing over ${ceiling}`}
+            </span>
+          )}
+          {s.strides && <span> · {s.strides} strides{s.over_ceiling_min > 0 ? ' (~2–3 min of it)' : ''}</span>}
+        </p>
+      )}
     </div>
   );
 }
+
+function PlanCard({ day, previous }) {
+  const kind = day.planned.kind;
+  const last = kind === 'run' || kind === 'swim' ? previous?.[kind] : null;
+  return (
+    <div className="space-y-1">
+      <h2 className="text-xl font-semibold tracking-tight">{day.planned.title}</h2>
+      {last && (
+        <>
+          <p className="text-[11px] uppercase tracking-wide text-neutral-400">
+            Last {kind} · {formatDay(last.date, { weekday: 'short', day: 'numeric', month: 'short' })}
+          </p>
+          <FactLine facts={activityFacts({ kind, stats: last.stats })} />
+        </>
+      )}
+    </div>
+  );
+}
+
+function TodayCard({ week, weekLoading, active, activeLoading, inProgress, inProgressLoading }) {
+  if (weekLoading || activeLoading || inProgressLoading) {
+    return (
+      <div className="space-y-2">
+        <Skeleton className="h-7 w-40" />
+        <Skeleton className="h-4 w-56" />
+        <Skeleton className="h-11 w-full" />
+      </div>
+    );
+  }
+  if (inProgress) return <InProgressBlock workout={inProgress} />;
+
+  const today = week?.days?.find((d) => d.state === 'today');
+  // Without the week there is no slot to read; the gym card keeps Start reachable.
+  if (!today || today.planned.kind === 'gym') {
+    const done = today?.actual.find((a) => a.kind === 'gym' && !a.skipped);
+    if (done) return <GymDoneCard entry={done} />;
+    return active ? <GymCard program={active} /> : <NoProgramBlock />;
+  }
+
+  const results = today.actual.filter((a) => a.kind !== 'gym' && !a.skipped);
+  if (!results.length) return <PlanCard day={today} previous={week.previous} />;
+  return (
+    <div className="space-y-4">
+      {results.map((a) => (
+        <ActivityResult
+          key={a.stats?.activity_id || a.label}
+          entry={a}
+          title={a.kind === today.planned.kind ? today.planned.title : a.label}
+          ceiling={153}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ---------- Now: the check-in half that can be answered ----------
+
+function NowSlot({ gymDay, readiness }) {
+  const hour = new Date().getHours();
+  const evening = hour >= 21 || hour < 4;
+  // After midnight the ramp is still about the evening that just ended.
+  const rampDate = hour < 4 ? localDate(-1) : localDate();
+  const morning = useCheckin(localDate());
+  const night = useCheckin(rampDate);
+  const showRatings = useShownWhileIncomplete(morning.isLoading, ratingsComplete(morning.checkin));
+  const showRamp = useShownWhileIncomplete(night.isLoading, rampComplete(night.checkin));
+
+  const slept = readiness?.is_last_night ? readiness.last_night : null;
+
+  if (evening && showRamp) {
+    const answered = rampComplete(night.checkin);
+    return (
+      <div className="rounded-xl bg-neutral-900 p-3 space-y-1">
+        <div className="flex items-baseline justify-between gap-2">
+          <p className="font-semibold text-neutral-200">{answered ? 'Wind-down · saved' : 'Wind-down'}</p>
+          <p className="text-xs text-neutral-400">bed 22:30</p>
+        </div>
+        <Ramp checkin={night.checkin} save={night.save} />
+        <SaveError save={night.save} />
+      </div>
+    );
+  }
+  if (!evening && !gymDay && showRatings) {
+    const answered = ratingsComplete(morning.checkin);
+    return (
+      <div className="rounded-xl bg-neutral-900 p-3 space-y-1">
+        <p className="font-semibold text-neutral-200">{answered ? 'Morning check-in · saved' : 'How did you wake up?'}</p>
+        {slept && (
+          <p className="text-xs text-neutral-400 tabular-nums">
+            {[
+              slept.sleep_secs != null ? `Slept ${Math.floor(slept.sleep_secs / 3600)} h ${String(Math.round((slept.sleep_secs % 3600) / 60)).padStart(2, '0')}` : null,
+              slept.sleep_score != null ? `score ${slept.sleep_score}` : null,
+              slept.body_battery_at_wake != null ? `battery ${slept.body_battery_at_wake}` : null,
+            ].filter(Boolean).join(' · ')}
+          </p>
+        )}
+        <Ratings checkin={morning.checkin} save={morning.save} />
+        <NoteField checkin={morning.checkin} save={morning.save} />
+        <SaveError save={morning.save} />
+      </div>
+    );
+  }
+  return null;
+}
+
+// ---------- tomorrow ----------
+
+function Tomorrow({ day }) {
+  if (!day) return null;
+  const gym = day.planned.kind === 'gym';
+  const [name, focus] = gym ? day.planned.title.split(' — ') : [day.planned.title, null];
+  return (
+    <Link to="/train" className="flex items-center justify-between gap-3 border-t border-neutral-800 pt-3 min-h-11 text-sm">
+      <span className="text-neutral-400">Tomorrow</span>
+      <span className="min-w-0 truncate">
+        <span className="font-medium text-neutral-200">{name}</span>
+        {focus && <span className="text-neutral-400"> · {focus}</span>}
+        <span className="text-neutral-400 ml-2" aria-hidden="true">›</span>
+      </span>
+    </Link>
+  );
+}
+
+// ---------- page ----------
 
 // The manifest's "Start next workout" shortcut lands here with ?start=next. An unfinished
 // session wins over starting a new one, and the param is stripped either way so a refresh
@@ -219,7 +416,7 @@ function useStartNextShortcut({ active, inProgress, resolved }) {
         qc.invalidateQueries({ queryKey: ['in-progress-workout'] });
         navigate(`/session/${w.id}`);
       })
-      .catch(() => { /* stay on the dashboard; the Start button is right there */ });
+      .catch(() => { /* stay on Today; the Start button is right there */ });
   }, [params, resolved, inProgress, active, navigate, qc, setParams]);
 }
 
@@ -230,57 +427,48 @@ export default function Dashboard() {
     queryFn: getInProgressWorkout,
     staleTime: 0,
   });
-  const { data: checkin } = useQuery({ queryKey: ['checkin'], queryFn: getCheckin, staleTime: 60_000 });
-  const { data: week } = useWeek();
+  const { data: week, isLoading: weekLoading, isError: weekError } = useWeek();
+  const { data: readiness, isLoading: rLoading } = useQuery({ queryKey: ['readiness'], queryFn: getReadiness, staleTime: 5 * 60_000 });
+  const { data: trends, isLoading: tLoading } = useQuery({
+    queryKey: ['trends', 90],
+    queryFn: () => getTrends({ days: 90 }),
+    staleTime: 5 * 60_000,
+  });
 
-  const resolved = !activeLoading && !inProgressLoading;
-  useStartNextShortcut({ active, inProgress, resolved });
+  useStartNextShortcut({ active, inProgress, resolved: !activeLoading && !inProgressLoading });
 
-  const todayRow = week?.days?.find((d) => d.state === 'today');
-  const todayGymDone = todayRow?.planned?.kind === 'gym' && todayRow.done ? todayRow : null;
-  const sessionLabel = !resolved ? 'Session' : inProgress ? 'In progress' : todayGymDone ? 'Done today' : 'Up next';
+  const today = week?.days?.find((d) => d.state === 'today');
+  const gymDay = !!today && today.planned.kind === 'gym' && !inProgress
+    && !today.actual.some((a) => a.kind === 'gym' && !a.skipped) && !!active?.progress?.next_routine;
 
   return (
     <Page dense>
-      <div>
+      <div className="flex items-baseline justify-between gap-3">
         <h1 className="text-2xl font-semibold tracking-tight">Today</h1>
-        <p className="text-sm text-neutral-400 mt-0.5">
-          {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
-          {active?.progress?.week && ` · Week ${active.progress.week}${active.total_weeks ? ` of ${active.total_weeks}` : ''}`}
+        <p className="text-sm text-neutral-400">
+          {new Date().toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}
         </p>
       </div>
 
-      <WeekStrip />
+      <WeekStrip week={week} isLoading={weekLoading} isError={weekError} />
 
-      <Section
-        label={<span className={inProgress ? 'text-emerald-400' : ''}>{sessionLabel}</span>}
-        className="pt-3"
-      >
-        {/* A finished gym day still shows the next routine underneath: "Done today" is
-            the label, the Start below it is for the day he trains twice or wants to look
-            ahead — it was never hidden before and it isn't now. */}
-        {todayGymDone && (
-          <p className="text-sm text-neutral-300 mb-2">
-            {[todayGymDone.planned.title, todayGymDone.actual?.[0]?.meta].filter(Boolean).join(' · ')}
-          </p>
-        )}
-        {!resolved ? <SessionSkeleton />
-          : inProgress ? <InProgressBlock workout={inProgress} />
-          : !active ? <NoProgramBlock />
-          : <NextWorkoutBlock program={active} />}
+      <NowSlot gymDay={gymDay} readiness={readiness} />
+
+      <TodayCard
+        week={week} weekLoading={weekLoading}
+        active={active} activeLoading={activeLoading}
+        inProgress={inProgress} inProgressLoading={inProgressLoading}
+      />
+
+      <Section label="Last night" className="pt-3">
+        <TodayTiles readiness={readiness} trends={trends} isLoading={rLoading || tLoading} />
       </Section>
 
-      <Section
-        label="Check-in"
-        action={checkinStarted(checkin) && <span className="text-[11px] text-emerald-400">Saved</span>}
-        className="pt-3"
-      >
-        <CheckinCard compact />
+      <Section label="Progress" className="pt-3">
+        <ProgressGlance trends={trends} week={week} />
       </Section>
 
-      <TodayTiles />
-
-      <CoachCard />
+      <Tomorrow day={week?.tomorrow} />
     </Page>
   );
 }
