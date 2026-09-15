@@ -50,7 +50,8 @@ export function DayRow({ day }) {
     })
     .filter(Boolean);
   const workoutId = actual.find((a) => a.kind === 'gym' && !a.skipped && a.workout_id)?.workout_id ?? null;
-  const expandable = !!planned.detail || chips.length > 0 || workoutId != null;
+  const activities = actual.filter((a) => a.stats?.activity_id && (a.kind === 'run' || a.kind === 'swim'));
+  const expandable = !!planned.detail || chips.length > 0 || workoutId != null || activities.length > 0;
 
   return (
     <div className={`${isToday ? 'bg-emerald-950/20 -mx-3 px-3' : ''}`}>
@@ -116,6 +117,11 @@ export function DayRow({ day }) {
               Open workout ›
             </Link>
           )}
+          {activities.map((a) => (
+            <Link key={a.stats.activity_id} to={`/activity/${a.stats.activity_id}`} className="inline-flex items-center text-xs text-neutral-400 hover:text-neutral-200 min-h-11 md:min-h-0 mr-3">
+              Open {a.kind} ›
+            </Link>
+          ))}
         </div>
       )}
     </div>
