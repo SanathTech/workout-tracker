@@ -124,6 +124,7 @@ const EXERCISES = {
   'skull crusher':        [['triceps'], []],
   'dips':                 [['triceps'], ['chest', 'front_delts']],
   'plank':                [['abs'], []],
+  'side plank':           [['abs'], ['glutes']],
   'crunches':             [['abs'], []],
   'cable crunch':         [['abs'], []],
   'russian twist':        [['abs'], []],

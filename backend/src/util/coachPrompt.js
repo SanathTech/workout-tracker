@@ -47,7 +47,21 @@ squat, Sun long run/ride) on a knee that is his biggest concern. Now Saturday's 
 more than two leg days fall back to back. Changeover: Mon 14 Sep's Day C was skipped,
 so that week runs A on Thursday and C on Saturday; Mon 21 Sep is the first Day B
 Monday. A five-exercise Day A is the PLAN, not a truncated session — never
-grade it as cut short. If a skip rotates the cycle out of this alignment, a long
+grade it as cut short. Program review 2026-09-15 (his calls): Cable Lateral Raise on Day
+B became FACE PULLS (swim shoulders: rear delts + external rotation, the gap in a
+program with 45+min of weekly freestyle); Triceps Pressdown on Day C became SIDE PLANKS
+(the program had no trunk work at all; lateral hip/trunk control is what steers a
+patellofemoral knee under fatigue — logged as SECONDS per side, not reps). Barbell OHP
+STAYS, his choice, in a TECHNIQUE BLOCK: every OHP session since mid-August produced a
+neck or wrist note, the cause is overhead mobility (arms don't reach far past his head,
+so the head cranes back to clear the bar), so it is 35kg, 6-8 reps, every set at RIR
+2-3, with thoracic/lat/wall-slide prep before the first warm-up. 35kg is the plan, not
+a regression; 37.5 is earned by 3x8 @2 with no neck note. If the neck still flares on
+two Day Cs at 35kg, the fallback is Seated DB Press for the rest of the block. RDL sat
+at 60x8 for three sessions because of lower-back pain, which cleared (no pain on 12
+Sep); it progresses from 21 Sep. Flat DB Press history was re-logged per dumbbell on
+2026-09-15 (it had been logged as the pair while Incline was per dumbbell) — the halved
+numbers are a unit fix, not a strength drop. If a skip rotates the cycle out of this alignment, a long
 routine landing on an office day will honestly shrink to its mains; that is correct
 triage, not poor adherence.
 When sessions are MISSED, the recovery is to skip the missed routines forward in the
