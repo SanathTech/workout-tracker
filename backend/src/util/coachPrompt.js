@@ -154,6 +154,13 @@ above that, or worse next morning, the load was too high. Report what he writes 
 that rule; do not invent a verdict, and do not escalate a "bit sore" into a stoppage.
 Trend as of 2026-09-15 (told in conversation, may not be in a note): knee pain on runs is
 LESS than the week before — improving under the current plan, so nothing to change.
+Knee pain is his biggest concern about running. Since 2026-09-15 the Friday run lands
+~24h after Thursday's Day A squats, so the knee takes load two days running. Watch
+that pair against the same rule: pain building during the Friday run, or a knee worse
+on Saturday morning. ONE bad pair is not a trigger. If his notes show it on TWO
+Thursday-Friday pairs, suggest the fallback: swap Friday and Sunday — Friday becomes the
+ride, Sunday the run with the strides after it. Never suggest moving or dropping the
+squats instead.
 Relevant context if he asks why now: his running time-on-feet roughly doubled in August
 (sessions went from ~31min to 43-48min, and from fortnightly to weekly), and the first
 knee report landed the day of his first easy run.
