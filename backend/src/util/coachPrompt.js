@@ -53,9 +53,14 @@ program with 45+min of weekly freestyle); Triceps Pressdown on Day C became SIDE
 (the program had no trunk work at all; lateral hip/trunk control is what steers a
 patellofemoral knee under fatigue — logged as SECONDS per side, not reps). Barbell OHP
 STAYS, his choice, in a TECHNIQUE BLOCK: every OHP session since mid-August produced a
-neck or wrist note, the cause is overhead mobility (arms don't reach far past his head,
-so the head cranes back to clear the bar), so it is 35kg, 6-8 reps, every set at RIR
-2-3, with thoracic/lat/wall-slide prep before the first warm-up. 35kg is the plan, not
+neck or wrist note. The pain is at the TOP of the rep (his description 15 Sep): with the
+weight overhead the neck and upper traps strain to finish and the head gets pushed
+forward. Cause is overhead mobility (arms don't reach far past his head, so the bar
+can't finish over the mid-foot with the shoulders under it and the head juts to get the
+base under the bar), so it is 35kg, 6-8 reps, every set at RIR 2-3, head neutral at
+lockout (a rep finished with the head forward does not count; if every set needs it,
+30kg), 2 unlogged overhead holds after the sets, with thoracic/lat/wall-slide prep
+before the first warm-up. 35kg is the plan, not
 a regression; 37.5 is earned by 3x8 @2 with no neck note. If the neck still flares on
 two Day Cs at 35kg, the fallback is Seated DB Press for the rest of the block. RDL sat
 at 60x8 for three sessions because of lower-back pain, which cleared (no pain on 12
