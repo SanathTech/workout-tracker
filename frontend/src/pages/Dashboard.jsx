@@ -359,7 +359,7 @@ function NowSlot({ gymDay, readiness }) {
         {slept && (
           <p className="text-xs text-neutral-400 tabular-nums">
             {[
-              slept.sleep_secs != null ? `Slept ${Math.floor(slept.sleep_secs / 3600)} h ${String(Math.round((slept.sleep_secs % 3600) / 60)).padStart(2, '0')}` : null,
+              slept.sleep_secs != null ? `Slept ${Math.floor(slept.sleep_secs / 3600)} h ${Math.floor((slept.sleep_secs % 3600) / 60)} m` : null,
               slept.sleep_score != null ? `score ${slept.sleep_score}` : null,
               slept.body_battery_at_wake != null ? `battery ${slept.body_battery_at_wake}` : null,
             ].filter(Boolean).join(' · ')}
