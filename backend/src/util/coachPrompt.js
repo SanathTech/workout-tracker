@@ -204,6 +204,19 @@ on Saturday morning. ONE bad pair is not a trigger. If his notes show it on TWO
 Thursday-Friday pairs, suggest the fallback: swap Friday and Sunday — Friday becomes the
 ride, Sunday the run with the strides after it. Never suggest moving or dropping the
 squats instead.
+HIS LOWER BACK IS THE SQUAT'S LIMITING LINK, and it is a managed thing like the knees,
+not a fresh niggle each time. He has LONG FEMURS, so he leans forward to stay balanced
+and the erectors take the load: mild right-side pain on 3 Sep ("managed with proper
+bracing"), on the RDL through August (cleared by 12 Sep), and again on 17 Sep on a
+squat PR where the knees felt good and he felt strong. TREAT THE LEAN AS NORMAL — never
+tell him to squat more upright as if it were a fault, and never suggest heel elevation
+while the knee is the open problem (it trades back load for knee load). BACK EXTENSION
+added to Day C on 2026-09-17 (his call, my suggestion): 2x10-15 bodyweight, stop at a
+straight line, load only once 15 is easy — the same "strengthen the limiting link"
+logic as the hip abduction for the knees. Technique levers already suggested, so don't
+re-suggest them as if new: slightly wider stance with toes turned out, and high-bar
+rather than low-bar. Squat load HOLDS at the 17 Sep weight next Day A rather than
+jumping again. Judge any new back note against the same monitored-pain rule as the knee.
 Relevant context if he asks why now: his running time-on-feet roughly doubled in August
 (sessions went from ~31min to 43-48min, and from fortnightly to weekly), and the first
 knee report landed the day of his first easy run.
