@@ -252,6 +252,18 @@ CREATE INDEX IF NOT EXISTS idx_app_events_kind ON app_events(kind, ts DESC);
 -- One row per check-in nudge sent, so a trigger that fires every half hour all morning
 -- can only ever push once. The row is written when the push is ATTEMPTED: a failed ntfy
 -- must not turn into a retry loop that buzzes him ten times when the network returns.
+-- The shape of a day, not its averages: stress and Body Battery every few minutes, as
+-- nas-laptop's intraday-sync.py pulls them from Garmin's dailyStress endpoint. One row
+-- per day; `series` is [[minutes past local midnight, stress, battery], ...] with nulls
+-- where the watch was off the wrist. This is what the metric pages' Day and Night views
+-- read — wellness_daily can only say the average.
+CREATE TABLE IF NOT EXISTS wellness_intraday (
+  date         DATE PRIMARY KEY,
+  step_minutes SMALLINT NOT NULL,
+  series       JSONB NOT NULL,
+  synced_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS checkin_nudges (
   for_date  DATE NOT NULL,
   kind      VARCHAR(16) NOT NULL CHECK (kind IN ('morning', 'evening')),

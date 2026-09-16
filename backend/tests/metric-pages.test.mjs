@@ -92,6 +92,36 @@ console.log('\n─── an unknown field never reaches SQL ───');
   ok((await api('/api/coach/metric/hrv_last_night')).status === 404, 'a real column that is not a listed metric is a 404 too');
 }
 
+console.log('\n─── the Day view, for the metrics that have a shape ───');
+await db.query(
+  `INSERT INTO wellness_intraday (date, step_minutes, series)
+        VALUES ($1::date, 6, $2::jsonb)
+   ON CONFLICT (date) DO UPDATE SET series = EXCLUDED.series`,
+  [shift(today, -1), JSON.stringify([[0, 20, 40], [360, 14, 88], [720, 55, 52], [1320, null, 18]])]
+);
+{
+  const battery = await api(`/api/coach/metric/body_battery_at_wake?days=1&day=1&date=${shift(today, -1)}`);
+  ok(battery.body.has_intraday === true, 'battery has a shape');
+  ok(battery.body.intraday?.points?.length === 4, 'and the day comes back as points', JSON.stringify(battery.body.intraday?.points));
+  ok(battery.body.intraday.points[1][1] === 88, 'battery reads its own column', JSON.stringify(battery.body.intraday.points[1]));
+  ok(battery.body.intraday.night?.bed === 1394 && battery.body.intraday.night?.wake === 584,
+    'the night that ended that morning rides along, in minutes', JSON.stringify(battery.body.intraday.night));
+
+  const stress = await api(`/api/coach/metric/stress_avg?days=1&day=1&date=${shift(today, -1)}`);
+  ok(stress.body.intraday.points.length === 3, 'a null reading is dropped, not drawn as zero', JSON.stringify(stress.body.intraday.points));
+  ok(stress.body.intraday.points[1][1] === 14, 'stress reads its own column');
+
+  // A gap: ask for a day with no row and the night must follow the row that came back.
+  const gap = await api(`/api/coach/metric/body_battery_at_wake?days=1&day=1&date=${today}`);
+  ok(gap.body.intraday?.date === shift(today, -1), 'a missing day falls back to the last one there is', gap.body.intraday?.date);
+  ok(gap.body.intraday?.night?.wake === 584, "and the night shown is that day's, not the one asked for", JSON.stringify(gap.body.intraday?.night));
+
+  const weight = await api('/api/coach/metric/weight_kg?days=1&day=1');
+  ok(weight.body.has_intraday === false && weight.body.intraday === null, 'weight has no shape, so no Day chip', JSON.stringify(weight.body.has_intraday));
+  const noDay = await api('/api/coach/metric/stress_avg?days=30');
+  ok(noDay.body.intraday === null, 'and the day is only fetched when it is asked for');
+}
+
 await db.end();
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
