@@ -128,8 +128,11 @@ function LiftPreview({ routine }) {
 function GymCard({ program }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const { checkin, save } = useCheckin(localDate());
-  const askRatings = useShownWhileIncomplete(localDate(), checkin, ratingsComplete(checkin));
+  // One reading of the calendar day per render: two calls can straddle midnight and then
+  // the query and the slot logic disagree about which day they mean.
+  const today = localDate();
+  const { checkin, save } = useCheckin(today);
+  const askRatings = useShownWhileIncomplete(today, checkin, ratingsComplete(checkin));
 
   const start = useMutation({
     mutationFn: (routineId) => startWorkout({ routine_id: routineId }),
@@ -361,16 +364,18 @@ function NowSlot({ gymDay, readiness }) {
 
   const hour = new Date().getHours();
   const evening = asked === 'evening' || (asked !== 'morning' && (hour >= 21 || hour < 4));
+  // One reading of the calendar day per render, for the same reason as the gym card.
+  const today = localDate();
+  const yesterday = localDate(-1);
   // After midnight the ramp is still about the evening that just ended.
-  const rampDate = hour < 4 ? localDate(-1) : localDate();
-  const morning = useCheckin(localDate());
+  const rampDate = hour < 4 ? yesterday : today;
+  const morning = useCheckin(today);
   const night = useCheckin(rampDate);
-  const showRatings = useShownWhileIncomplete(localDate(), morning.checkin, ratingsComplete(morning.checkin));
+  const showRatings = useShownWhileIncomplete(today, morning.checkin, ratingsComplete(morning.checkin));
   const showRamp = useShownWhileIncomplete(rampDate, night.checkin, rampComplete(night.checkin));
 
   // Last night's wind-down, asked once the next morning if it never got answered. Missed
   // is missed: it is offered, it can be waved away, and it does not pile up.
-  const yesterday = localDate(-1);
   const catchUp = useCheckin(yesterday);
   const readSkip = (date) => {
     try { return localStorage.getItem(skipKey(date)) === '1'; } catch { return false; }

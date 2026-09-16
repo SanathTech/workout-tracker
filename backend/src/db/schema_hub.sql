@@ -254,7 +254,7 @@ CREATE INDEX IF NOT EXISTS idx_app_events_kind ON app_events(kind, ts DESC);
 -- must not turn into a retry loop that buzzes him ten times when the network returns.
 CREATE TABLE IF NOT EXISTS checkin_nudges (
   for_date  DATE NOT NULL,
-  kind      VARCHAR(16) NOT NULL,        -- morning | evening
+  kind      VARCHAR(16) NOT NULL CHECK (kind IN ('morning', 'evening')),
   sent_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   delivered BOOLEAN NOT NULL DEFAULT FALSE,
   PRIMARY KEY (for_date, kind)
