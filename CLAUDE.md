@@ -27,7 +27,9 @@ backend/
       workouts.js            Workouts (start from routine, update, complete, history)
       progress.js            Stats, weekly volume, per-exercise progress, PRs, /suggestions
       coach.js               Hub reads + coach_notes (GET list, POST create, PATCH edit/resolve)
+      nudge.js               POST /coach/nudge?kind=morning|evening — the check-in pushes, machine-authed, one per day per kind
     util/aim.js              Aim precedence for /suggestions: coach load-call beats the engine
+    util/machineAuth.js      Shared secret gate for the endpoints the nas-laptop timers call (/coach/run, /coach/nudge)
     util/activityStreams.js  intervals.icu stream fetch + presentation shaping (15 s buckets, walk breaks, km / 100 m splits) for the activity page
   vercel.json                Legacy v2 config (see Deployment — don't "modernize")
 frontend/
@@ -113,7 +115,7 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
 - `workout-tracker-frontend` — Root Directory: `frontend`. Vite framework preset.
 
 **Env vars:**
-- Backend: `INTERVALS_API_KEY` (activity page streams; without it the page shows stored figures only), `DATABASE_URL` (Neon — use the **pooled** `-pooler` host; the pool is capped at
+- Backend: `APP_BASE_URL` (where a push's tap lands; defaults to the live domain), `INTERVALS_API_KEY` (activity page streams; without it the page shows stored figures only), `DATABASE_URL` (Neon — use the **pooled** `-pooler` host; the pool is capped at
   `max: 1` per lambda), `NODE_ENV=production`, `AUTH_PASSWORD_HASH`, `SESSION_SECRET`,
   optional `APP_TIMEZONE` (defaults to `Australia/Melbourne`)
 - Frontend: `VITE_API_URL` must be **empty** in production. `frontend/vercel.json` rewrites
@@ -268,6 +270,17 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
     text is not rendered on Today — it went stale ("30-45min" while he ran 68).
   - **No red for choices.** A skipped day is dashed; a past day with nothing is a plain
     outline.
+  - **The check-in comes to him, and it is never asked twice.** Two pushes, both decided
+    server-side in `routes/nudge.js`: the morning one is TRIGGERED BY THE GARMIN SYNC and
+    holds off until a night actually exists (a 06:30 "how did you sleep" before the watch
+    uploads is the nag he was already ignoring); the evening one is 21:15, fifteen minutes
+    before the screens-down cue it asks about. `checkin_nudges` claims the slot BEFORE the
+    push, so the half-hourly morning trigger can only buzz once, and an answered half is
+    never nudged. Tapping a push lands on `/dashboard?checkin=morning|evening`, which opens
+    that half whatever the clock says — the param is deliberately NOT stripped, because the
+    double-mount raced it and the decision was gone by the second mount.
+  - **A missed evening is asked once the next morning** (`Last night's wind-down`, before
+    noon, with Skip) and then dropped. Missed is missed; nothing piles up.
   - **The Now slot only holds what can be answered now**: ratings before 21:00 (on a gym
     day they sit above Start instead), the ramp from 21:00 to 04:00, dated to the evening
     it describes. A half that was answered in this visit stays as its own confirmation;

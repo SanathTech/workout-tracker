@@ -1,5 +1,4 @@
 const express = require('express');
-const crypto = require('crypto');
 const router = express.Router();
 const db = require('../db');
 const { serverError } = require('../util/errors');
@@ -12,17 +11,7 @@ const { notify } = require('../util/ntfy');
 const DAILY_MODEL = 'claude-haiku-4-5';
 const WEEKLY_MODEL = 'claude-sonnet-5';
 
-// Machine auth, not session auth: this is called by the nas-laptop timers, which have
-// no browser session. Mounted in index.js BEFORE requireAuth; the secret is the gate.
-// Constant-time compare so the secret can't be probed byte by byte.
-function authorized(req) {
-  const secret = process.env.COACH_RUN_SECRET;
-  if (!secret) return false;
-  const given = req.get('x-coach-secret') || '';
-  const a = Buffer.from(given);
-  const b = Buffer.from(secret);
-  return a.length === b.length && crypto.timingSafeEqual(a, b);
-}
+const { machineAuthorized: authorized } = require('../util/machineAuth');
 
 // POST /api/coach/run?kind=daily|weekly — generate a scheduled call.
 //

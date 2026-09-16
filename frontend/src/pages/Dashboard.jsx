@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
@@ -45,9 +45,14 @@ const pace = duration;
 // Once a check-in half has been seen unanswered in this visit it stays on screen after
 // it's completed, as its own confirmation — the slot doesn't vanish under the thumb that
 // answered it. Next visit, a complete half isn't shown at all.
-function useShownWhileIncomplete(isLoading, complete) {
+//
+// It takes the ANSWERS, not a loading flag: "no data yet" is not "unanswered", and
+// treating it as such opened an already-answered check-in whenever the fetch lagged
+// (caught in QA, 2026-09-16). `null` is a real answer — it means no row — so the test is
+// specifically for a value having arrived.
+function useShownWhileIncomplete(checkin, complete) {
   const seen = useRef(false);
-  if (!isLoading && !complete) seen.current = true;
+  if (checkin !== undefined && !complete) seen.current = true;
   return seen.current;
 }
 
@@ -118,8 +123,8 @@ function LiftPreview({ routine }) {
 function GymCard({ program }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const { checkin, isLoading: checkinLoading, save } = useCheckin(localDate());
-  const askRatings = useShownWhileIncomplete(checkinLoading, ratingsComplete(checkin));
+  const { checkin, save } = useCheckin(localDate());
+  const askRatings = useShownWhileIncomplete(checkin, ratingsComplete(checkin));
 
   const start = useMutation({
     mutationFn: (routineId) => startWorkout({ routine_id: routineId }),
@@ -335,15 +340,37 @@ function TodayCard({ week, weekLoading, active, activeLoading, inProgress, inPro
 
 // ---------- Now: the check-in half that can be answered ----------
 
+// A skipped catch-up stays skipped for the day, and only for this device — it is a "not
+// now", not an answer, so nothing is written to the check-in.
+const skipKey = (date) => `ramp-catchup-skipped:${date}`;
+
 function NowSlot({ gymDay, readiness }) {
+  const [params] = useSearchParams();
+  // A tap on the push opens the question it asked about, whatever the clock says. The
+  // param is left in the URL on purpose: stripping it raced the double-mount and the
+  // decision was gone by the second one (QA, 2026-09-16 — ?checkin=evening rendered the
+  // morning question). Reopening the slot on a refresh costs nothing, since it is only
+  // ever shown while the answer is missing.
+  const askedParam = params.get('checkin');
+  const asked = askedParam === 'morning' || askedParam === 'evening' ? askedParam : null;
+
   const hour = new Date().getHours();
-  const evening = hour >= 21 || hour < 4;
+  const evening = asked === 'evening' || (asked !== 'morning' && (hour >= 21 || hour < 4));
   // After midnight the ramp is still about the evening that just ended.
   const rampDate = hour < 4 ? localDate(-1) : localDate();
   const morning = useCheckin(localDate());
   const night = useCheckin(rampDate);
-  const showRatings = useShownWhileIncomplete(morning.isLoading, ratingsComplete(morning.checkin));
-  const showRamp = useShownWhileIncomplete(night.isLoading, rampComplete(night.checkin));
+  const showRatings = useShownWhileIncomplete(morning.checkin, ratingsComplete(morning.checkin));
+  const showRamp = useShownWhileIncomplete(night.checkin, rampComplete(night.checkin));
+
+  // Last night's wind-down, asked once the next morning if it never got answered. Missed
+  // is missed: it is offered, it can be waved away, and it does not pile up.
+  const yesterday = localDate(-1);
+  const catchUp = useCheckin(yesterday);
+  const [skipped, setSkipped] = useState(() => {
+    try { return localStorage.getItem(skipKey(yesterday)) === '1'; } catch { return false; }
+  });
+  const showCatchUp = useShownWhileIncomplete(catchUp.checkin, rampComplete(catchUp.checkin));
 
   const slept = readiness?.is_last_night ? readiness.last_night : null;
 
@@ -377,6 +404,27 @@ function NowSlot({ gymDay, readiness }) {
         <Ratings checkin={morning.checkin} save={morning.save} />
         <NoteField checkin={morning.checkin} save={morning.save} />
         <SaveError save={morning.save} />
+      </div>
+    );
+  }
+  if (!evening && hour < 12 && showCatchUp && !skipped) {
+    return (
+      <div className="rounded-xl bg-neutral-900 p-3 space-y-1">
+        <div className="flex items-baseline justify-between gap-2">
+          <p className="font-semibold text-neutral-200">Last night’s wind-down</p>
+          <button
+            type="button"
+            onClick={() => {
+              setSkipped(true);
+              try { localStorage.setItem(skipKey(yesterday), '1'); } catch { /* private window */ }
+            }}
+            className="text-xs text-neutral-400 hover:text-neutral-200 min-h-11 md:min-h-0 px-1"
+          >
+            Skip
+          </button>
+        </div>
+        <Ramp checkin={catchUp.checkin} save={catchUp.save} />
+        <SaveError save={catchUp.save} />
       </div>
     );
   }

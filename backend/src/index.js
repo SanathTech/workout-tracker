@@ -8,6 +8,7 @@ const workoutsRouter = require('./routes/workouts');
 const progressRouter = require('./routes/progress');
 const coachRouter = require('./routes/coach');
 const coachRunRouter = require('./routes/coachRun');
+const nudgeRouter = require('./routes/nudge');
 const mcpRouter = require('./routes/mcp');
 const authRouter = require('./routes/auth');
 const eventsRouter = require('./routes/events');
@@ -62,6 +63,8 @@ app.get('/health', (req, res) => res.json({ status: 'ok', auth: isConfigured() ?
 // session, so it authenticates with its own shared secret instead.
 app.use('/api/auth', authRouter);
 app.use('/api/coach/run', coachRunRouter);
+// Machine-authed like /coach/run, so it too is mounted before requireAuth.
+app.use('/api/coach/nudge', nudgeRouter);
 // The claude.ai MCP connector — capability-URL auth (token in path), not session auth.
 app.use('/api/mcp/:token', mcpRouter);
 
