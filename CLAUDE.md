@@ -427,6 +427,12 @@ which wipes). Backend env vars: `ANTHROPIC_API_KEY`, `COACH_RUN_SECRET`,
     its place by absorbing the slack the `1fr` PREV column otherwise collects — remove
     it and PREV balloons (owner call, 2026-08-04, reversing the brief chip-only
     experiment from the same redesign).
+  - **Enter walks the whole ledger.** Inside a block the shared `handleEditorEnter` moves
+    kg → reps → RIR → next set; on the LAST field of the last set the session page takes
+    over, opens the next exercise still to do and focuses the first weight cell whose reps
+    are blank (his ask, 2026-09-17 — it used to blur, leaving two taps to reach the next
+    exercise's kg). The focus waits a render, because that block's inputs don't exist
+    until it opens.
   - **Set removal is swipe-left → Remove** (`useSwipeToReveal`) — the ledger has no room
     for an always-visible ✕. The reveal engages only on clearly-horizontal drags so
     vertical scroll and input taps stay native, and it springs shut after 5s.
