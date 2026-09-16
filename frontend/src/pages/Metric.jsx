@@ -130,7 +130,8 @@ function Chart({ series, stroke, mean, goal, field, precision }) {
 // gone by six" are the same glance.
 function DayChart({ intraday, stroke, field, precision }) {
   const pts = intraday?.points || [];
-  if (pts.length < 3) return <p className="text-sm text-neutral-400 py-6">No readings for this day yet.</p>;
+  if (!pts.length) return <p className="text-sm text-neutral-400 py-6">No readings for this day yet.</p>;
+  if (pts.length < 3) return <p className="text-sm text-neutral-400 py-6">Only {pts.length} reading{pts.length > 1 ? 's' : ''} so far today — the line starts once there are a few.</p>;
   const W = 320;
   const H = 170;
   const pad = { l: 28, r: 6, t: 10, b: 18 };
@@ -151,11 +152,18 @@ function DayChart({ intraday, stroke, field, precision }) {
   if (run.length > 1) runs.push(run);
 
   const { bed, wake } = intraday.night || {};
-  // A bed time after midnight is the same night as the wake time beside it; one before
-  // midnight belongs to the evening at the right-hand end of the chart.
+  // His bed times sit either side of midnight, and the band has to follow. Bed BEFORE
+  // midnight (23:14) wraps: the evening at the right-hand end plus midnight-to-wake at
+  // the left. Bed AFTER midnight (00:19) is a single band from bed to wake — shading
+  // from midnight would colour in the half hour he was still up.
   const bands = [];
-  if (wake != null) bands.push([0, wake]);
-  if (bed != null && (wake == null || bed > wake)) bands.push([bed, 1440]);
+  if (bed != null && wake != null) {
+    if (bed > wake) { bands.push([0, wake], [bed, 1440]); } else { bands.push([bed, wake]); }
+  } else if (wake != null) {
+    bands.push([0, wake]);
+  } else if (bed != null) {
+    bands.push([bed, 1440]);
+  }
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img" aria-label="Through the day, with the night shaded">
