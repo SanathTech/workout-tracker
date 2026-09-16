@@ -341,6 +341,41 @@ async function metricSeries(field, days) {
   };
 }
 
+// A single day's shape: stress and Body Battery every few minutes, plus the night that
+// ended that morning so the chart can shade it. Only the two metrics Garmin samples
+// through the day have one; sleep score and weight are one reading each.
+const INTRADAY_FIELD = { stress_avg: 1, body_battery_at_wake: 2 };
+
+async function intradayDay(field, iso) {
+  const idx = INTRADAY_FIELD[field];
+  if (idx == null) return null;
+  const [day, night] = await Promise.all([
+    db.query(
+      `SELECT date, step_minutes, series FROM wellness_intraday
+        WHERE date <= $1::date ORDER BY date DESC LIMIT 1`,
+      [iso || today()]
+    ),
+    db.query(
+      `SELECT to_char(sleep_start, 'HH24:MI') AS bed, to_char(sleep_end, 'HH24:MI') AS wake
+         FROM wellness_daily WHERE date <= $1::date AND sleep_start IS NOT NULL
+        ORDER BY date DESC LIMIT 1`,
+      [iso || today()]
+    ),
+  ]);
+  const row = day.rows[0];
+  if (!row) return null;
+  const minutes = (hm) => (hm ? Number(hm.slice(0, 2)) * 60 + Number(hm.slice(3, 5)) : null);
+  return {
+    date: String(row.date).slice(0, 10),
+    when: whenLabel(String(row.date)),
+    step_minutes: row.step_minutes,
+    // [minutes past local midnight, value] — the other metric's column is dropped here
+    // rather than in the browser, since the page only ever draws one line.
+    points: row.series.map((p) => [p[0], p[idx]]).filter((p) => p[1] != null),
+    night: { bed: minutes(night.rows[0]?.bed), wake: minutes(night.rows[0]?.wake) },
+  };
+}
+
 // The sleep page's own block: last night's stages, and how the week's bedtimes sat
 // against the 22:30 anchor. Bedtime belongs here because it is what moves the score.
 async function sleepDetail() {
@@ -1190,6 +1225,8 @@ module.exports = {
   METRICS,
   WEIGHT_GOAL_KG,
   metricSeries,
+  intradayDay,
+  INTRADAY_FIELD,
   sleepDetail,
   wellnessHistory,
   loadHistory,

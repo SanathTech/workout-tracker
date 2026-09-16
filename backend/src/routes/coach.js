@@ -6,7 +6,7 @@ const { resolveWorkoutDate, todayInAppTimezone } = require('../util/dates');
 const {
   buildAdherence, protocolStatus, weekVsRhythm, wellnessHistory, loadHistory,
   runDiscipline, bodyweight, weekPlan, noteLedger, enduranceSessions,
-  METRICS, WEIGHT_GOAL_KG, metricSeries, sleepDetail,
+  METRICS, WEIGHT_GOAL_KG, metricSeries, sleepDetail, intradayDay, INTRADAY_FIELD,
   HR_CEILING,
 } = require('../util/coachContext');
 const { fetchStreams, shape: shapeStreams } = require('../util/activityStreams');
@@ -369,11 +369,19 @@ router.get('/metric/:field', async (req, res) => {
   if (!METRICS[field]) return res.status(404).json({ error: 'Unknown metric' });
   const days = windowDays(req.query.days, 30, 365);
   try {
-    const [metric, detail] = await Promise.all([
+    const [metric, detail, intraday] = await Promise.all([
       metricSeries(field, days),
       field === 'sleep_score' || field === 'sleep_secs' ? sleepDetail() : null,
+      // Only fetched for the Day view, and only for the metrics that have one.
+      req.query.day === '1' ? intradayDay(field, req.query.date) : null,
     ]);
-    res.json({ ...metric, sleep: detail, weight_goal_kg: field === 'weight_kg' ? WEIGHT_GOAL_KG : null });
+    res.json({
+      ...metric,
+      sleep: detail,
+      intraday,
+      has_intraday: INTRADAY_FIELD[field] != null,
+      weight_goal_kg: field === 'weight_kg' ? WEIGHT_GOAL_KG : null,
+    });
   } catch (err) {
     serverError(res, err);
   }

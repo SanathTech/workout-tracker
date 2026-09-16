@@ -54,7 +54,7 @@ frontend/
       ProgramEdit.jsx        /program/new and /program/:id/edit — ProgramEditor as a route (back gesture works, nav hides)
       WorkoutSession.jsx     /session/:id — sticky header + progress bar, 3-state exercise list, ledger
       WorkoutDetail.jsx      /workouts/:id — read-only past workout
-      Metric.jsx             /metric/:field — one number: Week/Month/3M/Year, line with gaps, usual + goal lines, average/best/worst; sleep adds last night's stages and the week's bedtimes
+      Metric.jsx             /metric/:field — one number: Day (battery/stress only) · Week/Month/3M/Year, line with gaps, usual + goal lines, average/best/worst; sleep adds last night's stages and the week's bedtimes
       ActivityDetail.jsx     /activity/:id — one run or swim: stats, HR vs the 153 ceiling with walk breaks, zones, splits, strides, drift (swims: per-100 m, no wrist HR)
       ExerciseLibrary.jsx    Browse/add exercises
     components/ui.jsx        Page / Section / Disclosure / Sheet primitives (2026-09-08)
@@ -264,7 +264,11 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
     (`/coach/metric/:field`, fields whitelisted in `METRICS` because the name reaches SQL);
     "usual" is always the trailing 30 days ending yesterday, the same window the tiles
     compare against. Untracked days stay gaps. The Night view (intraday battery and stress)
-    waits on a new Garmin pull — it is the last step of the rethink, not a missing piece here.
+    is now live for battery and stress: nas-laptop's `intraday-sync.py` pulls Garmin's
+    dailyStress endpoint (both series, 3-min samples, downsampled to 6) into
+    `wellness_intraday`, and `?day=1` on the metric route returns that day plus the night
+    that ended it, so the chart shades the sleep. Metrics without a shape (weight, sleep
+    score) never show the chip — `has_intraday` says which do.
   - **Today gets the space; tomorrow gets one line.** `week.tomorrow` comes off the
     weekday map (eight-day walk in `weekPlan`, so Sunday → Monday works). Never label
     anything with `progress.next_routine` without a day on it — "Up next: Day A" on a

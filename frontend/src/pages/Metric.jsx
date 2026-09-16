@@ -12,6 +12,9 @@ import { formatDay } from '../util/format';
 // to see how its been going today or the last week". Every tile and every row now opens
 // its own page instead, and the range is his to choose.
 
+// Day is only offered for the two metrics Garmin samples through the day; the rest are
+// one reading each and a "day" of them would be a single point.
+const DAY_RANGE = { key: 'day', label: 'Day', days: 1 };
 const RANGES = [
   { key: 'week', label: 'Week', days: 7 },
   { key: 'month', label: 'Month', days: 30 },
@@ -122,6 +125,61 @@ function Chart({ series, stroke, mean, goal, field, precision }) {
   );
 }
 
+// The shape of one day: battery charging overnight and draining through it, stress
+// spiking. The night that ended this morning is shaded, so "I woke at 58" and "it was
+// gone by six" are the same glance.
+function DayChart({ intraday, stroke, field, precision }) {
+  const pts = intraday?.points || [];
+  if (pts.length < 3) return <p className="text-sm text-neutral-400 py-6">No readings for this day yet.</p>;
+  const W = 320;
+  const H = 170;
+  const pad = { l: 28, r: 6, t: 10, b: 18 };
+  const values = pts.map((p) => p[1]);
+  const lo = Math.min(0, ...values);
+  const hi = Math.max(...values) * 1.08 || 1;
+  const x = (m) => pad.l + (m / 1440) * (W - pad.l - pad.r);
+  const y = (v) => pad.t + ((hi - v) / (hi - lo)) * (H - pad.t - pad.b);
+
+  // Gaps are the watch off the wrist, not a value of zero.
+  const runs = [];
+  let run = [];
+  const step = (intraday.step_minutes || 6) * 2.5;
+  pts.forEach((p, i) => {
+    if (i && p[0] - pts[i - 1][0] > step) { if (run.length > 1) runs.push(run); run = []; }
+    run.push(`${x(p[0]).toFixed(1)},${y(p[1]).toFixed(1)}`);
+  });
+  if (run.length > 1) runs.push(run);
+
+  const { bed, wake } = intraday.night || {};
+  // A bed time after midnight is the same night as the wake time beside it; one before
+  // midnight belongs to the evening at the right-hand end of the chart.
+  const bands = [];
+  if (wake != null) bands.push([0, wake]);
+  if (bed != null && (wake == null || bed > wake)) bands.push([bed, 1440]);
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img" aria-label="Through the day, with the night shaded">
+      {bands.map(([a, b]) => (
+        <rect key={a} x={x(a)} y={pad.t} width={Math.max(0, x(b) - x(a))} height={H - pad.t - pad.b} fill="#1d4ed8" opacity="0.13" />
+      ))}
+      {[hi * 0.25, hi * 0.5, hi * 0.75].map((v) => (
+        <g key={v}>
+          <line x1={pad.l} x2={W - pad.r} y1={y(v)} y2={y(v)} stroke="#262626" strokeWidth="1" />
+          <text x={pad.l - 5} y={y(v) + 3.5} textAnchor="end" fontSize="9.5" fill="#737373">{fmt(v, { field, precision })}</text>
+        </g>
+      ))}
+      {runs.map((r) => (
+        <polyline key={r[0]} points={r.join(' ')} fill="none" stroke={stroke} strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
+      ))}
+      {[0, 6, 12, 18, 24].map((h) => (
+        <text key={h} x={x(h * 60)} y={H - 4} textAnchor={h === 0 ? 'start' : h === 24 ? 'end' : 'middle'} fontSize="9.5" fill="#737373">
+          {h === 24 ? '24' : String(h).padStart(2, '0')}
+        </text>
+      ))}
+    </svg>
+  );
+}
+
 function Stats({ stats, field, precision, unit }) {
   const cells = [
     ['Average', stats.avg],
@@ -189,12 +247,16 @@ export default function Metric() {
   const { field } = useParams();
   const goBack = useSmartBack('/dashboard');
   const [range, setRange] = useState('month');
-  const days = RANGES.find((r) => r.key === range).days;
+  const isDay = range === 'day';
+  const days = isDay ? 1 : (RANGES.find((r) => r.key === range) || RANGES[1]).days;
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ['metric', field, days],
-    queryFn: () => getMetric(field, { days }),
+    queryKey: ['metric', field, days, isDay],
+    queryFn: () => getMetric(field, isDay ? { days: 1, day: 1 } : { days }),
     staleTime: 5 * 60_000,
   });
+  // The Day chip only exists once the server says this metric has a shape; asking for a
+  // day of weight would draw one dot.
+  const ranges = data?.has_intraday ? [DAY_RANGE, ...RANGES] : RANGES;
 
   const back = (
     <button type="button" onClick={goBack} className="text-sm text-neutral-400 hover:text-neutral-200 inline-flex items-center min-h-11 md:min-h-0 -ml-1 pl-1 self-start">← Back</button>
@@ -238,7 +300,7 @@ export default function Metric() {
       </div>
 
       <div className="flex gap-1.5" role="group" aria-label="Range">
-        {RANGES.map((r) => (
+        {ranges.map((r) => (
           <button key={r.key} type="button" onClick={() => setRange(r.key)} aria-pressed={range === r.key} className={range === r.key ? 'chip-solid flex-1' : 'chip flex-1'}>
             {r.label}
           </button>
@@ -249,6 +311,16 @@ export default function Metric() {
         <Skeleton className="h-44 w-full" />
       ) : (
         <>
+          {isDay ? (
+            <>
+              <DayChart intraday={data.intraday} stroke={STROKE[field] || '#e5e5e5'} field={field} precision={data.precision} />
+              <p className="text-[11px] text-neutral-400">
+                {data.intraday
+                  ? `${data.intraday.when} · every ${data.intraday.step_minutes} min · the shaded band is the night`
+                  : 'No readings for this day yet.'}
+              </p>
+            </>
+          ) : (
           <Chart
             series={data.series}
             stroke={STROKE[field] || '#e5e5e5'}
@@ -257,10 +329,13 @@ export default function Metric() {
             field={field}
             precision={data.precision}
           />
-          <Stats stats={data.stats} field={field} precision={data.precision} unit={data.unit} />
-          <p className="text-[11px] text-neutral-400">
-            {data.stats.tracked} of {data.series.length} days tracked · usual is the last 30 days
-          </p>
+          )}
+          {!isDay && <Stats stats={data.stats} field={field} precision={data.precision} unit={data.unit} />}
+          {!isDay && (
+            <p className="text-[11px] text-neutral-400">
+              {data.stats.tracked} of {data.series.length} days tracked · usual is the last 30 days
+            </p>
+          )}
           {data.sleep && <SleepBlock sleep={data.sleep} anchorLabel={`${data.sleep.anchor} ±${data.sleep.tolerance_minutes}m`} />}
         </>
       )}
