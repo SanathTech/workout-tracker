@@ -51,6 +51,16 @@ console.log('\n─── the window is the caller’s ───');
   ok(year.body.stats.best === 90, 'and it is the best of the year', String(year.body.stats.best));
 }
 
+console.log('\n─── usual is the trailing 30 days, whatever window is asked for ───');
+{
+  const week = await api('/api/coach/metric/sleep_score?days=7');
+  const month = await api('/api/coach/metric/sleep_score?days=30');
+  ok(week.body.stats.usual_30d === month.body.stats.usual_30d,
+    'the usual does not move with the chips', `${week.body.stats.usual_30d} vs ${month.body.stats.usual_30d}`);
+  // 83, 67 and 48 sit inside the window; the 40-day-old 90 does not.
+  ok(Math.round(week.body.stats.usual_30d) === 66, 'and it averages the last 30 days, not the last 7', String(week.body.stats.usual_30d));
+}
+
 console.log('\n─── direction, usual, and what each metric means ───');
 {
   const rhr = await api('/api/coach/metric/resting_hr?days=365');

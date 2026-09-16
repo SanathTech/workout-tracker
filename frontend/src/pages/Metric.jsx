@@ -46,7 +46,9 @@ function fmt(value, { field, precision }) {
 // readings either side. Bars would lie the same way at a year's width.
 function Chart({ series, stroke, mean, goal, field, precision }) {
   const present = series.filter((r) => r.value != null);
-  if (present.length < 2) return <p className="text-sm text-neutral-400 py-6">Not enough readings in this window.</p>;
+  // One reading still draws — as its dot, against the scale and the usual line. Only an
+  // empty window has nothing to say.
+  if (!present.length) return <p className="text-sm text-neutral-400 py-6">No readings in this window.</p>;
 
   const W = 320;
   const H = 170;
@@ -111,7 +113,7 @@ function Chart({ series, stroke, mean, goal, field, precision }) {
       {goal != null && (
         <g>
           <rect x={W - pad.r - 46} y={y(goal) + 1} width="46" height="11" fill="#0a0a0a" opacity="0.85" rx="2" />
-          <text x={W - pad.r - 1} y={y(goal) + 10} textAnchor="end" fontSize="9" fill="#34d399">goal {goal}</text>
+          <text x={W - pad.r - 1} y={y(goal) + 10} textAnchor="end" fontSize="9" fill="#34d399">goal {fmt(goal, { field, precision })}</text>
         </g>
       )}
       {first && <text x={pad.l} y={H - 4} fontSize="9.5" fill="#737373">{formatDay(first.date, { day: 'numeric', month: 'short' })}</text>}

@@ -307,10 +307,20 @@ async function metricSeries(field, days) {
   const present = series.filter((r) => r.value != null);
   const values = present.map((r) => r.value);
   const mean = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
-  // "Usual" is the trailing 30 days ending YESTERDAY, the same window the tiles compare
-  // against — today is a part-day and would be comparing the reading with itself.
-  const cutoff = addDaysIso(today(), -30);
-  const usualValues = present.filter((r) => r.date >= cutoff && r.date < today()).map((r) => r.value);
+  // "Usual" is ALWAYS the trailing 30 days ending yesterday, the same window the tiles
+  // compare against — never the window being viewed, or a Week's delta would compare the
+  // reading against the six days beside it and the dashed line would move with the chips.
+  // Today is excluded because it is a part-day comparing the reading with itself.
+  const usual = await db.query(
+    meta.source === 'weight'
+      ? `SELECT AVG(COALESCE(b.weight_kg, t.weight_kg))::float AS mean
+           FROM generate_series($1::date - 30, $1::date - 1, '1 day') d
+           LEFT JOIN bodyweight_logs b ON b.date = d::date
+           LEFT JOIN training_load   t ON t.date = d::date`
+      : `SELECT AVG(w.${field})::float AS mean FROM wellness_daily w
+          WHERE w.date >= $1::date - 30 AND w.date < $1::date`,
+    [today()]
+  );
 
   return {
     field,
@@ -326,7 +336,7 @@ async function metricSeries(field, days) {
       best: values.length ? (meta.good === 'up' ? Math.max(...values) : Math.min(...values)) : null,
       worst: values.length ? (meta.good === 'up' ? Math.min(...values) : Math.max(...values)) : null,
       latest: present.length ? present[present.length - 1] : null,
-      usual_30d: mean(usualValues),
+      usual_30d: usual.rows[0].mean,
     },
   };
 }
