@@ -20,7 +20,12 @@ export function Page({ dense = false, className = '', children }) {
 // /progress#engine and friends, so a tap lands on the section it named.
 export function Section({ label, action, className = '', id, children }) {
   return (
-    <section id={id} className={`border-t border-neutral-800 pt-4 ${className}`}>
+    <section
+      id={id}
+      // An anchored section clears the sticky desktop header, which would otherwise sit
+      // over the label the jump was aimed at.
+      className={`border-t border-neutral-800 pt-4 ${id ? 'scroll-mt-4 md:scroll-mt-20' : ''} ${className}`}
+    >
       {(label || action) && (
         <div className="flex items-baseline justify-between gap-3 mb-2">
           {label && <h2 className="section-label">{label}</h2>}
