@@ -36,7 +36,7 @@ if (!LOCAL.includes(dbHost)) {
 const RESET = `TRUNCATE workouts, workout_exercises, workout_sets, routines,
   routine_exercises, routine_exercise_subs, programs, bodyweight_logs,
   activities, training_load, wellness_daily, checkins, session_feel, coach_advice,
-  app_events, coach_notes
+  app_events, coach_notes, checkin_nudges
   RESTART IDENTITY CASCADE`;
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -57,12 +57,16 @@ function runSuite(file) {
   return new Promise((resolve) => {
     const child = spawn(process.execPath, [path.join(here, file)], {
       // Suites must not inherit auth config — they drive the API unauthenticated.
-      env: { ...process.env, TEST_API_URL: BASE, AUTH_PASSWORD_HASH: '', SESSION_SECRET: '' },
+      // The machine secret is shared with the suites deliberately: the nudge endpoints
+      // are machine-authed, and a suite that can't authenticate can only test the 401.
+      env: { ...process.env, TEST_API_URL: BASE, AUTH_PASSWORD_HASH: '', SESSION_SECRET: '', COACH_RUN_SECRET: MACHINE_SECRET },
       stdio: 'inherit',
     });
     child.on('exit', (code) => resolve(code === 0));
   });
 }
+
+const MACHINE_SECRET = 'test-machine-secret';
 
 const server = spawn(process.execPath, [path.join(here, '..', 'src', 'index.js')], {
   env: {
@@ -70,6 +74,9 @@ const server = spawn(process.execPath, [path.join(here, '..', 'src', 'index.js')
     PORT: String(PORT),
     NODE_ENV: 'development',
     LOCAL_DEV: '1',
+    COACH_RUN_SECRET: MACHINE_SECRET,
+    // No ntfy topic: a suite must never be able to buzz his phone.
+    COACH_NTFY_URL: '',
     // Auth off: these suites test the domain, not the gate. Auth has its own coverage.
     AUTH_PASSWORD_HASH: '',
     SESSION_SECRET: '',

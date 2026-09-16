@@ -10,7 +10,7 @@ function headerSafe(text) {
   return `=?UTF-8?B?${Buffer.from(text, 'utf-8').toString('base64')}?=`;
 }
 
-async function notify(title, message, { priority = 'default', tags = 'muscle' } = {}) {
+async function notify(title, message, { priority = 'default', tags = 'muscle', click } = {}) {
   const url = process.env.COACH_NTFY_URL;
   if (!url) return false;
   try {
@@ -22,6 +22,10 @@ async function notify(title, message, { priority = 'default', tags = 'muscle' } 
         Priority: priority,
         Tags: tags,
         Markdown: 'yes',
+        // Tapping the push lands on the question itself, which is the whole point of
+        // sending it — an app that opens to Today and makes him find the check-in is
+        // the reminder he was already ignoring.
+        ...(click ? { Click: click } : {}),
       },
       signal: AbortSignal.timeout(15_000),
     });

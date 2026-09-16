@@ -249,6 +249,17 @@ CREATE INDEX IF NOT EXISTS idx_app_events_kind ON app_events(kind, ts DESC);
 -- to the app. A note scoped to an exercise renders under that exercise in the session;
 -- one with no exercise_id is session-general. Notes live until resolved_at is set —
 -- these are standing calls, not dailies, and they outlast the session that prompted them.
+-- One row per check-in nudge sent, so a trigger that fires every half hour all morning
+-- can only ever push once. The row is written when the push is ATTEMPTED: a failed ntfy
+-- must not turn into a retry loop that buzzes him ten times when the network returns.
+CREATE TABLE IF NOT EXISTS checkin_nudges (
+  for_date  DATE NOT NULL,
+  kind      VARCHAR(16) NOT NULL CHECK (kind IN ('morning', 'evening')),
+  sent_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  delivered BOOLEAN NOT NULL DEFAULT FALSE,
+  PRIMARY KEY (for_date, kind)
+);
+
 CREATE TABLE IF NOT EXISTS coach_notes (
   id          SERIAL PRIMARY KEY,
   exercise_id INTEGER REFERENCES exercises(id) ON DELETE CASCADE,
