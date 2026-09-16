@@ -188,7 +188,7 @@ export default function Metric() {
   const goBack = useSmartBack('/dashboard');
   const [range, setRange] = useState('month');
   const days = RANGES.find((r) => r.key === range).days;
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, error } = useQuery({
     queryKey: ['metric', field, days],
     queryFn: () => getMetric(field, { days }),
     staleTime: 5 * 60_000,
@@ -198,7 +198,15 @@ export default function Metric() {
     <button type="button" onClick={goBack} className="text-sm text-neutral-400 hover:text-neutral-200 inline-flex items-center min-h-11 md:min-h-0 -ml-1 pl-1 self-start">← Back</button>
   );
   if (isError) {
-    return <Page>{back}<p className="text-center text-neutral-400 py-16">That metric isn’t tracked.</p></Page>;
+    const missing = error?.response?.status === 404;
+    return (
+      <Page>
+        {back}
+        <p className="text-center text-neutral-400 py-16">
+          {missing ? 'That metric isn’t tracked.' : 'Couldn’t load this metric — try again.'}
+        </p>
+      </Page>
+    );
   }
 
   const latest = data?.stats?.latest;
@@ -215,7 +223,9 @@ export default function Metric() {
           {latest && (
             <p className="text-sm text-neutral-400 tabular-nums">
               latest <span className="text-neutral-200 font-semibold">{fmt(latest.value, data)}</span>
-              {delta != null && (
+              {/* Only when it actually moved: a delta of zero rendered as "−0", coloured
+                  as though sitting exactly on the usual were a bad thing. */}
+              {delta != null && fmt(Math.abs(delta), data) !== fmt(0, data) && (
                 <span className={better ? 'text-emerald-400 ml-1.5' : 'text-amber-400 ml-1.5'}>
                   {delta > 0 ? '+' : '−'}{fmt(Math.abs(delta), data)}
                 </span>

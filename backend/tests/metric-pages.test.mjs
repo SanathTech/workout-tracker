@@ -41,7 +41,7 @@ for (const [back, score, rhr] of [[1, 83, 53], [2, 67, 54], [4, 48, 57], [40, 90
 console.log('\n─── the window is the caller’s ───');
 {
   const week = await api('/api/coach/metric/sleep_score?days=7');
-  ok(week.status === 200 && week.body.series.length === 8, 'a week is eight dated points', String(week.body?.series?.length));
+  ok(week.status === 200 && week.body.series.length === 7, 'a week is seven dated points, today included', String(week.body?.series?.length));
   ok(week.body.stats.tracked === 3, 'only the nights inside the window count', String(week.body.stats.tracked));
   ok(week.body.series.some((p) => p.value === null), 'an untracked night stays a gap');
   ok(week.body.stats.best === 83 && week.body.stats.worst === 48, 'best and worst read the window', JSON.stringify(week.body.stats));

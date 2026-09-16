@@ -280,6 +280,8 @@ const METRICS = {
   weight_kg:            { source: 'weight',   good: 'down', label: 'Weight', unit: 'kg', precision: 1 },
 };
 
+// `days` is the window INCLUDING today, so a Week is seven dated points — the label on
+// the chip and the length of the series have to agree.
 async function metricSeries(field, days) {
   const meta = METRICS[field];
   if (!meta) return null;
@@ -287,7 +289,7 @@ async function metricSeries(field, days) {
   const rows = meta.source === 'weight'
     ? (await db.query(
         `SELECT d::date AS date, COALESCE(b.weight_kg, t.weight_kg)::float AS value
-           FROM generate_series($1::date - $2::int, $1::date, '1 day') d
+           FROM generate_series($1::date - ($2::int - 1), $1::date, '1 day') d
            LEFT JOIN bodyweight_logs b ON b.date = d::date
            LEFT JOIN training_load   t ON t.date = d::date
           ORDER BY d`,
@@ -295,7 +297,7 @@ async function metricSeries(field, days) {
       )).rows
     : (await db.query(
         `SELECT d::date AS date, w.${field}::float AS value
-           FROM generate_series($1::date - $2::int, $1::date, '1 day') d
+           FROM generate_series($1::date - ($2::int - 1), $1::date, '1 day') d
            LEFT JOIN wellness_daily w ON w.date = d::date
           ORDER BY d`,
         [today(), days]

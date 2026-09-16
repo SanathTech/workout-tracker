@@ -131,7 +131,7 @@ export const getTrends = (params) =>
 export const getLoadHistory = (params) =>
   api.get('/coach/load-history', { params }).then((r) => r.data);
 export const getMetric = (field, params) =>
-  api.get(`/coach/metric/${field}`, { params }).then((r) => r.data);
+  api.get(`/coach/metric/${encodeURIComponent(field)}`, { params }).then((r) => r.data);
 export const getActivity = (id) => api.get(`/coach/activity/${encodeURIComponent(id)}`).then((r) => r.data);
 export const getEndurance = (params) =>
   api.get('/coach/endurance', { params }).then((r) => r.data);
