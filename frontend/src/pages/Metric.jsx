@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import { getMetric } from '../api/client';
@@ -247,6 +247,9 @@ export default function Metric() {
   const { field } = useParams();
   const goBack = useSmartBack('/dashboard');
   const [range, setRange] = useState('month');
+  // Metrics don't share a range: Day exists for battery and stress only, and walking from
+  // one of those to weight left the page asking for a day of a metric with no chip.
+  useEffect(() => { setRange('month'); }, [field]);
   const isDay = range === 'day';
   const days = isDay ? 1 : (RANGES.find((r) => r.key === range) || RANGES[1]).days;
   const { data, isLoading, isError, error } = useQuery({

@@ -111,6 +111,11 @@ await db.query(
   ok(stress.body.intraday.points.length === 3, 'a null reading is dropped, not drawn as zero', JSON.stringify(stress.body.intraday.points));
   ok(stress.body.intraday.points[1][1] === 14, 'stress reads its own column');
 
+  // A gap: ask for a day with no row and the night must follow the row that came back.
+  const gap = await api(`/api/coach/metric/body_battery_at_wake?days=1&day=1&date=${today}`);
+  ok(gap.body.intraday?.date === shift(today, -1), 'a missing day falls back to the last one there is', gap.body.intraday?.date);
+  ok(gap.body.intraday?.night?.wake === 584, "and the night shown is that day's, not the one asked for", JSON.stringify(gap.body.intraday?.night));
+
   const weight = await api('/api/coach/metric/weight_kg?days=1&day=1');
   ok(weight.body.has_intraday === false && weight.body.intraday === null, 'weight has no shape, so no Day chip', JSON.stringify(weight.body.has_intraday));
   const noDay = await api('/api/coach/metric/stress_avg?days=30');

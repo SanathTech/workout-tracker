@@ -349,25 +349,26 @@ const INTRADAY_FIELD = { stress_avg: 1, body_battery_at_wake: 2 };
 async function intradayDay(field, iso) {
   const idx = INTRADAY_FIELD[field];
   if (idx == null) return null;
-  const [day, night] = await Promise.all([
-    db.query(
-      `SELECT date, step_minutes, series FROM wellness_intraday
-        WHERE date <= $1::date ORDER BY date DESC LIMIT 1`,
-      [iso || today()]
-    ),
-    db.query(
-      `SELECT to_char(sleep_start, 'HH24:MI') AS bed, to_char(sleep_end, 'HH24:MI') AS wake
-         FROM wellness_daily WHERE date <= $1::date AND sleep_start IS NOT NULL
-        ORDER BY date DESC LIMIT 1`,
-      [iso || today()]
-    ),
-  ]);
+  const day = await db.query(
+    `SELECT date, step_minutes, series FROM wellness_intraday
+      WHERE date <= $1::date ORDER BY date DESC LIMIT 1`,
+    [iso || today()]
+  );
   const row = day.rows[0];
   if (!row) return null;
+  // The night is read for the day that actually came back, not the one asked for: with a
+  // gap in the intraday table those are different days, and the chart would shade one
+  // night over another day's line.
+  const date = String(row.date).slice(0, 10);
+  const night = await db.query(
+    `SELECT to_char(sleep_start, 'HH24:MI') AS bed, to_char(sleep_end, 'HH24:MI') AS wake
+       FROM wellness_daily WHERE date = $1::date`,
+    [date]
+  );
   const minutes = (hm) => (hm ? Number(hm.slice(0, 2)) * 60 + Number(hm.slice(3, 5)) : null);
   return {
-    date: String(row.date).slice(0, 10),
-    when: whenLabel(String(row.date)),
+    date,
+    when: whenLabel(date),
     step_minutes: row.step_minutes,
     // [minutes past local midnight, value] — the other metric's column is dropped here
     // rather than in the browser, since the page only ever draws one line.
