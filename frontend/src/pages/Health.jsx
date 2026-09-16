@@ -1,12 +1,11 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { lazy, Suspense, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   getCheckins, getReadiness, getTrends, logBodyweight,
 } from '../api/client';
 import Sparkline from '../components/Sparkline';
 import { Skeleton } from '../components/Skeleton';
-import { ChevronIcon } from '../components/icons';
 import { Disclosure, Page, Section, Tile } from '../components/ui';
 import { formatDay, localDate } from '../util/format';
 import { track } from '../util/telemetry';
@@ -27,7 +26,6 @@ import { track } from '../util/telemetry';
 // Recharts loads only for the fitness chart and the expanded detail. Everything else is
 // plain SVG and paints on the first render.
 const FitnessChart = lazy(() => import('../components/FitnessChart'));
-const MetricDetail = lazy(() => import('../components/MetricDetail'));
 const EnduranceTrends = lazy(() => import('../components/EnduranceTrends'));
 
 function hours(secs) {
@@ -169,15 +167,12 @@ const TREND_ROWS = [
 ];
 
 // Each row is its own baseline: the latest reading against the mean of its window, so a
-// number is legible without having to remember what normal looks like. Tapping opens the
-// same series over the full 90 days with axes and a range — the "look through it in
-// detail" half of the tab, kept in place rather than on its own route so the comparison
-// with the rows around it survives.
-function TrendRow({ row, window30, window90, open, onToggle }) {
-  // Same "not tracked" test as Sparkline and MetricDetail, and it has to be: Number('')
-  // is 0, so an empty reading would enter the mean as a zero-score night and drag the
-  // baseline the row is judged against — while the chart beside it, which drops the
-  // same value, showed a different average.
+// number is legible without having to remember what normal looks like. Tapping opens that
+// metric's own page (2026-09-16) — it used to expand a fixed 90-day chart in place, which
+// answered neither "how has today been" nor "how was the last week".
+function TrendRow({ row, window30 }) {
+  // Same "not tracked" test as Sparkline: Number('') is 0, so an empty reading would
+  // enter the mean as a zero-score night and drag the baseline the row is judged against.
   const values = window30
     .map((d) => d[row.field])
     .filter((v) => v != null && v !== '' && Number.isFinite(Number(v)))
@@ -190,68 +185,28 @@ function TrendRow({ row, window30, window90, open, onToggle }) {
   const good = diff === 0 ? null : row.goodDirection === 'up' ? diff > 0 : diff < 0;
 
   return (
-    <div>
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={open}
-        className="w-full flex items-center gap-3 py-1 min-h-11 md:min-h-0 text-left rounded-md hover:bg-neutral-900/50 transition-colors"
-      >
-        <span className="w-14 shrink-0 text-xs text-neutral-400">{row.label}</span>
-        <Sparkline
-          data={window30}
-          field={row.field}
-          stroke={row.stroke}
-          className="flex-1 min-w-0 h-6"
-        />
-        <span className="w-14 shrink-0 text-right text-sm font-medium tabular-nums">
-          {row.field === 'steps' ? latest.toLocaleString()
-            : precision > 0 ? latest.toFixed(precision)
-            : latest}
-        </span>
-        <span className={`w-11 shrink-0 text-right text-[11px] tabular-nums ${
-          diff === 0 ? 'text-neutral-600'
-            : good ? 'text-emerald-400'
-            : 'text-amber-400'
-        }`}>
-          {diff > 0 ? '+' : ''}{precision > 0 ? diff.toFixed(precision) : diff}
-        </span>
-        <span className="w-3 shrink-0 inline-flex items-center text-neutral-600">
-          <ChevronIcon open={open} />
-        </span>
-      </button>
-      {open && (
-        <Suspense fallback={<Skeleton className="h-44 w-full" />}>
-          <MetricDetail
-            label={row.label}
-            data={window90}
-            field={row.field}
-            stroke={row.stroke}
-            unit={row.unit}
-            precision={precision}
-          />
-        </Suspense>
-      )}
-    </div>
+    <Link
+      to={`/metric/${row.field}`}
+      className="w-full flex items-center gap-3 py-1 min-h-11 md:min-h-0 text-left rounded-md hover:bg-neutral-900/50 transition-colors"
+    >
+      <span className="w-14 shrink-0 text-xs text-neutral-400">{row.label}</span>
+      <Sparkline data={window30} field={row.field} stroke={row.stroke} className="flex-1 min-w-0 h-6" />
+      <span className="w-14 shrink-0 text-right text-sm font-medium tabular-nums">
+        {row.field === 'steps' ? latest.toLocaleString()
+          : precision > 0 ? latest.toFixed(precision)
+          : latest}
+      </span>
+      <span className={`w-11 shrink-0 text-right text-[11px] tabular-nums ${
+        diff === 0 ? 'text-neutral-600' : good ? 'text-emerald-400' : 'text-amber-400'
+      }`}>
+        {diff > 0 ? '+' : ''}{precision > 0 ? diff.toFixed(precision) : diff}
+      </span>
+      <span className="w-3 shrink-0 text-neutral-600" aria-hidden="true">›</span>
+    </Link>
   );
 }
 
-// Home's tiles link here as /health?metric=<field> and land on that row, open — a tap on
-// Sleep that arrived at the whole page and needed a second tap was the walkthrough's
-// complaint (2026-09-15).
 function Recovery({ wellness, isLoading }) {
-  const [params] = useSearchParams();
-  const linked = TREND_ROWS.some((r) => r.field === params.get('metric')) ? params.get('metric') : null;
-  const [openMetric, setOpenMetric] = useState(linked);
-  const linkedRef = useRef(null);
-  // Follows the URL, not just the first render: back/forward between two tile links
-  // changes the query string without remounting the page.
-  useEffect(() => {
-    if (linked) setOpenMetric(linked);
-  }, [linked]);
-  useEffect(() => {
-    if (linked && !isLoading) linkedRef.current?.scrollIntoView({ block: 'center' });
-  }, [linked, isLoading]);
   const wellness30 = wellness.slice(-30);
   return (
     <Section label="Recovery">
@@ -259,22 +214,12 @@ function Recovery({ wellness, isLoading }) {
 
       <div className="flex items-baseline justify-between mt-4 mb-1">
         <p className="text-[11px] uppercase tracking-wide text-neutral-600">Last 30 days</p>
-        <span className="text-[11px] text-neutral-600">tap for 90</span>
+        <span className="text-[11px] text-neutral-600">tap for the full range</span>
       </div>
       {isLoading ? (
         <Skeleton className="h-40 w-full" />
       ) : wellness30.length > 1 ? (
-        TREND_ROWS.map((row) => (
-          <div key={row.field} ref={row.field === linked ? linkedRef : undefined}>
-          <TrendRow
-            row={row}
-            window30={wellness30}
-            window90={wellness}
-            open={openMetric === row.field}
-            onToggle={() => setOpenMetric((f) => (f === row.field ? null : row.field))}
-          />
-          </div>
-        ))
+        TREND_ROWS.map((row) => <TrendRow key={row.field} row={row} window30={wellness30} />)
       ) : (
         <p className="text-sm text-neutral-400">
           No wellness readings yet — they arrive with the Garmin sync.
