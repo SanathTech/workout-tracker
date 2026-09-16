@@ -144,7 +144,10 @@ function DayChart({ intraday, stroke, field, precision }) {
   // Gaps are the watch off the wrist, not a value of zero.
   const runs = [];
   let run = [];
-  const step = (intraday.step_minutes || 6) * 2.5;
+  // One missing sample is the watch off the wrist, and should read as a gap rather than a
+  // line drawn through it — so the tolerance is for jitter in the sampling, not for a
+  // missed reading.
+  const step = (intraday.step_minutes || 6) * 1.5;
   pts.forEach((p, i) => {
     if (i && p[0] - pts[i - 1][0] > step) { if (run.length > 1) runs.push(run); run = []; }
     run.push(`${x(p[0]).toFixed(1)},${y(p[1]).toFixed(1)}`);
