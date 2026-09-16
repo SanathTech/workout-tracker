@@ -267,7 +267,9 @@ async function wellnessHistory(days = 30) {
 // One metric over a window, for its own page (2026-09-16 rethink, PR 3). Whitelisted
 // because the field name reaches SQL: everything here is a column, not a client string.
 // Wellness rows come off a generate_series so an untracked day is a null the chart can
-// draw as a gap; weight is only the days he stood on the scale.
+// draw as a gap. Weight reads the same source the tiles and Health do — a manual entry
+// first, else the scale figure intervals.icu carries forward between real weigh-ins — so
+// "tracked" for weight counts days with a figure, not days he stood on the scale.
 const METRICS = {
   sleep_score:          { source: 'wellness', good: 'up',   label: 'Sleep score' },
   sleep_secs:           { source: 'wellness', good: 'up',   label: 'Time asleep', unit: 'h' },

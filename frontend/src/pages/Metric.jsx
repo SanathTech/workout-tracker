@@ -29,7 +29,11 @@ const STROKE = {
   weight_kg: '#fb923c',
 };
 
-const hhmm = (secs) => `${Math.floor(secs / 3600)}h ${Math.round((secs % 3600) / 60)}m`;
+// Minutes first, then carried: rounding the remainder alone renders 1h 60m.
+const hhmm = (secs) => {
+  const mins = Math.round(secs / 60);
+  return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+};
 
 function fmt(value, { field, precision }) {
   if (value == null) return '—';
@@ -57,14 +61,22 @@ function Chart({ series, stroke, mean, goal, field, precision }) {
   const x = (i) => pad.l + (i / (series.length - 1)) * (W - pad.l - pad.r);
   const y = (v) => pad.t + ((hi - v) / (hi - lo)) * (H - pad.t - pad.b);
 
-  // Consecutive runs, so gaps break the line.
+  // Consecutive runs, so gaps break the line. A reading with no neighbour is drawn as a
+  // dot: dropping it left a sparse window (two scattered weigh-ins) rendering nothing at
+  // all, which reads as a broken chart rather than a thin month.
   const runs = [];
+  const dots = [];
   let run = [];
+  const flush = () => {
+    if (run.length > 1) runs.push(run);
+    else if (run.length === 1) dots.push(run[0]);
+    run = [];
+  };
   series.forEach((r, i) => {
-    if (r.value == null) { if (run.length > 1) runs.push(run); run = []; return; }
-    run.push(`${x(i).toFixed(1)},${y(r.value).toFixed(1)}`);
+    if (r.value == null) { flush(); return; }
+    run.push([x(i), y(r.value)]);
   });
-  if (run.length > 1) runs.push(run);
+  flush();
 
   const ticks = [lo + (hi - lo) * 0.15, (lo + hi) / 2, hi - (hi - lo) * 0.15];
   const first = series.find((r) => r.value != null);
@@ -81,8 +93,13 @@ function Chart({ series, stroke, mean, goal, field, precision }) {
       {mean != null && <line x1={pad.l} x2={W - pad.r} y1={y(mean)} y2={y(mean)} stroke="#e5e5e5" strokeWidth="1" strokeDasharray="4 3" opacity="0.55" />}
       {goal != null && <line x1={pad.l} x2={W - pad.r} y1={y(goal)} y2={y(goal)} stroke="#34d399" strokeWidth="1" strokeDasharray="2 3" opacity="0.8" />}
       {runs.map((pts) => (
-        <polyline key={pts[0]} points={pts.join(' ')} fill="none" stroke={stroke} strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
+        <polyline
+          key={`${pts[0][0]}`}
+          points={pts.map(([px, py]) => `${px.toFixed(1)},${py.toFixed(1)}`).join(' ')}
+          fill="none" stroke={stroke} strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round"
+        />
       ))}
+      {dots.map(([px, py]) => <circle key={px} cx={px.toFixed(1)} cy={py.toFixed(1)} r="1.8" fill={stroke} />)}
       {/* Reference labels last, so the trend line can't draw over them, and backed by a
           plate because the line runs behind them at some ranges. */}
       {mean != null && (
