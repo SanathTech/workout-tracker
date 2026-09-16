@@ -50,10 +50,15 @@ const pace = duration;
 // treating it as such opened an already-answered check-in whenever the fetch lagged
 // (caught in QA, 2026-09-16). `null` is a real answer — it means no row — so the test is
 // specifically for a value having arrived.
-function useShownWhileIncomplete(checkin, complete) {
-  const seen = useRef(false);
-  if (checkin !== undefined && !complete) seen.current = true;
-  return seen.current;
+//
+// `date` resets it: the ramp's date rolls at 04:00 and the catch-up's at midnight, and a
+// flag left over from yesterday would open today's slot while today's answers were still
+// in flight.
+function useShownWhileIncomplete(date, checkin, complete) {
+  const seen = useRef({ date, value: false });
+  if (seen.current.date !== date) seen.current = { date, value: false };
+  if (checkin !== undefined && !complete) seen.current.value = true;
+  return seen.current.value;
 }
 
 // ---------- today's card: gym ----------
@@ -124,7 +129,7 @@ function GymCard({ program }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { checkin, save } = useCheckin(localDate());
-  const askRatings = useShownWhileIncomplete(checkin, ratingsComplete(checkin));
+  const askRatings = useShownWhileIncomplete(localDate(), checkin, ratingsComplete(checkin));
 
   const start = useMutation({
     mutationFn: (routineId) => startWorkout({ routine_id: routineId }),
@@ -360,17 +365,21 @@ function NowSlot({ gymDay, readiness }) {
   const rampDate = hour < 4 ? localDate(-1) : localDate();
   const morning = useCheckin(localDate());
   const night = useCheckin(rampDate);
-  const showRatings = useShownWhileIncomplete(morning.checkin, ratingsComplete(morning.checkin));
-  const showRamp = useShownWhileIncomplete(night.checkin, rampComplete(night.checkin));
+  const showRatings = useShownWhileIncomplete(localDate(), morning.checkin, ratingsComplete(morning.checkin));
+  const showRamp = useShownWhileIncomplete(rampDate, night.checkin, rampComplete(night.checkin));
 
   // Last night's wind-down, asked once the next morning if it never got answered. Missed
   // is missed: it is offered, it can be waved away, and it does not pile up.
   const yesterday = localDate(-1);
   const catchUp = useCheckin(yesterday);
-  const [skipped, setSkipped] = useState(() => {
-    try { return localStorage.getItem(skipKey(yesterday)) === '1'; } catch { return false; }
-  });
-  const showCatchUp = useShownWhileIncomplete(catchUp.checkin, rampComplete(catchUp.checkin));
+  const readSkip = (date) => {
+    try { return localStorage.getItem(skipKey(date)) === '1'; } catch { return false; }
+  };
+  const [skipped, setSkipped] = useState(() => readSkip(yesterday));
+  // Re-read when the date rolls: an app left open overnight would otherwise carry
+  // yesterday's "not now" into a new day's question.
+  useEffect(() => { setSkipped(readSkip(yesterday)); }, [yesterday]);
+  const showCatchUp = useShownWhileIncomplete(yesterday, catchUp.checkin, rampComplete(catchUp.checkin));
 
   const slept = readiness?.is_last_night ? readiness.last_night : null;
 
