@@ -39,7 +39,7 @@ frontend/
       Layout.jsx / Navbar.jsx  Bottom bar = THREE tabs: Today, Progress, Train (same three on desktop)
       Checkin.jsx            Check-in pieces: useCheckin(date), Ratings (mood/energy/soreness), Ramp (evening Kept/Broke), NoteField — Home asks each half when it can be answered
       WeekPlan.jsx           WeekStrip (7 lettered days — A/B/C, R, S, W; filled done, dashed skipped, never red; a Link to /train) from /api/coach/week; exports DayRow + useWeek
-      TodayTiles.jsx         Sleep · Battery · RHR · Weight (vs usual / to goal) with a 7-night line, each linking to /health?metric=<field> (opens that row)
+      TodayTiles.jsx         Sleep · Battery · RHR · Weight (vs usual / to goal) with a 7-night line, each linking to /metric/:field (opens that row)
       ProgressGlance.jsx     Home's four progress rows: lifts up last session (/progress/last-session), weight avg, fitness + easy pace, bedtime hits
       BodySections.jsx       Body (last-night tiles + 30-day sparkline rows LINKING to /metric/:field) · Engine (fitness chart, then Runs|Swims chips over `EnduranceTrends.jsx` and that discipline's rows → /activity/:id) · Protocol (bedtime dots, ramp, weight + THE weigh-in logger, check-in history) + `useBodyData()`
       AimLine.jsx            The ONE "Aim 52.5 kg × 6 · RIR 1 · ENGINE|COACH · why ›" line + sheets (`onEdit` adds "edit ›" — Lifts only)

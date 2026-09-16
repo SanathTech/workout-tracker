@@ -140,7 +140,7 @@ export default function Navbar() {
       {/* Bottom tab bar — mobile only, hidden during a workout session or when an editor explicitly hides it */}
       {showBottomNav && (
         <nav aria-label="Main" className="md:hidden fixed bottom-0 inset-x-0 z-20 border-t bg-neutral-950 border-neutral-800 pb-[env(safe-area-inset-bottom)]">
-          <div className="grid grid-cols-4">
+          <div className="grid grid-cols-3">
             {links.map((l) => (
               <NavLink
                 key={l.to}
