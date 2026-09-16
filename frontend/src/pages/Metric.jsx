@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import { getMetric } from '../api/client';
@@ -257,10 +257,13 @@ function SleepBlock({ sleep, anchorLabel }) {
 export default function Metric() {
   const { field } = useParams();
   const goBack = useSmartBack('/dashboard');
-  const [range, setRange] = useState('month');
-  // Metrics don't share a range: Day exists for battery and stress only, and walking from
-  // one of those to weight left the page asking for a day of a metric with no chip.
-  useEffect(() => { setRange('month'); }, [field]);
+  // The range belongs to a metric, not to the page: Day exists for battery and stress
+  // only, and walking from one of those to weight left the page asking for a day of a
+  // metric with no chip. Resolved in render rather than in an effect, which would still
+  // fire one day=1 request for the new metric before correcting itself.
+  const [chosen, setChosen] = useState({ field, key: 'month' });
+  const range = chosen.field === field ? chosen.key : 'month';
+  const setRange = (key) => setChosen({ field, key });
   const isDay = range === 'day';
   const days = isDay ? 1 : (RANGES.find((r) => r.key === range) || RANGES[1]).days;
   const { data, isLoading, isError, error } = useQuery({
