@@ -7,6 +7,7 @@ import ProgramEdit from './pages/ProgramEdit';
 import WorkoutSession from './pages/WorkoutSession';
 import WorkoutDetail from './pages/WorkoutDetail';
 import ActivityDetail from './pages/ActivityDetail';
+import Metric from './pages/Metric';
 import Health from './pages/Health';
 import ExerciseLibrary from './pages/ExerciseLibrary';
 import { Skeleton } from './components/Skeleton';
@@ -36,6 +37,7 @@ export default function App() {
         <Route path="program/:id/edit" element={<ProgramEdit />} />
         <Route path="workouts/:id" element={<WorkoutDetail />} />
         <Route path="activity/:id" element={<ActivityDetail />} />
+        <Route path="metric/:field" element={<Metric />} />
         <Route path="health" element={<Health />} />
         {/* A phone that hasn't taken the update yet still has old routes in its history
             and possibly in the installed shell's start state. Redirect rather than 404:

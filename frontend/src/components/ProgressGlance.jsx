@@ -49,7 +49,7 @@ export default function ProgressGlance({ trends, week }) {
     const avg = recent.reduce((a, b) => a + b, 0) / recent.length;
     const goal = trends?.protocol?.weight?.goal_kg;
     rows.push({
-      key: 'weight', to: '/health?metric=weight_kg', label: 'Weight',
+      key: 'weight', to: '/metric/weight_kg', label: 'Weight',
       title: `${avg.toFixed(1)} kg`,
       sub: `${recent.length}-reading avg${goal != null ? ` · goal ${Number(goal)}` : ''}`,
       series: bw.slice(0, 14).reverse(), field: 'weight_kg', stroke: '#fb923c',

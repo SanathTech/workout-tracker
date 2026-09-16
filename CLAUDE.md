@@ -46,12 +46,13 @@ frontend/
       EnduranceTrends.jsx    Runs: weekly km · pace vs HR (pace reversed, ceiling line) · drift; Swims: weekly min · pace vs wall rest · m/stroke. Series shaped in `util/endurance.js` (pure, tested; scraps <2 km / <200 m dropped, Monday weeks, zero weeks kept)
     pages/
       Dashboard.jsx          Today, day-first: week strip · Now slot (check-in half that's due) · today's card (plan → result) · last-night tiles · progress · Tomorrow (one line)
-      Health.jsx             Recovery (last-night tiles, 30-day rows → 90-day detail, fitness chart) · Protocol (bedtime dots, ramp, weight + THE weigh-in logger, check-in history) · Endurance (Runs|Swims chip scopes it: 3 trend charts over 26 weeks — `EnduranceTrends.jsx`, lazy, `/api/coach/endurance` — then that discipline's fortnight of rows, ⓘ explainers)
+      Health.jsx             Recovery (last-night tiles, 30-day sparkline rows that LINK to /metric/:field, fitness chart) · Protocol (bedtime dots, ramp, weight + THE weigh-in logger, check-in history) · Endurance (Runs|Swims chip scopes it: 3 trend charts over 26 weeks — `EnduranceTrends.jsx`, lazy, `/api/coach/endurance` — then that discipline's fortnight of rows, ⓘ explainers)
       Progress.jsx           "Lifts" tab: exercise picker (remembered) → chart · bests · aim line with edit; then muscle sets, totals, weekly volume, all PBs (no bodyweight — that's Health)
       Train.jsx              This week (DayRows) · Program (ProgramView: name, week, the one Start, routines) · History (infinite); Exercises is a link
       ProgramEdit.jsx        /program/new and /program/:id/edit — ProgramEditor as a route (back gesture works, nav hides)
       WorkoutSession.jsx     /session/:id — sticky header + progress bar, 3-state exercise list, ledger
       WorkoutDetail.jsx      /workouts/:id — read-only past workout
+      Metric.jsx             /metric/:field — one number: Week/Month/3M/Year, line with gaps, usual + goal lines, average/best/worst; sleep adds last night's stages and the week's bedtimes
       ActivityDetail.jsx     /activity/:id — one run or swim: stats, HR vs the 153 ceiling with walk breaks, zones, splits, strides, drift (swims: per-100 m, no wrist HR)
       ExerciseLibrary.jsx    Browse/add exercises
     components/ui.jsx        Page / Section / Disclosure / Sheet primitives (2026-09-08)
@@ -250,9 +251,14 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
 - **Today is day-first (2026-09-15 rethink, from his own walkthrough).** Fixed order: week
   strip · Now · today's card · Last night tiles · Progress · Tomorrow. Rules that came from
   what he said, and are easy to undo by accident:
-  - **Tapping a thing opens that thing.** Tiles go to `/health?metric=<field>` with that
-    row open, never to the page top. A link that lands on an overview repeating what was
+  - **Tapping a thing opens that thing.** Tiles and Health's rows go to `/metric/<field>`,
+    runs and swims to `/activity/:id`. A link that lands on an overview repeating what was
     tapped is the bug, not a shortcut.
+  - **A metric page owns its range.** Week/Month/3M/Year off one endpoint
+    (`/coach/metric/:field`, fields whitelisted in `METRICS` because the name reaches SQL);
+    "usual" is always the trailing 30 days ending yesterday, the same window the tiles
+    compare against. Untracked days stay gaps. The Night view (intraday battery and stress)
+    waits on a new Garmin pull — it is the last step of the rethink, not a missing piece here.
   - **Today gets the space; tomorrow gets one line.** `week.tomorrow` comes off the
     weekday map (eight-day walk in `weekPlan`, so Sunday → Monday works). Never label
     anything with `progress.next_routine` without a day on it — "Up next: Day A" on a

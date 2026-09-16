@@ -264,6 +264,94 @@ async function wellnessHistory(days = 30) {
   return rows;
 }
 
+// One metric over a window, for its own page (2026-09-16 rethink, PR 3). Whitelisted
+// because the field name reaches SQL: everything here is a column, not a client string.
+// Wellness rows come off a generate_series so an untracked day is a null the chart can
+// draw as a gap; weight is only the days he stood on the scale.
+const METRICS = {
+  sleep_score:          { source: 'wellness', good: 'up',   label: 'Sleep score' },
+  sleep_secs:           { source: 'wellness', good: 'up',   label: 'Time asleep', unit: 'h' },
+  body_battery_at_wake: { source: 'wellness', good: 'up',   label: 'Body battery at wake' },
+  resting_hr:           { source: 'wellness', good: 'down', label: 'Resting HR', unit: 'bpm' },
+  stress_avg:           { source: 'wellness', good: 'down', label: 'Stress' },
+  steps:                { source: 'wellness', good: 'up',   label: 'Steps' },
+  weight_kg:            { source: 'weight',   good: 'down', label: 'Weight', unit: 'kg', precision: 1 },
+};
+
+async function metricSeries(field, days) {
+  const meta = METRICS[field];
+  if (!meta) return null;
+
+  const rows = meta.source === 'weight'
+    ? (await db.query(
+        `SELECT d::date AS date, COALESCE(b.weight_kg, t.weight_kg)::float AS value
+           FROM generate_series($1::date - $2::int, $1::date, '1 day') d
+           LEFT JOIN bodyweight_logs b ON b.date = d::date
+           LEFT JOIN training_load   t ON t.date = d::date
+          ORDER BY d`,
+        [today(), days]
+      )).rows
+    : (await db.query(
+        `SELECT d::date AS date, w.${field}::float AS value
+           FROM generate_series($1::date - $2::int, $1::date, '1 day') d
+           LEFT JOIN wellness_daily w ON w.date = d::date
+          ORDER BY d`,
+        [today(), days]
+      )).rows;
+
+  const series = rows.map((r) => ({ date: String(r.date).slice(0, 10), value: r.value }));
+  const present = series.filter((r) => r.value != null);
+  const values = present.map((r) => r.value);
+  const mean = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
+  // "Usual" is the trailing 30 days ending YESTERDAY, the same window the tiles compare
+  // against — today is a part-day and would be comparing the reading with itself.
+  const cutoff = addDaysIso(today(), -30);
+  const usualValues = present.filter((r) => r.date >= cutoff && r.date < today()).map((r) => r.value);
+
+  return {
+    field,
+    label: meta.label,
+    unit: meta.unit || null,
+    precision: meta.precision || 0,
+    good: meta.good,
+    days,
+    series,
+    stats: {
+      tracked: present.length,
+      avg: mean(values),
+      best: values.length ? (meta.good === 'up' ? Math.max(...values) : Math.min(...values)) : null,
+      worst: values.length ? (meta.good === 'up' ? Math.min(...values) : Math.max(...values)) : null,
+      latest: present.length ? present[present.length - 1] : null,
+      usual_30d: mean(usualValues),
+    },
+  };
+}
+
+// The sleep page's own block: last night's stages, and how the week's bedtimes sat
+// against the 22:30 anchor. Bedtime belongs here because it is what moves the score.
+async function sleepDetail() {
+  const anchorMin = bedMinutes(PROTOCOL_TARGETS.bedtime_anchor);
+  const tol = PROTOCOL_TARGETS.bedtime_tolerance_minutes;
+  const { rows } = await db.query(
+    `SELECT date, sleep_score, sleep_secs, sleep_deep_secs, sleep_rem_secs, sleep_light_secs,
+            sleep_awake_secs, to_char(sleep_start, 'HH24:MI') AS bed, to_char(sleep_end, 'HH24:MI') AS wake
+       FROM wellness_daily
+      WHERE sleep_secs IS NOT NULL
+      ORDER BY date DESC LIMIT 7`
+  );
+  const nights = rows.map((r) => {
+    const delta = r.bed ? bedMinutes(r.bed) - anchorMin : null;
+    return { ...r, date: String(r.date).slice(0, 10), when: whenLabel(String(r.date)),
+             minutes_vs_anchor: delta, within_anchor: delta != null && Math.abs(delta) <= tol };
+  });
+  return {
+    anchor: PROTOCOL_TARGETS.bedtime_anchor,
+    tolerance_minutes: tol,
+    last_night: nights[0] || null,
+    nights,
+  };
+}
+
 // CTL/ATL/TSB straight from the table intervals.icu populates. No generate_series here:
 // the load model is continuous by construction — every day has a row once syncing has
 // started — and a null would break the chart's area fill rather than tell the truth.
@@ -1085,6 +1173,10 @@ module.exports = {
   dataFreshness,
   // Series for the Trends tab.
   HR_CEILING,
+  METRICS,
+  WEIGHT_GOAL_KG,
+  metricSeries,
+  sleepDetail,
   wellnessHistory,
   loadHistory,
   runDiscipline,

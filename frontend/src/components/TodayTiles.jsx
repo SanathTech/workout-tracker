@@ -54,7 +54,7 @@ export function buildTiles({ readiness, trends }) {
     const base = readiness?.baseline_10d?.[m.field];
     const delta = value != null && base != null ? Number(value) - Number(base) : null;
     return {
-      to: `/health?metric=${m.field}`,
+      to: `/metric/${m.field}`,
       label: m.label,
       value: value ?? '—',
       sub: delta != null ? `${signed(delta)} vs usual` : night ? '' : 'no sync',
@@ -73,7 +73,7 @@ export function buildTiles({ readiness, trends }) {
   const goal = trends?.protocol?.weight?.goal_kg != null ? Number(trends.protocol.weight.goal_kg) : null;
   const toGoal = latest != null && goal != null ? latest - goal : null;
   tiles.push({
-    to: '/health?metric=weight_kg',
+    to: '/metric/weight_kg',
     label: 'Weight',
     value: latest != null ? latest.toFixed(1) : '—',
     sub: toGoal != null ? `${signed(toGoal, 1)} to goal` : latest != null ? '' : 'no reading',

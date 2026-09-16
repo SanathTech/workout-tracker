@@ -6,6 +6,7 @@ const { resolveWorkoutDate, todayInAppTimezone } = require('../util/dates');
 const {
   buildAdherence, protocolStatus, weekVsRhythm, wellnessHistory, loadHistory,
   runDiscipline, bodyweight, weekPlan, noteLedger, enduranceSessions,
+  METRICS, WEIGHT_GOAL_KG, metricSeries, sleepDetail,
   HR_CEILING,
 } = require('../util/coachContext');
 const { fetchStreams, shape: shapeStreams } = require('../util/activityStreams');
@@ -354,6 +355,25 @@ router.get('/endurance', async (req, res) => {
   const days = windowDays(req.query.days, 182, 365);
   try {
     res.json({ sessions: await enduranceSessions(days), hr_ceiling: HR_CEILING });
+  } catch (err) {
+    serverError(res, err);
+  }
+});
+
+// GET /api/coach/metric/:field?days=30 — one number's own page (2026-09-16): the series
+// over the window, its average/best/worst against the usual, and whatever else explains
+// it (sleep carries stages and the week's bedtimes). Home's tiles and Health's rows both
+// land here, because "tapping a thing opens that thing".
+router.get('/metric/:field', async (req, res) => {
+  const { field } = req.params;
+  if (!METRICS[field]) return res.status(404).json({ error: 'Unknown metric' });
+  const days = windowDays(req.query.days, 30, 365);
+  try {
+    const [metric, detail] = await Promise.all([
+      metricSeries(field, days),
+      field === 'sleep_score' || field === 'sleep_secs' ? sleepDetail() : null,
+    ]);
+    res.json({ ...metric, sleep: detail, weight_goal_kg: field === 'weight_kg' ? WEIGHT_GOAL_KG : null });
   } catch (err) {
     serverError(res, err);
   }
