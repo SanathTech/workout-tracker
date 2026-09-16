@@ -3,7 +3,7 @@ import Sparkline from './Sparkline';
 import { Skeleton } from './Skeleton';
 
 // Last night's four numbers, each against the ten nights before it, each with its own
-// week drawn underneath — and each a link to THAT metric on /health, opened. Since the
+// week drawn underneath — and each a link to that metric's own page. Since the
 // 2026-09-15 rethink they sit right under today's card rather than at the bottom: "why is
 // it at the bottom" was the walkthrough's question, and it had no good answer.
 //

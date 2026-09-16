@@ -206,10 +206,12 @@ function TrendRow({ row, window30 }) {
   );
 }
 
-function Recovery({ wellness, isLoading }) {
+// The body's own numbers. Named Body since the 2026-09-17 merge: it sits inside Progress
+// beside Lifts and Engine, and "how am I recovering" is the question it answers.
+function Body({ wellness, isLoading }) {
   const wellness30 = wellness.slice(-30);
   return (
-    <Section label="Recovery">
+    <Section label="Body" id="body">
       <LastNight />
 
       <div className="flex items-baseline justify-between mt-4 mb-1">
@@ -226,10 +228,6 @@ function Recovery({ wellness, isLoading }) {
         </p>
       )}
 
-      <p className="text-[11px] uppercase tracking-wide text-neutral-600 mt-4 mb-1">Fitness · 90 days</p>
-      <Suspense fallback={<Skeleton className="h-40 w-full" />}>
-        <FitnessChart days={90} />
-      </Suspense>
     </Section>
   );
 }
@@ -417,7 +415,7 @@ function Protocol({ protocol, bodyweight }) {
 
   return (
     <Section
-      label="Protocol"
+      label="Protocol" id="protocol"
       action={<InfoToggle open={info} onClick={() => setInfo((o) => !o)} label="How the protocol lines are read" />}
     >
       {info && (
@@ -595,7 +593,9 @@ const DISCIPLINES = [
   { key: 'swim', label: 'Swims', match: (s) => s.type === 'Swim' },
 ];
 
-function Endurance({ sessions, ceiling }) {
+// Fitness first, then the sessions that built it. The chart sat under the recovery rows
+// until the merge, where it read oddly among sleep and weight.
+function Engine({ sessions, ceiling }) {
   const [info, setInfo] = useState(false);
   const [all, setAll] = useState(false);
   const [disc, setDisc] = useState('run');
@@ -609,12 +609,18 @@ function Endurance({ sessions, ceiling }) {
 
   return (
     <Section
-      label="Endurance"
+      label="Engine"
+      id="engine"
       action={
         <InfoToggle open={info} onClick={() => setInfo((o) => !o)} label="How the endurance charts and rows are read" />
       }
     >
-      <div className="flex gap-1.5 mb-3" role="group" aria-label="Discipline — drives the charts and the sessions below">
+      <p className="text-[11px] uppercase tracking-wide text-neutral-600 mb-1">Fitness · 90 days</p>
+      <Suspense fallback={<Skeleton className="h-40 w-full" />}>
+        <FitnessChart days={90} />
+      </Suspense>
+
+      <div className="flex gap-1.5 mb-3 mt-4" role="group" aria-label="Discipline — drives the charts and the sessions below">
         {DISCIPLINES.map((d) => (
           <button key={d.key} type="button" onClick={() => setDisc(d.key)} aria-pressed={disc === d.key} className={disc === d.key ? 'chip-solid' : 'chip'}>
             {d.label}
@@ -761,20 +767,19 @@ function Endurance({ sessions, ceiling }) {
   );
 }
 
-export default function Health() {
-  // 90 days in one request, rendered two ways: the sparklines take the last 30 (a
-  // quarter's worth of daily points in a 200px line is noise), the expanded detail
-  // takes all of it. One fetch, both views — a second request per row opened would be
-  // the same bytes, later, on worse wifi.
+// The 90-day bundle all three sections read, with weight joined onto the daily wellness
+// rows. One fetch for the lot — a request per section would be the same bytes, later, on
+// worse wifi.
+export function useBodyData() {
   const { data: trends, isLoading } = useQuery({
     queryKey: ['trends', 90],
     queryFn: () => getTrends({ days: 90 }),
     staleTime: 5 * 60_000,
   });
 
-  // Weight is its own series — one row per day he actually stepped on the scale, not
-  // one per day — so it is joined onto the daily wellness rows by date. Days with no
-  // reading stay null and render as gaps, exactly like an untracked night.
+  // Weight is its own series — one row per day he actually stepped on the scale, not one
+  // per day — so it is joined onto the daily wellness rows by date. Days with no reading
+  // stay null and render as gaps, exactly like an untracked night.
   const weightByDate = new Map(
     (trends?.bodyweight || [])
       .filter((b) => b.weight_kg != null)
@@ -787,9 +792,7 @@ export default function Health() {
   // The wellness series deliberately ends YESTERDAY, because stress and steps are
   // part-days on today's row. Weight is not: a morning weigh-in is a complete reading the
   // moment it lands. Without this the weight row showed 94.8 from yesterday while the
-  // protocol line six inches above showed today's 94.2 — one number, two answers, which
-  // is the failure this whole tab exists to remove. Today is appended with weight only;
-  // every other field stays null and renders as the gap it is.
+  // protocol line six inches above showed today's 94.2 — one number, two answers.
   const lastDay = joined.length ? String(joined[joined.length - 1].date).slice(0, 10) : null;
   const todayWeight = [...weightByDate.entries()]
     .filter(([d]) => !lastDay || d > lastDay)
@@ -798,18 +801,7 @@ export default function Health() {
     ? [...joined, ...todayWeight.map(([date, weight_kg]) => ({ date, weight_kg }))]
     : joined;
 
-  return (
-    <Page>
-      <h1 className="text-2xl font-semibold tracking-tight">Health</h1>
-      <Recovery wellness={wellness} isLoading={isLoading} />
-      {isLoading ? (
-        <Skeleton className="h-40 w-full" />
-      ) : (
-        <>
-          <Protocol protocol={trends?.protocol} bodyweight={trends?.bodyweight} />
-          <Endurance sessions={trends?.endurance} ceiling={trends?.hr_ceiling ?? 153} />
-        </>
-      )}
-    </Page>
-  );
+  return { trends, wellness, isLoading };
 }
+
+export { Body, Engine, Protocol };
