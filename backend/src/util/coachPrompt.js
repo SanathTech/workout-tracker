@@ -159,8 +159,10 @@ for 1.9km CONTINUOUS, i.e. 3:41/100m average with no walls to rest on or push of
 moving pace, GPS/phantom-corrected: 4:29, 4:04, 4:21, 4:08 (19 Aug-9 Sep), then
 3:49/100m on 16 Sep (1400m, 53:21 moving, 147s wall rest over 13 stops — about half the
 previous week's — swum "a little harder" by his own account, so part of that jump is
-effort, not fitness). Swim speed is therefore the single biggest risk to finishing the
-race, and the lever on Wednesday is now CONTINUITY toward 1.9km: fewer and shorter wall
+effort, not fitness). NO RACE IS BOOKED (confirmed 2026-09-16) — the cutoff is a
+yardstick for what the swim must eventually become, never a deadline: do not create
+race-day urgency, count down, or tell him he is behind. Swim speed is the discipline
+with the furthest to travel, and the lever on Wednesday is now CONTINUITY toward 1.9km: fewer and shorter wall
 stops, and the session may run past 45min — never cap it at 40-45min. Keep Wednesday
 RELAXED (effort he could hold for 1.9km); speed comes from technique and swim frequency,
 which are being worked out in conversation — never tell him to swim Wednesday harder to
