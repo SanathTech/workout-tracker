@@ -471,6 +471,7 @@ function ExerciseBlock({ block, workoutId, state, onToggle, onOpenPicker, onChan
   return (
     <div
       className="py-3"
+      data-block={block.client_id}
       // Focus-within, reported to the page: React's focus/blur bubble, and a blur whose
       // relatedTarget is still inside the block is a move between fields, not a leave.
       onFocus={() => onFocusChange?.(true)}
@@ -794,10 +795,49 @@ export default function WorkoutSession() {
     prevDoneRef.current = doneIds;
   }, [doneIds, pinned]);
   const exists = (cid) => cid != null && exercises.some((ex) => ex.client_id === cid);
+  // Enter walks the ledger. Inside a block that is handleEditorEnter's job (kg → reps →
+  // RIR → next set); on the LAST field of the last set it used to blur, leaving him to
+  // tap the next exercise and then its kg cell. Now it opens the next exercise still to
+  // do and lands in the first weight cell that hasn't been filled — his ask, 2026-09-17.
+  const [focusBlock, setFocusBlock] = useState(null);
+
   const openId = pinned === NONE ? null
     : exists(pinned) ? pinned
     : (exists(typingIn) && doneIds.has(typingIn)) ? typingIn
     : firstOpenId;
+
+  const onLedgerEnter = (e) => {
+    if (e.key !== 'Enter' || e.nativeEvent?.isComposing) return;
+    if (!(e.target instanceof HTMLElement) || e.target.dataset.editorInput !== 'true') return;
+    const inputs = Array.from(e.currentTarget.querySelectorAll('[data-editor-input="true"]:not(:disabled)'));
+    const idx = inputs.indexOf(e.target);
+    // Another field is still open in this block — the shared handler moves to it.
+    if (idx !== -1 && inputs[idx + 1]) { handleEditorEnter(e); return; }
+    e.preventDefault();
+    const order = exercises.map((x) => x.client_id);
+    const from = order.indexOf(openId);
+    const next = from === -1 ? null : exercises.slice(from + 1).find((x) => !doneIds.has(x.client_id));
+    if (!next) { e.target.blur(); return; }
+    setPinned(next.client_id);
+    setFocusBlock(next.client_id);
+  };
+
+  // The next block's inputs only exist once it has rendered open, so the focus waits a
+  // render rather than querying for something that isn't there yet.
+  useEffect(() => {
+    if (!focusBlock) return;
+    setFocusBlock(null);
+    if (openId !== focusBlock) return;
+    const block = document.querySelector(`[data-block="${focusBlock}"]`);
+    const cells = block ? Array.from(block.querySelectorAll('[data-editor-input="true"]:not(:disabled)')) : [];
+    // Cells run kg, reps, RIR per row: land on the first weight whose reps are still
+    // blank, which is the set he is about to do rather than one already logged.
+    const target = cells.find((cell, i) => i % 3 === 0 && !cells[i + 1]?.value) || cells[0];
+    if (!target) return;
+    target.focus();
+    target.select?.();
+    target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [focusBlock, openId]);
 
   // Hydrate local state once from the fresh mount-fetch. If that fetch errored but
   // cached data exists (e.g. offline), hydrate from cache instead of hanging on the
@@ -1272,7 +1312,7 @@ export default function WorkoutSession() {
       )}
       {/* Hairline dividers between exercises instead of card borders — the ledger gets
           its structure from alignment, not boxes. */}
-      <div className="divide-y divide-neutral-800" data-editor-root onKeyDown={handleEditorEnter}>
+      <div className="divide-y divide-neutral-800" data-editor-root onKeyDown={onLedgerEnter}>
         {exercises.map((ex, i) => (
           <ExerciseBlock
             key={ex.client_id}
