@@ -407,6 +407,64 @@ console.log('\n─── short rest is not a plateau ───');
   }
 }
 
+// A call WITHOUT a routine still has to grade a session against the range it was
+// performed under. Weighted Pull-Up is 6-8 on Day A and 6-10 on Day C; Day C holds the
+// lower re.id, so the unscoped query graded a Day A session of 8/8/8 — the top of its
+// own range — against Day C's ceiling of 10 and said "hold, add reps", while the
+// session screen said increase off the same sets (2026-09-17). Lifts and the session
+// must not disagree about the same data.
+console.log('\n─── an unscoped call grades on the range the session was performed under ───');
+{
+  // The wider range is created FIRST, so the re.id tiebreak picks it — the shape that
+  // produced the wrong answer.
+  const { body: two } = await api('POST', '/api/programs', {
+    name: 'Unscoped range grading',
+    total_weeks: 4,
+    routines: [
+      { name: 'Wide Day', exercises: [{ exercise_id: ex['Squat'], target_sets: 3, rep_range_low: 6, rep_range_high: 10 }] },
+      { name: 'Narrow Day', exercises: [{ exercise_id: ex['Squat'], target_sets: 3, rep_range_low: 6, rep_range_high: 8 }] },
+    ],
+  });
+  await api('POST', `/api/programs/${two.id}/start`);
+  const wide = two.routines.find((r) => r.name === 'Wide Day');
+  const narrow = two.routines.find((r) => r.name === 'Narrow Day');
+
+  const log = async (routine, reps, daysAgo) => {
+    const { body: w } = await api('POST', '/api/workouts', { routine_id: routine.id });
+    await api('PUT', `/api/workouts/${w.id}`, {
+      exercises: [{ exercise_id: ex['Squat'], sets: reps.map((r, i) => ({ set_number: i + 1, reps: r, weight_kg: 60 })) }],
+    });
+    await api('POST', `/api/workouts/${w.id}/complete`);
+    if (daysAgo) {
+      await db.query(
+        `UPDATE workouts SET date = CURRENT_DATE - $1::int, created_at = NOW() - ($1 || ' days')::interval WHERE id = $2`,
+        [daysAgo, w.id]
+      );
+    }
+  };
+
+  await log(wide, [7, 7, 7], 4);
+  await log(narrow, [8, 8, 8], 0);
+
+  const { body: scoped } = await api('GET', `/api/progress/suggestions?routine_id=${narrow.id}`);
+  const ns = scoped.find((x) => x.exercise_name === 'Squat');
+  ok(ns.action === 'increase', 'scoped to its own routine: 8/8/8 tops 6-8 → increase', `${ns.action}: ${ns.reason}`);
+
+  const { body: un } = await api('GET', '/api/progress/suggestions');
+  const us = un.find((x) => x.exercise_name === 'Squat');
+  ok(us.rep_range_high === 8, "unscoped uses the performed routine's ceiling", `got ${us.rep_range_high}`);
+  ok(us.action === 'increase', 'and reaches the same verdict as the session screen', `${us.action}: ${us.reason}`);
+  ok(us.suggested_weight_kg === ns.suggested_weight_kg, 'with the same suggested load',
+    `${us.suggested_weight_kg} vs ${ns.suggested_weight_kg}`);
+  ok(/Narrow Day's 6-8 range/.test(us.reason), 'saying which range it graded on', us.reason);
+
+  // The other routine's own call is untouched: 8/8/8 is mid-range there.
+  const { body: w2 } = await api('GET', `/api/progress/suggestions?routine_id=${wide.id}`);
+  const ws = w2.find((x) => x.exercise_name === 'Squat');
+  ok(ws.rep_range_high === 10, 'the wide routine keeps its own range', `got ${ws.rep_range_high}`);
+  ok(ws.action === 'hold', 'and still holds against 10', `${ws.action}: ${ws.reason}`);
+}
+
 console.log('\n─────────────────────────────');
 console.log(`  ${pass} passed, ${fail} failed`);
 await db.end();
