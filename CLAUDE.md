@@ -36,11 +36,12 @@ frontend/
   src/
     api/client.js            All HTTP calls (axios). Single source for endpoint URLs.
     components/
-      Layout.jsx / Navbar.jsx  Bottom bar = FOUR tabs: Today, Health, Train, Lifts (same four on desktop)
+      Layout.jsx / Navbar.jsx  Bottom bar = THREE tabs: Today, Progress, Train (same three on desktop)
       Checkin.jsx            Check-in pieces: useCheckin(date), Ratings (mood/energy/soreness), Ramp (evening Kept/Broke), NoteField — Home asks each half when it can be answered
       WeekPlan.jsx           WeekStrip (7 lettered days — A/B/C, R, S, W; filled done, dashed skipped, never red; a Link to /train) from /api/coach/week; exports DayRow + useWeek
-      TodayTiles.jsx         Sleep · Battery · RHR · Weight (vs usual / to goal) with a 7-night line, each linking to /health?metric=<field> (opens that row)
+      TodayTiles.jsx         Sleep · Battery · RHR · Weight (vs usual / to goal) with a 7-night line, each linking to /metric/:field (opens that row)
       ProgressGlance.jsx     Home's four progress rows: lifts up last session (/progress/last-session), weight avg, fitness + easy pace, bedtime hits
+      BodySections.jsx       Body (last-night tiles + 30-day sparkline rows LINKING to /metric/:field) · Engine (fitness chart, then Runs|Swims chips over `EnduranceTrends.jsx` and that discipline's rows → /activity/:id) · Protocol (bedtime dots, ramp, weight + THE weigh-in logger, check-in history) + `useBodyData()`
       AimLine.jsx            The ONE "Aim 52.5 kg × 6 · RIR 1 · ENGINE|COACH · why ›" line + sheets (`onEdit` adds "edit ›" — Lifts only)
       AimEditSheet.jsx       Writes/edits/resolves the coach_notes row behind an aim (POST/PATCH /api/coach/notes)
       WorkoutRow.jsx         The one row for a logged workout (Train's history)
@@ -48,8 +49,7 @@ frontend/
       EnduranceTrends.jsx    Runs: weekly km · pace vs HR (pace reversed, ceiling line) · drift; Swims: weekly min · pace vs wall rest · m/stroke. Series shaped in `util/endurance.js` (pure, tested; scraps <2 km / <200 m dropped, Monday weeks, zero weeks kept)
     pages/
       Dashboard.jsx          Today, day-first: week strip · Now slot (check-in half that's due) · today's card (plan → result) · last-night tiles · progress · Tomorrow (one line)
-      Health.jsx             Recovery (last-night tiles, 30-day sparkline rows that LINK to /metric/:field, fitness chart) · Protocol (bedtime dots, ramp, weight + THE weigh-in logger, check-in history) · Endurance (Runs|Swims chip scopes it: 3 trend charts over 26 weeks — `EnduranceTrends.jsx`, lazy, `/api/coach/endurance` — then that discipline's fortnight of rows, ⓘ explainers)
-      Progress.jsx           "Lifts" tab: exercise picker (remembered) → chart · bests · aim line with edit; then muscle sets, totals, weekly volume, all PBs (no bodyweight — that's Health)
+      Progress.jsx           The one trending tab (2026-09-17 merge): Lifts (exercise picker, remembered → chart · bests · aim line with edit; muscle sets, totals, weekly volume, all PBs) then Body · Engine · Protocol from `components/BodySections.jsx`. Anchors #lifts/#body/#engine/#protocol for Home's glance rows
       Train.jsx              This week (DayRows) · Program (ProgramView: name, week, the one Start, routines) · History (infinite); Exercises is a link
       ProgramEdit.jsx        /program/new and /program/:id/edit — ProgramEditor as a route (back gesture works, nav hides)
       WorkoutSession.jsx     /session/:id — sticky header + progress bar, 3-state exercise list, ledger
@@ -214,10 +214,14 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
   so Train is the third tab and Lifts the fourth. `/program`, `/history`, `/more` redirect
   to `/train`. Train has **the only Start outside Today and no Skip** — skipping lives on
   Today alone. The program editor is a route (`/program/new`, `/program/:id/edit`), never a
-  mode of a page. PR 5 renamed Trends to **Health** (`/health`) and regrouped it by question —
+  mode of a page. PR 5 renamed Trends to Health and regrouped it by question —
   review first, then Recovery / Protocol / Endurance — without moving anything between tabs;
   the one exception is the bodyweight logger, which left Lifts: **a weigh-in is typed in on
-  Health and nowhere else**. Explainer prose sits behind ⓘ toggles, not under every block.
+  Progress and nowhere else**. Explainer prose sits behind ⓘ toggles, not under every block.
+  **2026-09-17: Health and Lifts merged into `/progress`** — they answered one question
+  between them and he was flicking between the two. Three tabs now; `/health`, `/coach`
+  and `/trends` all redirect to `/progress`, and the sections carry anchors so a glance
+  row lands on the section it named.
 - Locale is never hardcoded. Pass `undefined` to `toLocale*String` so it follows the device.
 - **Back buttons use `useSmartBack(fallback)`**, never a hard-coded Link — a workout opened
   from History must return to History. The hook falls back when the tab has no in-app
@@ -253,7 +257,7 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
 - **Today is day-first (2026-09-15 rethink, from his own walkthrough).** Fixed order: week
   strip · Now · today's card · Last night tiles · Progress · Tomorrow. Rules that came from
   what he said, and are easy to undo by accident:
-  - **Tapping a thing opens that thing.** Tiles and Health's rows go to `/metric/<field>`,
+  - **Tapping a thing opens that thing.** Tiles and Progress's Body rows go to `/metric/<field>`,
     runs and swims to `/activity/:id`. A link that lands on an overview repeating what was
     tapped is the bug, not a shortcut.
   - **A metric page owns its range.** Week/Month/3M/Year off one endpoint
@@ -285,7 +289,7 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
     day they sit above Start instead), the ramp from 21:00 to 04:00, dated to the evening
     it describes. A half that was answered in this visit stays as its own confirmation;
     one already complete on arrival isn't shown.
-  - **Runs and swims open their activity page.** Today's result card, Health's endurance
+  - **Runs and swims open their activity page.** Today's result card, Progress's Engine
     rows and Train's week rows all link to `/activity/:id`. Streams are fetched from
     intervals.icu on open (it holds the GPS- and phantom-length-corrected versions) and
     cached in `activity_streams`, invalidated by `activities.synced_at` — never stored at

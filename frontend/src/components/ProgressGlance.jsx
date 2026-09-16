@@ -36,7 +36,7 @@ export default function ProgressGlance({ trends, week }) {
   if (last) {
     const routine = (last.routine_name || '').split(' — ')[0];
     rows.push({
-      key: 'lifts', to: '/progress', label: 'Lifts',
+      key: 'lifts', to: '/progress#lifts', label: 'Lifts',
       title: last.compared ? `${last.up} of ${last.compared} lifts up` : `${last.lifts.length} lifts logged`,
       sub: `${routine} · ${formatDay(last.date, { weekday: 'short', day: 'numeric', month: 'short' })}`,
       series: (volume || []).map((v) => ({ v: Number(v.total_volume) })), field: 'v', stroke: '#e5e5e5',
@@ -61,7 +61,7 @@ export default function ProgressGlance({ trends, week }) {
     const run = [...(week?.days || []).flatMap((d) => d.actual)].reverse()
       .find((a) => a.kind === 'run' && a.stats?.run_pace_s)?.stats || week?.previous?.run?.stats;
     rows.push({
-      key: 'engine', to: '/health', label: 'Engine',
+      key: 'engine', to: '/progress#engine', label: 'Engine',
       title: `Fitness ${Number(ctl[ctl.length - 1].ctl).toFixed(1)}`,
       sub: run?.run_pace_s ? `running ${pace(run.run_pace_s)} /km at HR ${run.average_hr}` : null,
       series: ctl.map((d) => ({ ctl: Number(d.ctl) })), field: 'ctl', stroke: '#2dd4bf',
@@ -76,7 +76,7 @@ export default function ProgressGlance({ trends, week }) {
     const nights = [...recentNights].reverse().map((n) => ({ in: n.within_anchor ? 1 : 0 }));
     const moved = trends.protocol.movement?.today_met_so_far;
     rows.push({
-      key: 'protocol', to: '/health', label: 'Protocol',
+      key: 'protocol', to: '/progress#protocol', label: 'Protocol',
       title: `Bed on time ${recentNights.filter((n) => n.within_anchor).length} of ${recentNights.length}`,
       sub: moved ? 'movement ✓ today' : 'movement not yet today',
       series: nights, field: 'in', stroke: '#fbbf24',

@@ -26,34 +26,17 @@ function ProgressIcon(props) {
     </svg>
   );
 }
-// The heart is back (PR 5): next to Train and Lifts the tab is the body's numbers —
-// sleep, weight, bedtime — and "Health" is the word he uses for them. The pulse line
-// it replaces read as a stock chart once the tab stopped being called Trends.
-function HealthIcon(props) {
-  return (
-    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true" {...props}>
-      <path d="M12 20.5s-7.5-4.6-7.5-10A4 4 0 0 1 12 8.2a4 4 0 0 1 7.5 2.3c0 5.4-7.5 10-7.5 10z" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-// Four tabs, from six (2026-09-05). Two weeks of app_events: Home, Week and Trends were
-// one nightly corridor to the check-in; Program, Progress and Exercises got a ~1-second
-// tap each on the way round the bar. Week folded into Home along with the check-in,
-// Program and Exercises went under More, and Progress became Lifts — the strength twin
-// of Trends. Trends stays second: after a night's sleep last night's numbers are the
-// first thing worth seeing, and the two leftmost tabs are the ones reachable one-handed.
-//
-// 2026-09-08 (redesign PR 4): More became Train — program, history and the week's rows
-// on one screen. 30 days of app_events put Program + Exercises + History + More at 43
-// visits to Lifts' 25, so Train takes the third slot and Lifts the fourth. Desktop shows
-// the same four; the Exercises link lives on Train now, so there's no separate IA.
-// PR 5 renamed Trends to Health — same slot, same data, regrouped by question.
+// Three tabs, from four (2026-09-17). The history: six tabs until 2026-09-05, when two
+// weeks of app_events showed Home, Week and Trends were one nightly corridor to the
+// check-in and Program, Progress and Exercises got a ~1-second tap each on the way round
+// the bar; four after the 2026-09-08 redesign folded Program, History and Exercises into
+// Train. Health and Lifts then merged into Progress, because they answered one question
+// between them — "am I getting anywhere" — and he was flicking between the two looking
+// for lifts, weight, engine and streaks. Desktop shows the same three.
 const links = [
   { to: '/dashboard', label: 'Today', Icon: HomeIcon },
-  { to: '/health', label: 'Health', Icon: HealthIcon },
+  { to: '/progress', label: 'Progress', Icon: ProgressIcon },
   { to: '/train', label: 'Train', Icon: ProgramIcon },
-  { to: '/progress', label: 'Lifts', Icon: ProgressIcon },
 ];
 
 function SyncingDot() {
@@ -157,7 +140,7 @@ export default function Navbar() {
       {/* Bottom tab bar — mobile only, hidden during a workout session or when an editor explicitly hides it */}
       {showBottomNav && (
         <nav aria-label="Main" className="md:hidden fixed bottom-0 inset-x-0 z-20 border-t bg-neutral-950 border-neutral-800 pb-[env(safe-area-inset-bottom)]">
-          <div className="grid grid-cols-4">
+          <div className="grid grid-cols-3">
             {links.map((l) => (
               <NavLink
                 key={l.to}

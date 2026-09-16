@@ -8,7 +8,6 @@ import WorkoutSession from './pages/WorkoutSession';
 import WorkoutDetail from './pages/WorkoutDetail';
 import ActivityDetail from './pages/ActivityDetail';
 import Metric from './pages/Metric';
-import Health from './pages/Health';
 import ExerciseLibrary from './pages/ExerciseLibrary';
 import { Skeleton } from './components/Skeleton';
 
@@ -38,14 +37,14 @@ export default function App() {
         <Route path="workouts/:id" element={<WorkoutDetail />} />
         <Route path="activity/:id" element={<ActivityDetail />} />
         <Route path="metric/:field" element={<Metric />} />
-        <Route path="health" element={<Health />} />
         {/* A phone that hasn't taken the update yet still has old routes in its history
             and possibly in the installed shell's start state. Redirect rather than 404:
             Coach became Trends (2026-08-16) and Trends became Health (2026-09-08), Week
             folded into Home (2026-09-05), and Program / History / More became Train
             (2026-09-08). */}
-        <Route path="coach" element={<Navigate to="/health" replace />} />
-        <Route path="trends" element={<Navigate to="/health" replace />} />
+        <Route path="coach" element={<Navigate to="/progress" replace />} />
+        <Route path="trends" element={<Navigate to="/progress" replace />} />
+        <Route path="health" element={<Navigate to="/progress" replace />} />
         <Route path="week" element={<Navigate to="/dashboard" replace />} />
         <Route path="program" element={<Navigate to="/train" replace />} />
         <Route path="history" element={<Navigate to="/train" replace />} />

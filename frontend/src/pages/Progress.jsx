@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useLocation } from 'react-router-dom';
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend,
@@ -10,6 +11,7 @@ import ExercisePickerSheet from '../components/ExercisePickerSheet';
 import AimLine from '../components/AimLine';
 import AimEditSheet from '../components/AimEditSheet';
 import { Page, Section, Disclosure } from '../components/ui';
+import { Body, Engine, Protocol, useBodyData } from '../components/BodySections';
 import { ChevronIcon } from '../components/icons';
 import { formatDay, formatKg } from '../util/format';
 import MuscleVolume from '../components/MuscleVolume';
@@ -202,6 +204,12 @@ function AllBests({ pbs, loading, onPick }) {
   );
 }
 
+// Progress (2026-09-17 merge): Lifts and Health were two tabs answering one question —
+// "am I getting anywhere" — and he was flicking between them looking for lifts, weight,
+// engine and streaks. One tab, four sections, in the order he named them.
+//
+// Home's glance rows link to #lifts / #engine / #protocol, so a tap lands on the section
+// it named rather than the top of a long page.
 export default function Progress() {
   const [weeks, setWeeks] = useState(12);
   const [exerciseId, setExerciseId] = useState(readRemembered);
@@ -225,6 +233,19 @@ export default function Progress() {
     try { localStorage.setItem(REMEMBER_KEY, String(id)); } catch { /* private mode */ }
   };
 
+  const { trends, wellness, isLoading: bodyLoading } = useBodyData();
+
+  // The hash is honoured after the section it names has had a chance to render; a plain
+  // browser jump fires before the queries land and stops at the wrong offset.
+  const { hash } = useLocation();
+  const jumped = useRef(null);
+  useEffect(() => {
+    const id = hash.replace('#', '');
+    if (!id || jumped.current === id) return;
+    const el = document.getElementById(id);
+    if (el) { el.scrollIntoView({ block: 'start' }); jumped.current = id; }
+  }, [hash, bodyLoading, pbs]);
+
   const exercise = useMemo(() => allExercises.find((e) => e.id === exerciseId) ?? null, [allExercises, exerciseId]);
   const pb = useMemo(() => pbs.find((p) => p.exercise_id === exerciseId) ?? null, [pbs, exerciseId]);
 
@@ -237,8 +258,8 @@ export default function Progress() {
   return (
     <Page>
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight">Lifts</h1>
-        <div className="flex gap-1.5" role="group" aria-label="Time range — drives every chart on this page">
+        <h1 className="text-2xl font-semibold tracking-tight">Progress</h1>
+        <div className="flex gap-1.5" role="group" aria-label="Time range — drives the lift charts below">
           {RANGES.map((w) => (
             <button key={w} type="button" onClick={() => setWeeks(w)} aria-pressed={weeks === w} className={weeks === w ? 'chip-solid' : 'chip'}>
               {w}w
@@ -247,7 +268,9 @@ export default function Progress() {
         </div>
       </div>
 
-      <ExerciseCard exercise={exercise} weeks={weeks} pb={pb} onPick={() => setPickerOpen(true)} />
+      <Section label="Lifts" id="lifts" className="pt-2">
+        <ExerciseCard exercise={exercise} weeks={weeks} pb={pb} onPick={() => setPickerOpen(true)} />
+      </Section>
 
       <Section><MuscleVolume weeks={weeks} /></Section>
 
@@ -267,6 +290,16 @@ export default function Progress() {
       <Section label="Personal bests" action={<Disclosure open={showBests} label={showBests ? 'Hide' : pbsLoading ? 'Loading…' : `${pbs.length} lifts`} onClick={() => setShowBests((v) => !v)} />}>
         {showBests && <AllBests pbs={pbs} loading={pbsLoading} onPick={(id) => { pick(id); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />}
       </Section>
+
+      <Body wellness={wellness} isLoading={bodyLoading} />
+      {bodyLoading ? (
+        <Skeleton className="h-40 w-full" />
+      ) : (
+        <>
+          <Engine sessions={trends?.endurance} ceiling={trends?.hr_ceiling ?? 153} />
+          <Protocol protocol={trends?.protocol} bodyweight={trends?.bodyweight} />
+        </>
+      )}
 
       <ExercisePickerSheet
         open={pickerOpen}
