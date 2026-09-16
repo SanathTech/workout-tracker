@@ -407,6 +407,117 @@ console.log('\n─── short rest is not a plateau ───');
   }
 }
 
+// A call WITHOUT a routine still has to grade a session against the range it was
+// performed under. Weighted Pull-Up is 6-8 on Day A and 6-10 on Day C; Day C holds the
+// lower re.id, so the unscoped query graded a Day A session of 8/8/8 — the top of its
+// own range — against Day C's ceiling of 10 and said "hold, add reps", while the
+// session screen said increase off the same sets (2026-09-17). Lifts and the session
+// must not disagree about the same data.
+console.log('\n─── an unscoped call grades on the range the session was performed under ───');
+{
+  // The wider range is created FIRST, so the re.id tiebreak picks it — the shape that
+  // produced the wrong answer.
+  const { body: two } = await api('POST', '/api/programs', {
+    name: 'Unscoped range grading',
+    total_weeks: 4,
+    routines: [
+      { name: 'Wide Day', exercises: [{ exercise_id: ex['Squat'], target_sets: 3, rep_range_low: 6, rep_range_high: 10 }] },
+      { name: 'Narrow Day', exercises: [{ exercise_id: ex['Squat'], target_sets: 3, rep_range_low: 6, rep_range_high: 8 }] },
+      { name: 'No Squat Day', exercises: [{ exercise_id: ex['Lateral Raise'], target_sets: 2, rep_range_low: 12, rep_range_high: 15 }] },
+    ],
+  });
+  await api('POST', `/api/programs/${two.id}/start`);
+  const wide = two.routines.find((r) => r.name === 'Wide Day');
+  const narrow = two.routines.find((r) => r.name === 'Narrow Day');
+
+  const log = async (routine, reps, daysAgo) => {
+    const { body: w } = await api('POST', '/api/workouts', { routine_id: routine.id });
+    await api('PUT', `/api/workouts/${w.id}`, {
+      exercises: [{ exercise_id: ex['Squat'], sets: reps.map((r, i) => ({ set_number: i + 1, reps: r, weight_kg: 60 })) }],
+    });
+    await api('POST', `/api/workouts/${w.id}/complete`);
+    if (daysAgo) {
+      await db.query(
+        `UPDATE workouts SET date = CURRENT_DATE - $1::int, created_at = NOW() - ($1 || ' days')::interval WHERE id = $2`,
+        [daysAgo, w.id]
+      );
+    }
+  };
+
+  await log(wide, [7, 7, 7], 4);
+  await log(narrow, [8, 8, 8], 0);
+
+  const { body: scoped } = await api('GET', `/api/progress/suggestions?routine_id=${narrow.id}`);
+  const ns = scoped.find((x) => x.exercise_name === 'Squat');
+  ok(ns.action === 'increase', 'scoped to its own routine: 8/8/8 tops 6-8 → increase', `${ns.action}: ${ns.reason}`);
+
+  const { body: un } = await api('GET', '/api/progress/suggestions');
+  const us = un.find((x) => x.exercise_name === 'Squat');
+  ok(us.rep_range_high === 8, "unscoped uses the performed routine's ceiling", `got ${us.rep_range_high}`);
+  ok(us.action === 'increase', 'and reaches the same verdict as the session screen', `${us.action}: ${us.reason}`);
+  ok(us.suggested_weight_kg === ns.suggested_weight_kg, 'with the same suggested load',
+    `${us.suggested_weight_kg} vs ${ns.suggested_weight_kg}`);
+  ok(/Narrow Day's 6-8 range/.test(us.reason), 'saying which range it graded on', us.reason);
+
+  // The other routine's own call is untouched: 8/8/8 is mid-range there.
+  const { body: w2 } = await api('GET', `/api/progress/suggestions?routine_id=${wide.id}`);
+  const ws = w2.find((x) => x.exercise_name === 'Squat');
+  ok(ws.rep_range_high === 10, 'the wide routine keeps its own range', `got ${ws.rep_range_high}`);
+  ok(ws.action === 'hold', 'and still holds against 10', `${ws.action}: ${ws.reason}`);
+
+  // A routine that does NOT prescribe the exercise is the same situation as no routine
+  // at all: the tiebreak row is a guess, so grade on where it was actually performed.
+  const other = two.routines.find((r) => r.name === 'No Squat Day');
+  const { body: o } = await api('GET', `/api/progress/suggestions?routine_id=${other.id}`);
+  const os = o.find((x) => x.exercise_name === 'Squat');
+  ok(os.rep_range_high === 8, 'a swap-in is graded on the performed range', `got ${os.rep_range_high}`);
+  ok(os.action === 'increase', 'so it agrees with the session screen too', `${os.action}: ${os.reason}`);
+  ok(/last done on Narrow Day/.test(os.reason), 'and says where the numbers came from', os.reason);
+}
+
+// Two routines prescribing the SAME range are one ladder, so the newest session decides
+// even at an unchanged weight. Machine Hip Abduction is 2x12-15 on both Day A and Day B:
+// on 2026-09-17 Day A's own last session (10 Sep, 50kg x 14/14) said hold, while 15/15 at
+// that same 50kg had been logged on Day B two days later. Only a DIFFERENT working weight
+// used to move the verdict on.
+console.log('\n─── identical ranges in two routines are one ladder ───');
+{
+  const { body: pr } = await api('POST', '/api/programs', {
+    name: 'Shared range ladder',
+    total_weeks: 4,
+    routines: [
+      { name: 'Ladder A', exercises: [{ exercise_id: ex['Lateral Raise'], target_sets: 2, rep_range_low: 12, rep_range_high: 15 }] },
+      { name: 'Ladder B', exercises: [{ exercise_id: ex['Lateral Raise'], target_sets: 2, rep_range_low: 12, rep_range_high: 15 }] },
+    ],
+  });
+  await api('POST', `/api/programs/${pr.id}/start`);
+  const a = pr.routines.find((r) => r.name === 'Ladder A');
+  const b = pr.routines.find((r) => r.name === 'Ladder B');
+
+  const log = async (routine, reps, daysAgo) => {
+    const { body: w } = await api('POST', '/api/workouts', { routine_id: routine.id });
+    await api('PUT', `/api/workouts/${w.id}`, {
+      exercises: [{ exercise_id: ex['Lateral Raise'], sets: reps.map((r, i) => ({ set_number: i + 1, reps: r, weight_kg: 10 })) }],
+    });
+    await api('POST', `/api/workouts/${w.id}/complete`);
+    if (daysAgo) {
+      await db.query(
+        `UPDATE workouts SET date = CURRENT_DATE - $1::int, created_at = NOW() - ($1 || ' days')::interval WHERE id = $2`,
+        [daysAgo, w.id]
+      );
+    }
+  };
+
+  await log(a, [14, 14], 2);
+  await log(b, [15, 15], 0);
+
+  const { body: s } = await api('GET', `/api/progress/suggestions?routine_id=${a.id}`);
+  const as = s.find((x) => x.exercise_name === 'Lateral Raise');
+  ok(as.action === 'increase', 'the newer clear at the same weight counts', `${as.action}: ${as.reason}`);
+  ok(as.suggested_weight_kg === 11.25, 'isolation step on the shared working weight', `got ${as.suggested_weight_kg}`);
+  ok(/last done on Ladder B/.test(as.reason), 'naming the routine it came from', as.reason);
+}
+
 console.log('\n─────────────────────────────');
 console.log(`  ${pass} passed, ${fail} failed`);
 await db.end();

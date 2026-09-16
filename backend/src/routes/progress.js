@@ -391,6 +391,25 @@ router.get('/suggestions', async (req, res) => {
           ORDER BY re.exercise_id,
                    ($1::int IS NOT NULL AND r.id = $1::int) DESC, re.id
        ),
+       -- Every routine that prescribes the exercise, so a call WITHOUT a routine can
+       -- grade a session against the range it was actually performed under instead of
+       -- whichever row won the re.id tiebreak above. That tiebreak sent the Lifts tab
+       -- the wrong way on 2026-09-17: Weighted Pull-Up is 6-8 on Day A and 6-10 on Day
+       -- C, Day C holds the lower re.id, and a Day A session of 8/8/8 — top of its own
+       -- range — was reported as "hold, add reps" while the session screen said
+       -- increase. Same exercise, same data, two answers.
+       ranges AS (
+         SELECT re.exercise_id,
+                jsonb_agg(jsonb_build_object(
+                  'routine_id', r.id, 'routine_name', r.name,
+                  'rep_range_low', re.rep_range_low, 'rep_range_high', re.rep_range_high,
+                  'rest_seconds', re.rest_seconds
+                ) ORDER BY re.id) AS prescriptions
+           FROM routine_exercises re
+           JOIN routines r ON r.id = re.routine_id AND r.deleted_at IS NULL
+           JOIN active a ON a.id = r.program_id
+          GROUP BY re.exercise_id
+       ),
        -- The last few sessions, not just the last one. Rest-aware progression needs a
        -- normal-rest session to judge against when the latest was compressed, so each
        -- exercise carries up to three, same-routine history first, then the most recent
@@ -399,7 +418,7 @@ router.get('/suggestions', async (req, res) => {
        -- away. But the caller is told which it got — progressing Day A off a Day C
        -- session is a different claim, and it should not be made silently.
        sessions AS (
-         SELECT we.exercise_id, w.id AS workout_id, w.date, w.routine_name,
+         SELECT we.exercise_id, w.id AS workout_id, w.date, w.routine_name, w.routine_id,
                 ($1::int IS NOT NULL AND w.routine_id = $1::int) AS same_routine,
                 ROW_NUMBER() OVER (
                   PARTITION BY we.exercise_id
@@ -423,19 +442,21 @@ router.get('/suggestions', async (req, res) => {
             AND ws.reps IS NOT NULL AND ws.reps > 0 AND ws.set_type <> 'warmup'
           GROUP BY we.exercise_id, w.id, w.date, w.routine_name, w.routine_id
        )
-       SELECT p.*,
+       SELECT p.*, rg.prescriptions,
               COALESCE(
                 json_agg(json_build_object(
                   'date', s.date, 'routine_name', s.routine_name,
+                  'routine_id', s.routine_id,
                   'same_routine', s.same_routine, 'newest', s.recency = 1, 'sets', s.sets
                 ) ORDER BY s.pick) FILTER (WHERE s.workout_id IS NOT NULL),
                 '[]'
               ) AS sessions
          FROM prescribed p
+         LEFT JOIN ranges rg ON rg.exercise_id = p.exercise_id
          LEFT JOIN sessions s ON s.exercise_id = p.exercise_id AND (s.pick <= 3 OR s.recency = 1)
         GROUP BY p.exercise_id, p.rep_range_low, p.rep_range_high, p.target_sets,
                  p.rest_seconds, p.target_rir_per_set, p.exercise_name, p.is_bodyweight,
-                 p.primary_muscle
+                 p.primary_muscle, rg.prescriptions
         ORDER BY p.exercise_name`,
       [routineId]
     );
@@ -481,15 +502,45 @@ function engineVerdict(r, routineId) {
     const ws = (sess?.sets || []).map((s) => s.weight_kg).filter((w) => w != null);
     return ws.length ? Math.max(...ws) : null;
   };
+  // The same applies when the prescription itself is identical. Machine Hip Abduction
+  // is 2x12-15 on BOTH Day A and Day B: on 2026-09-17 Day A's own last session (10 Sep,
+  // 50kg x 14/14) said hold while he had cleared 15/15 at that same 50kg on Day B two
+  // days later. Two routines prescribing the same range are one ladder, so the newer
+  // evidence decides — the weight-changed test above is not the only way to move on.
+  const prescriptionFor = (sess) => (sess?.routine_id == null ? null
+    : (r.prescriptions || []).find((p) => p.routine_id === sess.routine_id) || null);
+  const sameRange = (a, b) => {
+    const [pa, pb] = [prescriptionFor(a), prescriptionFor(b)];
+    return !!pa && !!pb && pa.rep_range_low === pb.rep_range_low
+      && pa.rep_range_high === pb.rep_range_high;
+  };
   const own = sessions[0] || null;
   const newest = sessions.find((sess) => sess.newest) || null;
   const movedOn = own && newest && newest !== own && !newest.same_routine
-    && maxWeight(newest) !== maxWeight(own);
+    && (maxWeight(newest) !== maxWeight(own) || sameRange(newest, own));
   const latest = movedOn ? newest : own;
   const sets = latest?.sets || [];
-  const top = r.rep_range_high;
-  const low = r.rep_range_low;
-  const restFloor = r.rest_seconds != null ? Number(r.rest_seconds) : null;
+
+  // Without a routine, the prescription above is whichever row won the re.id tiebreak,
+  // which is arbitrary for an exercise prescribed twice with different ranges. Grade the
+  // session against the range of the routine it was PERFORMED under instead — the only
+  // range it was ever run against. The same holds when a routine WAS asked for but does
+  // not prescribe this exercise (a mid-session swap): the tiebreak row is a guess, the
+  // performed routine's range is a fact. A routine that does prescribe it always wins —
+  // the caller has said which range it wants.
+  const asked = routineId != null
+    && (r.prescriptions || []).some((p) => p.routine_id === routineId);
+  const performed = (!asked && latest?.routine_id != null)
+    ? prescriptionFor(latest)
+    : null;
+  // Only unscoped calls need the extra disclosure; a scoped one already appends
+  // "(last done on <routine>)" whenever the numbers came from elsewhere.
+  const regraded = routineId == null && performed
+    && performed.rep_range_high !== r.rep_range_high;
+  const top = performed ? performed.rep_range_high : r.rep_range_high;
+  const low = performed ? performed.rep_range_low : r.rep_range_low;
+  const restSeconds = performed ? performed.rest_seconds : r.rest_seconds;
+  const restFloor = restSeconds != null ? Number(restSeconds) : null;
   const compressed = (sess) => {
     if (restFloor == null || !sess) return false;
     const median = medianGapSeconds(sess.sets || []);
@@ -515,9 +566,14 @@ function engineVerdict(r, routineId) {
   // suggestion in the list. And it states only what is known — which routine the
   // numbers came from. Whether that routine prescribes a DIFFERENT range is not
   // something this query establishes, so it no longer claims it.
+  //
+  // Unscoped, the equivalent disclosure is which routine's range the verdict used —
+  // said only when routines disagree, so a single-routine exercise reads as before.
   const scope = (routineId != null && base.last_routine_name && !base.last_same_routine)
     ? ` (last done on ${base.last_routine_name})`
-    : '';
+    : regraded
+      ? ` (graded on ${latest.routine_name}'s ${low}-${top} range)`
+      : '';
 
   if (!sets.length) {
     return { ...base, action: 'no_history', reason: 'No logged sets yet — set your starting weight.' };
