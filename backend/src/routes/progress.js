@@ -502,22 +502,41 @@ function engineVerdict(r, routineId) {
     const ws = (sess?.sets || []).map((s) => s.weight_kg).filter((w) => w != null);
     return ws.length ? Math.max(...ws) : null;
   };
+  // The same applies when the prescription itself is identical. Machine Hip Abduction
+  // is 2x12-15 on BOTH Day A and Day B: on 2026-09-17 Day A's own last session (10 Sep,
+  // 50kg x 14/14) said hold while he had cleared 15/15 at that same 50kg on Day B two
+  // days later. Two routines prescribing the same range are one ladder, so the newer
+  // evidence decides — the weight-changed test above is not the only way to move on.
+  const prescriptionFor = (sess) => (sess?.routine_id == null ? null
+    : (r.prescriptions || []).find((p) => p.routine_id === sess.routine_id) || null);
+  const sameRange = (a, b) => {
+    const [pa, pb] = [prescriptionFor(a), prescriptionFor(b)];
+    return !!pa && !!pb && pa.rep_range_low === pb.rep_range_low
+      && pa.rep_range_high === pb.rep_range_high;
+  };
   const own = sessions[0] || null;
   const newest = sessions.find((sess) => sess.newest) || null;
   const movedOn = own && newest && newest !== own && !newest.same_routine
-    && maxWeight(newest) !== maxWeight(own);
+    && (maxWeight(newest) !== maxWeight(own) || sameRange(newest, own));
   const latest = movedOn ? newest : own;
   const sets = latest?.sets || [];
 
   // Without a routine, the prescription above is whichever row won the re.id tiebreak,
   // which is arbitrary for an exercise prescribed twice with different ranges. Grade the
   // session against the range of the routine it was PERFORMED under instead — the only
-  // range it was ever run against. With a routine the caller has already said which
-  // range it wants, so nothing changes there.
-  const performed = (routineId == null && latest?.routine_id != null)
-    ? (r.prescriptions || []).find((p) => p.routine_id === latest.routine_id) || null
+  // range it was ever run against. The same holds when a routine WAS asked for but does
+  // not prescribe this exercise (a mid-session swap): the tiebreak row is a guess, the
+  // performed routine's range is a fact. A routine that does prescribe it always wins —
+  // the caller has said which range it wants.
+  const asked = routineId != null
+    && (r.prescriptions || []).some((p) => p.routine_id === routineId);
+  const performed = (!asked && latest?.routine_id != null)
+    ? prescriptionFor(latest)
     : null;
-  const regraded = performed && performed.rep_range_high !== r.rep_range_high;
+  // Only unscoped calls need the extra disclosure; a scoped one already appends
+  // "(last done on <routine>)" whenever the numbers came from elsewhere.
+  const regraded = routineId == null && performed
+    && performed.rep_range_high !== r.rep_range_high;
   const top = performed ? performed.rep_range_high : r.rep_range_high;
   const low = performed ? performed.rep_range_low : r.rep_range_low;
   const restSeconds = performed ? performed.rest_seconds : r.rest_seconds;
