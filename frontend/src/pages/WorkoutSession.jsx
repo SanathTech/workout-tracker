@@ -217,7 +217,8 @@ function SetRow({ set, previousSet, previousStraightSet, showPrev, targetRir, ai
     if (!focusField || set.set_type === 'warmup') return null;
     if (focusField === 'rir') return targetRir != null ? `Target RIR ${targetRir}` : null;
     if (focusField === 'weight') {
-      if (ghostWeight == null) return null;
+      // 0 kg is a bodyweight lift, not a weight to aim for — AimLine suppresses it too.
+      if (ghostWeight == null || Number(ghostWeight) === 0) return null;
       const kg = `${Math.round(ghostWeight * 100) / 100} kg`;
       return aim?.source === 'coach' ? `Aim ${kg} — coach` : `Aim ${kg}`;
     }
@@ -431,14 +432,14 @@ function ExerciseBlock({ block, workoutId, state, onToggle, onOpenPicker, onChan
   // way that still looked plausible. (PREV keeps row-for-row: it is the one-tap copy of
   // "what was in this row last time", which is a different question.)
   const prevStraight = useMemo(
-    () => (previous?.sets || []).filter((s) => (s.set_type || 'working') === 'working'),
+    () => (previous?.sets || []).filter(isStraight),
     [previous]
   );
   const straightIndex = useMemo(() => {
     const m = new Map();
     let n = 0;
     for (const s of block.sets) {
-      if ((s.set_type || 'working') === 'working') { m.set(s, n); n += 1; }
+      if (isStraight(s)) { m.set(s, n); n += 1; }
     }
     return m;
   }, [block.sets]);
