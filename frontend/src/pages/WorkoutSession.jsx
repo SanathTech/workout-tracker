@@ -17,6 +17,10 @@ import MoreMenu from '../components/MoreMenu';
 import { track } from '../util/telemetry';
 
 const isBlank = (v) => v === '' || v == null;
+// A cell is a number when hydrated from the server and a string once typed in, and a
+// number input hands back '-' and 'e' mid-typing. Everything that compares cells goes
+// through here, so 55, '55' and '55.0' are one value and a half-typed sign is none.
+const cellNumber = (v) => (isBlank(v) || !Number.isFinite(Number(v)) ? null : Number(v));
 
 const SAVE_TONE = {
   saving: 'bg-neutral-400 animate-pulse',
@@ -184,12 +188,10 @@ function SetRow({ set, previousSet, showPrev, targetRir, aim, onChange, onRemove
   // use — less assistance on an assisted lift is up.
   const change = (() => {
     if (!done || !previousSet || isBlank(previousSet.reps)) return null;
-    // A number input hands back '-' and 'e' mid-typing; those are absent, not zero.
-    const num = (v) => (isBlank(v) || !Number.isFinite(Number(v)) ? null : Number(v));
-    const w = num(set.weight_kg);
-    const pw = num(previousSet.weight_kg);
-    const reps = num(set.reps);
-    const prevReps = num(previousSet.reps);
+    const w = cellNumber(set.weight_kg);
+    const pw = cellNumber(previousSet.weight_kg);
+    const reps = cellNumber(set.reps);
+    const prevReps = cellNumber(previousSet.reps);
     if (reps == null || prevReps == null || (w == null) !== (pw == null)) return null;
     const d = (w ?? 0) - (pw ?? 0) || reps - prevReps;
     return d > 0 ? 'up' : d < 0 ? 'down' : 'same';
@@ -491,14 +493,12 @@ function ExerciseBlock({ block, workoutId, state, onToggle, onOpenPicker, onChan
     // the bar once and the sets below follow. Only rows still to do, and only those that
     // were empty or matched the old number — a set already logged, or deliberately
     // different, is left exactly as it was.
-    const weightChanged = String(next.weight_kg ?? '') !== String(before?.weight_kg ?? '');
-    // A warm-up's weight is not the working weight, and a half-typed '-' is not a weight
-    // at all — neither may seed the sets below.
-    const carry = weightChanged
-      && !isBlank(next.weight_kg)
-      && Number.isFinite(Number(next.weight_kg))
-      && next.set_type !== 'warmup';
-    const oldWeight = String(before?.weight_kg ?? '');
+    // Compared as numbers, written as typed: 55 and '55.0' are the same weight, and a
+    // warm-up's weight is not the working weight, so neither a formatting-only edit nor a
+    // warm-up may seed the sets below.
+    const newWeight = cellNumber(next.weight_kg);
+    const oldWeight = cellNumber(before?.weight_kg);
+    const carry = newWeight != null && newWeight !== oldWeight && next.set_type !== 'warmup';
 
     onChange({
       ...block,
@@ -506,7 +506,7 @@ function ExerciseBlock({ block, workoutId, state, onToggle, onOpenPicker, onChan
         if (j === i) return next;
         if (!carry || j < i) return s;
         const untouched = isBlank(s.reps) && s.set_type !== 'warmup';
-        const matched = isBlank(s.weight_kg) || String(s.weight_kg) === oldWeight;
+        const matched = isBlank(s.weight_kg) || cellNumber(s.weight_kg) === oldWeight;
         return untouched && matched ? { ...s, weight_kg: next.weight_kg } : s;
       }),
     });
