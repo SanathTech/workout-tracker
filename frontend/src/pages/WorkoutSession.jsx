@@ -122,7 +122,7 @@ const LEDGER_COLS = 'grid grid-cols-[2.5rem_1fr_4rem_4rem_3.25rem] items-center'
 // There used to be a tick column and a rest timer (removed 2026-08-10 — the owner
 // rests by Garmin, and with the timer gone the tick was a second button for what the
 // PREV tap already does). The green done-tint stays, keyed off the row carrying reps.
-function SetRow({ set, previousSet, showPrev, targetRir, aim, onChange, onRemove }) {
+function SetRow({ set, previousSet, previousStraightSet, showPrev, targetRir, aim, onChange, onRemove }) {
   const prevWeight = previousSet?.weight_kg != null ? Number(previousSet.weight_kg) : null;
   // Either half can be null on its own — a weight-only or reps-only previous set still
   // shows the half it has rather than collapsing to a dash.
@@ -191,14 +191,14 @@ function SetRow({ set, previousSet, showPrev, targetRir, aim, onChange, onRemove
   // Ranked on load then reps, the same axis the progression engine and personal bests
   // use — less assistance on an assisted lift is up.
   const change = (() => {
-    if (!done || !previousSet || isBlank(previousSet.reps)) return null;
-    // Straight sets only, both sides. A warm-up renumbers the rows, so set 3 today can be
-    // set 2's work last time — comparing those would shift every glyph in the exercise.
-    if (!isStraight(set) || !isStraight(previousSet)) return null;
+    // The nth straight set against the nth straight set last time — never the same row
+    // number, which warm-ups shift.
+    const against = previousStraightSet;
+    if (!done || !isStraight(set) || !against || isBlank(against.reps)) return null;
     const w = cellNumber(set.weight_kg);
-    const pw = cellNumber(previousSet.weight_kg);
+    const pw = cellNumber(against.weight_kg);
     const reps = cellNumber(set.reps);
-    const prevReps = cellNumber(previousSet.reps);
+    const prevReps = cellNumber(against.reps);
     if (reps == null || prevReps == null || (w == null) !== (pw == null)) return null;
     const d = (w ?? 0) - (pw ?? 0) || reps - prevReps;
     return d > 0 ? 'up' : d < 0 ? 'down' : 'same';
@@ -424,6 +424,24 @@ function ExerciseBlock({ block, workoutId, state, onToggle, onOpenPicker, onChan
     for (const s of previous?.sets || []) m[s.set_number] = s;
     return m;
   }, [previous]);
+  // The glyph compares like with like: the nth STRAIGHT set today against the nth
+  // straight set last time. Row number won't do — warm-ups are logged as rows and
+  // renumber everything, so a day with two ramp-up sets would line today's first working
+  // set against last week's third, and every arrow in the exercise would be wrong in a
+  // way that still looked plausible. (PREV keeps row-for-row: it is the one-tap copy of
+  // "what was in this row last time", which is a different question.)
+  const prevStraight = useMemo(
+    () => (previous?.sets || []).filter((s) => (s.set_type || 'working') === 'working'),
+    [previous]
+  );
+  const straightIndex = useMemo(() => {
+    const m = new Map();
+    let n = 0;
+    for (const s of block.sets) {
+      if ((s.set_type || 'working') === 'working') { m.set(s, n); n += 1; }
+    }
+    return m;
+  }, [block.sets]);
   const hasPrev = (previous?.sets?.length || 0) > 0;
 
   const target = block.target;
@@ -649,6 +667,7 @@ function ExerciseBlock({ block, workoutId, state, onToggle, onOpenPicker, onChan
             key={i}
             set={s}
             previousSet={prevBySet[s.set_number]}
+            previousStraightSet={straightIndex.has(s) ? prevStraight[straightIndex.get(s)] : undefined}
             showPrev={hasPrev}
             // The RIR ghost echoes the aim when the coach set one ("take it to RIR 1"
             // beats the program's 2); otherwise the program's per-set target.

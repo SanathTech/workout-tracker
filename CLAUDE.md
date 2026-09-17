@@ -460,9 +460,12 @@ which wipes). Backend env vars: `ANTHROPIC_API_KEY`, `COACH_RUN_SECRET`,
     the ledger keeps its density. The Aim line above the ledger still says it once for the
     exercise; this says it where he is typing.
   - **A done row carries one glyph in its top-right corner**: ▲ improved / = matched /
-    ▼ under, against the SAME SET NUMBER last time, ranked load-then-reps (so less
-    assistance is up). It replaces a "last time" column the ledger has no width for, and
-    PREV already shows the numbers.
+    ▼ under, ranked load-then-reps (so less assistance is up). It compares the nth
+    STRAIGHT set against the nth straight set last time — NOT the same row number, which
+    warm-ups shift: two ramp-up sets would line today's first working set against last
+    week's third and every arrow in the exercise would be wrong while still looking
+    plausible. PREV stays row-for-row, because "what was in this row last time" is the
+    question its one-tap copy answers.
   - **Straight sets carry the weight down.** Editing a set's weight fills the sets below it
     that are still to do AND were blank or matched the old number; a logged set, a warm-up,
     or one deliberately different is never touched.
