@@ -510,7 +510,10 @@ function ExerciseBlock({ block, workoutId, state, onToggle, onOpenPicker, onChan
         if (j === i) return next;
         if (!carry || j < i) return s;
         const untouched = isBlank(s.reps) && isStraight(s);
-        const matched = isBlank(s.weight_kg) || cellNumber(s.weight_kg) === oldWeight;
+        // Blank, or genuinely the old number. A cell mid-typing ('-', 'e') parses to
+        // null like a blank one does, and overwriting it would eat what he is entering.
+        const here = cellNumber(s.weight_kg);
+        const matched = isBlank(s.weight_kg) || (here != null && here === oldWeight);
         return untouched && matched ? { ...s, weight_kg: next.weight_kg } : s;
       }),
     });
