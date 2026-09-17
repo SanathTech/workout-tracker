@@ -179,6 +179,42 @@ function SetRow({ set, previousSet, showPrev, targetRir, aim, onChange, onRemove
       ? Math.min(previousSet.reps + 1, aim.reps_high ?? previousSet.reps + 1)
       : aim.reps ?? null;
 
+  // How this set compares with the same set number last time, once it has reps in it.
+  // Ranked on load then reps, the same axis the progression engine and personal bests
+  // use — less assistance on an assisted lift is up.
+  const change = (() => {
+    if (!done || !previousSet || isBlank(previousSet.reps)) return null;
+    const w = isBlank(set.weight_kg) ? null : Number(set.weight_kg);
+    const pw = prevWeight;
+    if ((w == null) !== (pw == null)) return null;
+    const d = (w ?? 0) - (pw ?? 0) || Number(set.reps) - Number(previousSet.reps);
+    return d > 0 ? 'up' : d < 0 ? 'down' : 'same';
+  })();
+  const CHANGE = {
+    up: { glyph: '▲', cls: 'text-emerald-400', word: 'Improved on last time' },
+    same: { glyph: '=', cls: 'text-neutral-500', word: 'Matched last time' },
+    down: { glyph: '▼', cls: 'text-amber-400', word: 'Under last time' },
+  };
+
+  // What the engine (or the coach) wants for the field being typed in, shown only while
+  // it is focused — the aim line above the ledger says it once for the exercise, this
+  // says it where the thumb is, and it costs no height at rest.
+  const [focusField, setFocusField] = useState(null);
+  const recommendation = (() => {
+    if (!focusField || set.set_type === 'warmup') return null;
+    if (focusField === 'rir') return targetRir != null ? `Target RIR ${targetRir}` : null;
+    if (focusField === 'weight') {
+      if (ghostWeight == null) return null;
+      const kg = `${Math.round(ghostWeight * 100) / 100} kg`;
+      return aim?.source === 'coach' ? `Aim ${kg} — coach` : `Aim ${kg}`;
+    }
+    const low = ghostReps ?? aim?.reps ?? null;
+    if (low == null) return targetRir != null ? `Aim RIR ${targetRir}` : null;
+    const high = aim?.reps_high != null && aim.reps_high !== low ? `–${aim.reps_high}` : '';
+    const rir = (aim?.rir ?? targetRir);
+    return `Aim ${low}${high} reps${rir != null ? ` at RIR ${rir}` : ''}`;
+  })();
+
   const typeLabel = SET_TYPE_LABEL[set.set_type || 'working'];
   const cellInput = 'w-full h-11 bg-transparent border-0 p-0 text-center text-base tabular-nums text-neutral-200 placeholder:text-neutral-600 focus:outline-none focus:bg-neutral-800/70 rounded-md transition-colors';
 
@@ -236,7 +272,8 @@ function SetRow({ set, previousSet, showPrev, targetRir, aim, onChange, onRemove
           placeholder={ghostWeight != null ? `${ghostWeight}` : 'kg'}
           aria-label={`Set ${set.set_number} weight in kilograms`}
           value={set.weight_kg ?? ''}
-          onFocus={selectOnFocus}
+          onFocus={(e) => { setFocusField('weight'); selectOnFocus(e); }}
+          onBlur={() => setFocusField((f) => (f === 'weight' ? null : f))}
           onChange={(e) => onChange({ ...set, weight_kg: e.target.value })}
           className={cellInput}
         />
@@ -247,7 +284,8 @@ function SetRow({ set, previousSet, showPrev, targetRir, aim, onChange, onRemove
           placeholder={ghostReps != null ? `${ghostReps}` : 'reps'}
           aria-label={`Set ${set.set_number} reps`}
           value={set.reps ?? ''}
-          onFocus={selectOnFocus}
+          onFocus={(e) => { setFocusField('reps'); selectOnFocus(e); }}
+          onBlur={() => setFocusField((f) => (f === 'reps' ? null : f))}
           onChange={(e) => onChange({ ...set, reps: e.target.value })}
           className={cellInput}
         />
@@ -259,11 +297,27 @@ function SetRow({ set, previousSet, showPrev, targetRir, aim, onChange, onRemove
           title={targetRir != null ? `Reps in reserve — target ${targetRir}` : 'Reps in reserve'}
           aria-label={`Set ${set.set_number} reps in reserve`}
           value={set.rir ?? ''}
-          onFocus={selectOnFocus}
           onChange={(e) => onChange({ ...set, rir: e.target.value })}
           className={cellInput}
+          onFocus={(e) => { setFocusField('rir'); selectOnFocus(e); }}
+          onBlur={() => setFocusField((f) => (f === 'rir' ? null : f))}
         />
+        {change && (
+          <span
+            aria-hidden="true"
+            title={CHANGE[change].word}
+            // Top-right corner of the row: the only free space in a five-column ledger,
+            // and big enough to read at arm's length with the phone on a bench.
+            className={`pointer-events-none absolute right-1 top-1 text-[11px] leading-none ${CHANGE[change].cls}`}
+          >
+            {CHANGE[change].glyph}
+          </span>
+        )}
+        {change && <span className="sr-only">{CHANGE[change].word}</span>}
       </div>
+      {recommendation && (
+        <p className="px-2 pb-1 text-[11px] text-neutral-400 tabular-nums">{recommendation}</p>
+      )}
     </div>
   );
 }
@@ -428,7 +482,25 @@ function ExerciseBlock({ block, workoutId, state, onToggle, onOpenPicker, onChan
     const repsBefore = !(before?.reps == null || before?.reps === '');
     if (repsNow && !repsBefore && !next.logged_at) next.logged_at = new Date().toISOString();
     if (!repsNow) next.logged_at = null;
-    onChange({ ...block, sets: block.sets.map((s, j) => (j === i ? next : s)) });
+
+    // Straight sets carry the weight down (2026-09-17, RP's "auto match weight"): change
+    // the bar once and the sets below follow. Only rows still to do, and only those that
+    // were empty or matched the old number — a set already logged, or deliberately
+    // different, is left exactly as it was.
+    const weightChanged = String(next.weight_kg ?? '') !== String(before?.weight_kg ?? '');
+    const carry = weightChanged && !isBlank(next.weight_kg);
+    const oldWeight = String(before?.weight_kg ?? '');
+
+    onChange({
+      ...block,
+      sets: block.sets.map((s, j) => {
+        if (j === i) return next;
+        if (!carry || j < i) return s;
+        const untouched = isBlank(s.reps) && s.set_type !== 'warmup';
+        const matched = isBlank(s.weight_kg) || String(s.weight_kg) === oldWeight;
+        return untouched && matched ? { ...s, weight_kg: next.weight_kg } : s;
+      }),
+    });
   };
   const removeSet = (i) => track('tap', 'remove-set') || onChange({
     ...block,
