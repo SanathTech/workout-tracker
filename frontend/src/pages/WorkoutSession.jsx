@@ -18,8 +18,9 @@ import { track } from '../util/telemetry';
 
 const isBlank = (v) => v === '' || v == null;
 // A cell is a number when hydrated from the server and a string once typed in, and a
-// number input hands back '-' and 'e' mid-typing. Everything that compares cells goes
-// through here, so 55, '55' and '55.0' are one value and a half-typed sign is none.
+// number input hands back '-' and 'e' mid-typing. Comparisons between cells should come
+// through here — 55, '55' and '55.0' are one value, and a half-typed sign is none. The
+// display paths (summarizeSets and the ledger's own formatting) still read the raw cell.
 const cellNumber = (v) => (isBlank(v) || !Number.isFinite(Number(v)) ? null : Number(v));
 // Straight sets only. A warm-up is lighter on purpose, and a drop or failure set is the
 // working weight taken somewhere else — none of them share a number with the row above.
