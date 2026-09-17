@@ -184,15 +184,19 @@ function SetRow({ set, previousSet, showPrev, targetRir, aim, onChange, onRemove
   // use — less assistance on an assisted lift is up.
   const change = (() => {
     if (!done || !previousSet || isBlank(previousSet.reps)) return null;
-    const w = isBlank(set.weight_kg) ? null : Number(set.weight_kg);
-    const pw = prevWeight;
-    if ((w == null) !== (pw == null)) return null;
-    const d = (w ?? 0) - (pw ?? 0) || Number(set.reps) - Number(previousSet.reps);
+    // A number input hands back '-' and 'e' mid-typing; those are absent, not zero.
+    const num = (v) => (isBlank(v) || !Number.isFinite(Number(v)) ? null : Number(v));
+    const w = num(set.weight_kg);
+    const pw = num(previousSet.weight_kg);
+    const reps = num(set.reps);
+    const prevReps = num(previousSet.reps);
+    if (reps == null || prevReps == null || (w == null) !== (pw == null)) return null;
+    const d = (w ?? 0) - (pw ?? 0) || reps - prevReps;
     return d > 0 ? 'up' : d < 0 ? 'down' : 'same';
   })();
   const CHANGE = {
     up: { glyph: '▲', cls: 'text-emerald-400', word: 'Improved on last time' },
-    same: { glyph: '=', cls: 'text-neutral-500', word: 'Matched last time' },
+    same: { glyph: '=', cls: 'text-neutral-400', word: 'Matched last time' },
     down: { glyph: '▼', cls: 'text-amber-400', word: 'Under last time' },
   };
 
@@ -209,7 +213,7 @@ function SetRow({ set, previousSet, showPrev, targetRir, aim, onChange, onRemove
       return aim?.source === 'coach' ? `Aim ${kg} — coach` : `Aim ${kg}`;
     }
     const low = ghostReps ?? aim?.reps ?? null;
-    if (low == null) return targetRir != null ? `Aim RIR ${targetRir}` : null;
+    if (low == null) return targetRir != null ? `Target RIR ${targetRir}` : null;
     const high = aim?.reps_high != null && aim.reps_high !== low ? `–${aim.reps_high}` : '';
     const rir = (aim?.rir ?? targetRir);
     return `Aim ${low}${high} reps${rir != null ? ` at RIR ${rir}` : ''}`;
@@ -267,7 +271,7 @@ function SetRow({ set, previousSet, showPrev, targetRir, aim, onChange, onRemove
         </button>
         <input
           data-editor-input="true"
-          type="number" inputMode="decimal" min="0" step="0.5"
+          type="number" inputMode="decimal" step="0.5"
           enterKeyHint="next"
           placeholder={ghostWeight != null ? `${ghostWeight}` : 'kg'}
           aria-label={`Set ${set.set_number} weight in kilograms`}
@@ -488,7 +492,12 @@ function ExerciseBlock({ block, workoutId, state, onToggle, onOpenPicker, onChan
     // were empty or matched the old number — a set already logged, or deliberately
     // different, is left exactly as it was.
     const weightChanged = String(next.weight_kg ?? '') !== String(before?.weight_kg ?? '');
-    const carry = weightChanged && !isBlank(next.weight_kg);
+    // A warm-up's weight is not the working weight, and a half-typed '-' is not a weight
+    // at all — neither may seed the sets below.
+    const carry = weightChanged
+      && !isBlank(next.weight_kg)
+      && Number.isFinite(Number(next.weight_kg))
+      && next.set_type !== 'warmup';
     const oldWeight = String(before?.weight_kg ?? '');
 
     onChange({
