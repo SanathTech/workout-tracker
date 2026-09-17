@@ -21,6 +21,9 @@ const isBlank = (v) => v === '' || v == null;
 // number input hands back '-' and 'e' mid-typing. Everything that compares cells goes
 // through here, so 55, '55' and '55.0' are one value and a half-typed sign is none.
 const cellNumber = (v) => (isBlank(v) || !Number.isFinite(Number(v)) ? null : Number(v));
+// Straight sets only. A warm-up is lighter on purpose, and a drop or failure set is the
+// working weight taken somewhere else — none of them share a number with the row above.
+const isStraight = (s) => (s?.set_type || 'working') === 'working';
 
 const SAVE_TONE = {
   saving: 'bg-neutral-400 animate-pulse',
@@ -498,14 +501,14 @@ function ExerciseBlock({ block, workoutId, state, onToggle, onOpenPicker, onChan
     // warm-up may seed the sets below.
     const newWeight = cellNumber(next.weight_kg);
     const oldWeight = cellNumber(before?.weight_kg);
-    const carry = newWeight != null && newWeight !== oldWeight && next.set_type !== 'warmup';
+    const carry = newWeight != null && newWeight !== oldWeight && isStraight(next);
 
     onChange({
       ...block,
       sets: block.sets.map((s, j) => {
         if (j === i) return next;
         if (!carry || j < i) return s;
-        const untouched = isBlank(s.reps) && s.set_type !== 'warmup';
+        const untouched = isBlank(s.reps) && isStraight(s);
         const matched = isBlank(s.weight_kg) || cellNumber(s.weight_kg) === oldWeight;
         return untouched && matched ? { ...s, weight_kg: next.weight_kg } : s;
       }),
