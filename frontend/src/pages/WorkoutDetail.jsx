@@ -9,6 +9,42 @@ import SessionFeel from '../components/SessionFeel';
 import { useSmartBack } from '../hooks/useSmartBack';
 import { formatDay, formatKg } from '../util/format';
 
+// The watch's side of the session. Figures come from the LOGGED window, so a watch left
+// running past the last set doesn't dilute them (2026-09-17) — and when that happened,
+// the row says so rather than silently disagreeing with what Garmin shows.
+function HeartRate({ hr }) {
+  if (!hr || (hr.avg_hr == null && hr.max_hr == null)) return null;
+  const cells = [
+    ['Avg HR', hr.avg_hr],
+    ['Max HR', hr.max_hr],
+    ['Over 153', hr.minutes_over_ceiling != null ? `${hr.minutes_over_ceiling} min` : null],
+    // Bpm shed in the minute after the session's hardest moment — the same marker the
+    // runs carry, and the one that climbs as the base builds.
+    ['HR recovery', hr.hrr_60 != null ? `${hr.hrr_60} bpm` : null],
+    ['Load', hr.training_load != null ? Math.round(hr.training_load) : null],
+  ].filter(([, v]) => v != null && v !== '');
+  if (!cells.length) return null;
+  return (
+    <section className="border-t border-neutral-800 pt-4">
+      <p className="section-label mb-2">Heart rate</p>
+      <div className="grid grid-cols-3 gap-x-3 gap-y-3">
+        {cells.map(([label, value]) => (
+          <div key={label}>
+            <p className="text-[11px] uppercase tracking-wide text-neutral-400">{label}</p>
+            <p className="text-lg font-semibold tabular-nums text-neutral-200 leading-tight">{value}</p>
+          </div>
+        ))}
+      </div>
+      {hr.trimmed && (
+        <p className="text-[11px] text-amber-400 mt-2">
+          The watch recorded {hr.trimmed.recorded_min} min against a {hr.trimmed.logged_min} min session —
+          load corrected {hr.trimmed.old_load} → {hr.trimmed.new_load}, and these figures cover the session only.
+        </p>
+      )}
+    </section>
+  );
+}
+
 export default function WorkoutDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -105,6 +141,8 @@ export default function WorkoutDetail() {
           {workout.duration_minutes && <span className="tag">{workout.duration_minutes} min</span>}
         </div>
       )}
+
+      <HeartRate hr={workout.heart_rate} />
 
       {workout.notes && (
         <section>
