@@ -137,6 +137,28 @@ await db.query(
   ok(run?.stats.strides === null, 'one stray effort is not strides');
 }
 
+console.log('\n─── a gym session carries the watch\'s side of it ───');
+{
+  const { body: before } = await api('GET', `/api/workouts/${lastId}`);
+  ok(before.heart_rate === null, 'no recording → no heart-rate block', JSON.stringify(before.heart_rate));
+
+  await db.query(
+    `INSERT INTO activities (id, start_date_local, date, type, name, moving_time, elapsed_time,
+                            average_hr, max_hr, training_load, stream_summary, raw)
+          VALUES ('gym-act-1', $1::date + TIME '06:48', $1, 'WeightTraining', 'Strength', 9096, 9096,
+                  96, 139, 16,
+                  '{"kind":"gym","avg_hr":102,"max_hr":131,"minutes_over_ceiling":0,"hrr_60":0,
+                    "gym_recal":{"logged_min":59,"recorded_min":152,"old_load":35,"new_load":16}}'::jsonb,
+                  '{}'::jsonb)`,
+    [shift(today, -2)]
+  );
+  const { body } = await api('GET', `/api/workouts/${lastId}`);
+  ok(body.heart_rate?.avg_hr === 102 && body.heart_rate?.max_hr === 131,
+    'the figures come from the logged window, not the watch average', JSON.stringify(body.heart_rate));
+  ok(body.heart_rate?.training_load === 16, 'and the corrected load rides along');
+  ok(body.heart_rate?.trimmed?.recorded_min === 152, 'a trimmed session says so', JSON.stringify(body.heart_rate?.trimmed));
+}
+
 await db.end();
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

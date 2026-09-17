@@ -365,7 +365,35 @@ router.get('/:id', async (req, res) => {
   try {
     const workout = await fetchWorkout(req.params.id);
     if (!workout) return res.status(404).json({ error: 'Workout not found' });
-    res.json(workout);
+    // The watch's side of the same session, where it recorded one. Computed over the
+    // LOGGED window by nas-laptop's gym_recal, so a watch left running past the last set
+    // can't dilute it — `trimmed` says when that happened, because a session whose load
+    // was corrected should say so rather than quietly disagreeing with Garmin.
+    const hr = await db.query(
+      // A summarised row wins, then the earliest of the day: two recordings on one date
+      // (a false start, or a session split in two) must not let an unsummarised one hide
+      // the figures.
+      `SELECT id, average_hr, max_hr, training_load, stream_summary
+         FROM activities
+        WHERE date = $1::date AND type = 'WeightTraining'
+        ORDER BY (stream_summary->>'kind' = 'gym') DESC NULLS LAST, start_date_local
+        LIMIT 1`,
+      [workout.date]
+    );
+    const a = hr.rows[0];
+    const s = a?.stream_summary || {};
+    res.json({
+      ...workout,
+      heart_rate: a && s.kind === 'gym' ? {
+        activity_id: a.id,
+        avg_hr: s.avg_hr ?? a.average_hr,
+        max_hr: s.max_hr ?? a.max_hr,
+        minutes_over_ceiling: s.minutes_over_ceiling ?? null,
+        hrr_60: s.hrr_60 ?? null,
+        training_load: a.training_load == null ? null : Number(a.training_load),
+        trimmed: s.gym_recal || null,
+      } : null,
+    });
   } catch (err) {
     serverError(res, err);
   }
