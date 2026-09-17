@@ -17,6 +17,14 @@ import MoreMenu from '../components/MoreMenu';
 import { track } from '../util/telemetry';
 
 const isBlank = (v) => v === '' || v == null;
+// A cell is a number when hydrated from the server and a string once typed in, and a
+// number input hands back '-' and 'e' mid-typing. Comparisons between cells should come
+// through here — 55, '55' and '55.0' are one value, and a half-typed sign is none. The
+// display paths (summarizeSets and the ledger's own formatting) still read the raw cell.
+const cellNumber = (v) => (isBlank(v) || !Number.isFinite(Number(v)) ? null : Number(v));
+// Straight sets only. A warm-up is lighter on purpose, and a drop or failure set is the
+// working weight taken somewhere else — none of them share a number with the row above.
+const isStraight = (s) => (s?.set_type || 'working') === 'working';
 
 const SAVE_TONE = {
   saving: 'bg-neutral-400 animate-pulse',
@@ -114,7 +122,7 @@ const LEDGER_COLS = 'grid grid-cols-[2.5rem_1fr_4rem_4rem_3.25rem] items-center'
 // There used to be a tick column and a rest timer (removed 2026-08-10 — the owner
 // rests by Garmin, and with the timer gone the tick was a second button for what the
 // PREV tap already does). The green done-tint stays, keyed off the row carrying reps.
-function SetRow({ set, previousSet, showPrev, targetRir, aim, onChange, onRemove }) {
+function SetRow({ set, previousSet, previousStraightSet, showPrev, targetRir, aim, onChange, onRemove }) {
   const prevWeight = previousSet?.weight_kg != null ? Number(previousSet.weight_kg) : null;
   // Either half can be null on its own — a weight-only or reps-only previous set still
   // shows the half it has rather than collapsing to a dash.
@@ -179,6 +187,48 @@ function SetRow({ set, previousSet, showPrev, targetRir, aim, onChange, onRemove
       ? Math.min(previousSet.reps + 1, aim.reps_high ?? previousSet.reps + 1)
       : aim.reps ?? null;
 
+  // How this set compares with the same set number last time, once it has reps in it.
+  // Ranked on load then reps, the same axis the progression engine and personal bests
+  // use — less assistance on an assisted lift is up.
+  const change = (() => {
+    // The nth straight set against the nth straight set last time — never the same row
+    // number, which warm-ups shift.
+    const against = previousStraightSet;
+    if (!done || !isStraight(set) || !against || isBlank(against.reps)) return null;
+    const w = cellNumber(set.weight_kg);
+    const pw = cellNumber(against.weight_kg);
+    const reps = cellNumber(set.reps);
+    const prevReps = cellNumber(against.reps);
+    if (reps == null || prevReps == null || (w == null) !== (pw == null)) return null;
+    const d = (w ?? 0) - (pw ?? 0) || reps - prevReps;
+    return d > 0 ? 'up' : d < 0 ? 'down' : 'same';
+  })();
+  const CHANGE = {
+    up: { glyph: '▲', cls: 'text-emerald-400', word: 'Improved on last time' },
+    same: { glyph: '=', cls: 'text-neutral-400', word: 'Matched last time' },
+    down: { glyph: '▼', cls: 'text-amber-400', word: 'Under last time' },
+  };
+
+  // What the engine (or the coach) wants for the field being typed in, shown only while
+  // it is focused — the aim line above the ledger says it once for the exercise, this
+  // says it where the thumb is, and it costs no height at rest.
+  const [focusField, setFocusField] = useState(null);
+  const recommendation = (() => {
+    if (!focusField || set.set_type === 'warmup') return null;
+    if (focusField === 'rir') return targetRir != null ? `Target RIR ${targetRir}` : null;
+    if (focusField === 'weight') {
+      // 0 kg is a bodyweight lift, not a weight to aim for — AimLine suppresses it too.
+      if (ghostWeight == null || Number(ghostWeight) === 0) return null;
+      const kg = `${Math.round(ghostWeight * 100) / 100} kg`;
+      return aim?.source === 'coach' ? `Aim ${kg} — coach` : `Aim ${kg}`;
+    }
+    const low = ghostReps ?? aim?.reps ?? null;
+    if (low == null) return targetRir != null ? `Target RIR ${targetRir}` : null;
+    const high = aim?.reps_high != null && aim.reps_high !== low ? `–${aim.reps_high}` : '';
+    const rir = (aim?.rir ?? targetRir);
+    return `Aim ${low}${high} reps${rir != null ? ` at RIR ${rir}` : ''}`;
+  })();
+
   const typeLabel = SET_TYPE_LABEL[set.set_type || 'working'];
   const cellInput = 'w-full h-11 bg-transparent border-0 p-0 text-center text-base tabular-nums text-neutral-200 placeholder:text-neutral-600 focus:outline-none focus:bg-neutral-800/70 rounded-md transition-colors';
 
@@ -231,12 +281,13 @@ function SetRow({ set, previousSet, showPrev, targetRir, aim, onChange, onRemove
         </button>
         <input
           data-editor-input="true"
-          type="number" inputMode="decimal" min="0" step="0.5"
+          type="number" inputMode="decimal" step="0.5"
           enterKeyHint="next"
           placeholder={ghostWeight != null ? `${ghostWeight}` : 'kg'}
           aria-label={`Set ${set.set_number} weight in kilograms`}
           value={set.weight_kg ?? ''}
-          onFocus={selectOnFocus}
+          onFocus={(e) => { setFocusField('weight'); selectOnFocus(e); }}
+          onBlur={() => setFocusField((f) => (f === 'weight' ? null : f))}
           onChange={(e) => onChange({ ...set, weight_kg: e.target.value })}
           className={cellInput}
         />
@@ -247,7 +298,8 @@ function SetRow({ set, previousSet, showPrev, targetRir, aim, onChange, onRemove
           placeholder={ghostReps != null ? `${ghostReps}` : 'reps'}
           aria-label={`Set ${set.set_number} reps`}
           value={set.reps ?? ''}
-          onFocus={selectOnFocus}
+          onFocus={(e) => { setFocusField('reps'); selectOnFocus(e); }}
+          onBlur={() => setFocusField((f) => (f === 'reps' ? null : f))}
           onChange={(e) => onChange({ ...set, reps: e.target.value })}
           className={cellInput}
         />
@@ -259,11 +311,27 @@ function SetRow({ set, previousSet, showPrev, targetRir, aim, onChange, onRemove
           title={targetRir != null ? `Reps in reserve — target ${targetRir}` : 'Reps in reserve'}
           aria-label={`Set ${set.set_number} reps in reserve`}
           value={set.rir ?? ''}
-          onFocus={selectOnFocus}
           onChange={(e) => onChange({ ...set, rir: e.target.value })}
           className={cellInput}
+          onFocus={(e) => { setFocusField('rir'); selectOnFocus(e); }}
+          onBlur={() => setFocusField((f) => (f === 'rir' ? null : f))}
         />
+        {change && (
+          <span
+            role="img"
+            aria-label={CHANGE[change].word}
+            title={CHANGE[change].word}
+            // Top-right corner of the row: the only free space in a five-column ledger,
+            // and big enough to read at arm's length with the phone on a bench.
+            className={`pointer-events-none absolute right-1 top-1 text-[11px] leading-none ${CHANGE[change].cls}`}
+          >
+            {CHANGE[change].glyph}
+          </span>
+        )}
       </div>
+      {recommendation && (
+        <p className="px-2 pb-1 text-[11px] text-neutral-400 tabular-nums">{recommendation}</p>
+      )}
     </div>
   );
 }
@@ -357,6 +425,24 @@ function ExerciseBlock({ block, workoutId, state, onToggle, onOpenPicker, onChan
     for (const s of previous?.sets || []) m[s.set_number] = s;
     return m;
   }, [previous]);
+  // The glyph compares like with like: the nth STRAIGHT set today against the nth
+  // straight set last time. Row number won't do — warm-ups are logged as rows and
+  // renumber everything, so a day with two ramp-up sets would line today's first working
+  // set against last week's third, and every arrow in the exercise would be wrong in a
+  // way that still looked plausible. (PREV keeps row-for-row: it is the one-tap copy of
+  // "what was in this row last time", which is a different question.)
+  const prevStraight = useMemo(
+    () => (previous?.sets || []).filter(isStraight),
+    [previous]
+  );
+  const straightIndex = useMemo(() => {
+    const m = new Map();
+    let n = 0;
+    for (const s of block.sets) {
+      if (isStraight(s)) { m.set(s, n); n += 1; }
+    }
+    return m;
+  }, [block.sets]);
   const hasPrev = (previous?.sets?.length || 0) > 0;
 
   const target = block.target;
@@ -428,7 +514,31 @@ function ExerciseBlock({ block, workoutId, state, onToggle, onOpenPicker, onChan
     const repsBefore = !(before?.reps == null || before?.reps === '');
     if (repsNow && !repsBefore && !next.logged_at) next.logged_at = new Date().toISOString();
     if (!repsNow) next.logged_at = null;
-    onChange({ ...block, sets: block.sets.map((s, j) => (j === i ? next : s)) });
+
+    // Straight sets carry the weight down (2026-09-17, RP's "auto match weight"): change
+    // the bar once and the sets below follow. Only rows still to do, and only those that
+    // were empty or matched the old number — a set already logged, or deliberately
+    // different, is left exactly as it was.
+    // Compared as numbers, written as typed: 55 and '55.0' are the same weight, and a
+    // warm-up's weight is not the working weight, so neither a formatting-only edit nor a
+    // warm-up may seed the sets below.
+    const newWeight = cellNumber(next.weight_kg);
+    const oldWeight = cellNumber(before?.weight_kg);
+    const carry = newWeight != null && newWeight !== oldWeight && isStraight(next);
+
+    onChange({
+      ...block,
+      sets: block.sets.map((s, j) => {
+        if (j === i) return next;
+        if (!carry || j < i) return s;
+        const untouched = isBlank(s.reps) && isStraight(s);
+        // Blank, or genuinely the old number. A cell mid-typing ('-', 'e') parses to
+        // null like a blank one does, and overwriting it would eat what he is entering.
+        const here = cellNumber(s.weight_kg);
+        const matched = isBlank(s.weight_kg) || (here != null && here === oldWeight);
+        return untouched && matched ? { ...s, weight_kg: next.weight_kg } : s;
+      }),
+    });
   };
   const removeSet = (i) => track('tap', 'remove-set') || onChange({
     ...block,
@@ -558,6 +668,7 @@ function ExerciseBlock({ block, workoutId, state, onToggle, onOpenPicker, onChan
             key={i}
             set={s}
             previousSet={prevBySet[s.set_number]}
+            previousStraightSet={straightIndex.has(s) ? prevStraight[straightIndex.get(s)] : undefined}
             showPrev={hasPrev}
             // The RIR ghost echoes the aim when the coach set one ("take it to RIR 1"
             // beats the program's 2); otherwise the program's per-set target.

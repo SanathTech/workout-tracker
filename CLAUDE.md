@@ -454,6 +454,23 @@ which wipes). Backend env vars: `ANTHROPIC_API_KEY`, `COACH_RUN_SECRET`,
     are blank (his ask, 2026-09-17 — it used to blur, leaving two taps to reach the next
     exercise's kg). The focus waits a render, because that block's inputs don't exist
     until it opens.
+  - **The aim follows the thumb** (2026-09-17, from RP Hypertrophy's recommendation
+    strip): focusing a cell shows one 11px line under the row — "Aim 55 kg" on weight,
+    "Aim 5-6 reps at RIR 2" on reps, "Target RIR 2" on RIR — and it disappears on blur, so
+    the ledger keeps its density. The Aim line above the ledger still says it once for the
+    exercise; this says it where he is typing.
+  - **A done row carries one glyph in its top-right corner**: ▲ improved / = matched /
+    ▼ under, ranked load-then-reps (so less assistance is up). It compares the nth
+    STRAIGHT set against the nth straight set last time — NOT the same row number, which
+    warm-ups shift: two ramp-up sets would line today's first working set against last
+    week's third and every arrow in the exercise would be wrong while still looking
+    plausible. PREV stays row-for-row, because "what was in this row last time" is the
+    question its one-tap copy answers.
+  - **Straight sets carry the weight down.** Editing a set's weight fills the sets below it
+    that are still to do AND were blank or matched the old number; a logged set, a warm-up,
+    or one deliberately different is never touched.
+  - **Still no rest timer** (reaffirmed 2026-09-17 after the RP research, whose users
+    complain loudest about its absence): he rests by his Garmin. Don't reintroduce it.
   - **Set removal is swipe-left → Remove** (`useSwipeToReveal`) — the ledger has no room
     for an always-visible ✕. The reveal engages only on clearly-horizontal drags so
     vertical scroll and input taps stay native, and it springs shut after 5s.
