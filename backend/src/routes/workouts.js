@@ -370,10 +370,14 @@ router.get('/:id', async (req, res) => {
     // can't dilute it — `trimmed` says when that happened, because a session whose load
     // was corrected should say so rather than quietly disagreeing with Garmin.
     const hr = await db.query(
+      // A summarised row wins, then the earliest of the day: two recordings on one date
+      // (a false start, or a session split in two) must not let an unsummarised one hide
+      // the figures.
       `SELECT id, average_hr, max_hr, training_load, stream_summary
          FROM activities
         WHERE date = $1::date AND type = 'WeightTraining'
-        ORDER BY start_date_local LIMIT 1`,
+        ORDER BY (stream_summary->>'kind' = 'gym') DESC NULLS LAST, start_date_local
+        LIMIT 1`,
       [workout.date]
     );
     const a = hr.rows[0];

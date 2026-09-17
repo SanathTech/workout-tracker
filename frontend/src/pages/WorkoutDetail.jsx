@@ -13,7 +13,7 @@ import { formatDay, formatKg } from '../util/format';
 // running past the last set doesn't dilute them (2026-09-17) — and when that happened,
 // the row says so rather than silently disagreeing with what Garmin shows.
 function HeartRate({ hr }) {
-  if (!hr || (hr.avg_hr == null && hr.max_hr == null)) return null;
+  if (!hr) return null;
   const cells = [
     ['Avg HR', hr.avg_hr],
     ['Max HR', hr.max_hr],
@@ -23,7 +23,9 @@ function HeartRate({ hr }) {
     ['HR recovery', hr.hrr_60 != null ? `${hr.hrr_60} bpm` : null],
     ['Load', hr.training_load != null ? Math.round(hr.training_load) : null],
   ].filter(([, v]) => v != null && v !== '');
-  if (!cells.length) return null;
+  // Load alone, or a trim note alone, is still worth showing — the watch may have
+  // recorded the session without a usable HR trace.
+  if (!cells.length && !hr.trimmed) return null;
   return (
     <section className="border-t border-neutral-800 pt-4">
       <p className="section-label mb-2">Heart rate</p>
