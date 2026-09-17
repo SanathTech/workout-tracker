@@ -192,6 +192,9 @@ function SetRow({ set, previousSet, showPrev, targetRir, aim, onChange, onRemove
   // use — less assistance on an assisted lift is up.
   const change = (() => {
     if (!done || !previousSet || isBlank(previousSet.reps)) return null;
+    // Straight sets only, both sides. A warm-up renumbers the rows, so set 3 today can be
+    // set 2's work last time — comparing those would shift every glyph in the exercise.
+    if (!isStraight(set) || !isStraight(previousSet)) return null;
     const w = cellNumber(set.weight_kg);
     const pw = cellNumber(previousSet.weight_kg);
     const reps = cellNumber(set.reps);
@@ -314,7 +317,8 @@ function SetRow({ set, previousSet, showPrev, targetRir, aim, onChange, onRemove
         />
         {change && (
           <span
-            aria-hidden="true"
+            role="img"
+            aria-label={CHANGE[change].word}
             title={CHANGE[change].word}
             // Top-right corner of the row: the only free space in a five-column ledger,
             // and big enough to read at arm's length with the phone on a bench.
@@ -323,7 +327,6 @@ function SetRow({ set, previousSet, showPrev, targetRir, aim, onChange, onRemove
             {CHANGE[change].glyph}
           </span>
         )}
-        {change && <span className="sr-only">{CHANGE[change].word}</span>}
       </div>
       {recommendation && (
         <p className="px-2 pb-1 text-[11px] text-neutral-400 tabular-nums">{recommendation}</p>
