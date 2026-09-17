@@ -53,7 +53,7 @@ frontend/
       Train.jsx              This week (DayRows) · Program (ProgramView: name, week, the one Start, routines) · History (infinite); Exercises is a link
       ProgramEdit.jsx        /program/new and /program/:id/edit — ProgramEditor as a route (back gesture works, nav hides)
       WorkoutSession.jsx     /session/:id — sticky header + progress bar, 3-state exercise list, ledger
-      WorkoutDetail.jsx      /workouts/:id — read-only past workout
+      WorkoutDetail.jsx      /workouts/:id — read-only past workout, plus the session's heart rate (avg/max, minutes over 153, HRR60, load) when the watch recorded one
       Metric.jsx             /metric/:field — one number: Day (battery/stress only) · Week/Month/3M/Year, line with gaps, usual + goal lines, average/best/worst; sleep adds last night's stages and the week's bedtimes
       ActivityDetail.jsx     /activity/:id — one run or swim: stats, HR vs the 153 ceiling with walk breaks, zones, splits, strides, drift (swims: per-100 m, no wrist HR)
       ExerciseLibrary.jsx    Browse/add exercises
@@ -381,6 +381,19 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
   Personal bests, estimated 1RM and the progression suggestions still rank on `weight_kg`
   alone — -23kg → -20.5kg is the axis he moves along on an assisted lift, and folding
   bodyweight in would score a heavier morning as progress.
+
+### The gym session's heart rate
+
+`GET /workouts/:id` carries `heart_rate` when a `WeightTraining` activity exists for that
+day. Every figure is computed over the LOGGED window — `workouts.duration_minutes`, i.e.
+start → Finish — by nas-laptop's `gym_recal.py`, because he sometimes forgets to end the
+Garmin activity: 17 Sep recorded 152 minutes against a 59-minute Day A, which diluted the
+average HR to 96 and reported the highest load of his recent Day As from the least intense
+session. When a recording overruns (>1.2x the logged session and >10 min extra) the sync
+also scales `icu_training_load` by the share of HR-weighted work inside the window, PUTs
+it back to intervals.icu so CTL/ATL stop carrying the idle tail, and pings. A trimmed
+session says so on the page rather than silently disagreeing with Garmin Connect, which
+keeps the original. Gym HR is still indicative, never ground truth — the logged sets are.
 
 ### Things explicitly chosen
 - RIR (reps in reserve) is a routine *target* only; not captured per logged set, to keep logging fast.
