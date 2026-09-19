@@ -231,6 +231,23 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
   filtered to today's date, RPE grid) is built client-side in `buildSummary` and shown over
   the session; Done navigates to the detail page. There is no `location.state.justFinished`
   any more and no dedicated PR endpoint — don't add either back.
+- **A coach call his own logs have passed steps aside** (2026-09-19). `util/aim.js`
+  `overtaken()`: a note pinning a weight stops being the aim once ANY session logged AFTER
+  it used a heavier load (strictly heavier — repeating the pinned weight is the call being
+  followed; same-day is not enough, since a call is usually written just after the session
+  it is about and a workout records only its date). The evidence is a query in
+  `progress.js` over every later session, NOT the engine's last-session snapshot: a
+  lighter day afterwards — a deload, a machine taken, a bad morning — must not resurrect a
+  call his history has already answered. The note is not deleted: it drops to a
+  cue marked "Coach · set aside" and `superseded_note` says what it pinned against what he
+  lifted, so the call still gets resolved or rewritten deliberately. This has bitten twice
+  — the hip abduction aim read 36kg while he was pulling 43 (23 Aug), and the pull-up aim
+  read -18kg mid-session while he was at -14 (19 Sep), both notes whose own prose said
+  "hold until X" after X had happened.
+  ⚠ `created_at` comes back from pg as a Date; `String()`-ing one gives "Thu Sep 17 2026",
+  which compares against a 'YYYY-MM-DD' workout date as nonsense and silently in the wrong
+  direction. Use `dayInAppTimezone()` (util/dates.js) for any instant-vs-workout-day test.
+
 - **The session has ONE aim line per exercise, resolved server-side.** `/suggestions` returns
   the engine verdict plus `aim {source: 'engine'|'coach', weight_kg, reps, reps_high, rir, why,
   action, engine_reason, note_id}` and `cues [{id, note}]` (`backend/src/util/aim.js`). A coach
@@ -454,11 +471,10 @@ which wipes). Backend env vars: `ANTHROPIC_API_KEY`, `COACH_RUN_SECRET`,
     are blank (his ask, 2026-09-17 — it used to blur, leaving two taps to reach the next
     exercise's kg). The focus waits a render, because that block's inputs don't exist
     until it opens.
-  - **The aim follows the thumb** (2026-09-17, from RP Hypertrophy's recommendation
-    strip): focusing a cell shows one 11px line under the row — "Aim 55 kg" on weight,
-    "Aim 5-6 reps at RIR 2" on reps, "Target RIR 2" on RIR — and it disappears on blur, so
-    the ledger keeps its density. The Aim line above the ledger still says it once for the
-    exercise; this says it where he is typing.
+  - **The aim is stated ONCE, on the Aim line above the ledger.** A per-row recommendation
+    strip shipped on 2026-09-17 (copied from RP, which has no persistent aim line) and came
+    straight back out: rendered under the focused row it read as belonging to the NEXT set,
+    and it repeated what the Aim line already said two rows up. Don't reintroduce it.
   - **A done row carries one glyph in its top-right corner**: ▲ improved / = matched /
     ▼ under, ranked load-then-reps (so less assistance is up). It compares the nth
     STRAIGHT set against the nth straight set last time — NOT the same row number, which

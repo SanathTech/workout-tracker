@@ -179,6 +179,60 @@ console.log('\n─── the phone can write a call: POST / PATCH /coach/notes (
   ok(!notes.some((n) => n.id === made.body.id), 'resolved notes leave /coach/notes');
 }
 
+console.log('\n─── a load call his own logs have passed steps aside ───');
+{
+  // The 19 Sep case: a note pinned the pull-up at -18kg, he moved to -14kg on the 17th,
+  // and mid-session the aim was still reading -18.
+  const pinnedId = await note({ exercise_id: ex['Squat'], note: 'Hold 100kg until the last set is RIR 1.', aim_weight_kg: 100 });
+  // Written before the session that passes it. Same-day is deliberately NOT enough: a
+  // note is usually written just after the session it is about, and only the date is
+  // recorded against a workout.
+  await db.query("UPDATE coach_notes SET created_at = NOW() - INTERVAL '2 days' WHERE id = $1", [pinnedId]);
+  const before = (await suggestions()).find((x) => x.exercise_name === 'Squat');
+  ok(before?.aim?.source === 'coach' && before.aim.weight_kg === 100, 'the call sets the aim while it stands', JSON.stringify(before?.aim));
+
+  // A session ABOVE the pinned weight, logged after the note.
+  const { body: w } = await api('POST', '/api/workouts', { routine_id: dayA });
+  await api('PUT', `/api/workouts/${w.id}`, {
+    exercises: [{ exercise_id: ex['Squat'], sets: [1, 2].map((n) => ({ set_number: n, reps: 5, weight_kg: 105 })) }],
+  });
+  await api('POST', `/api/workouts/${w.id}/complete`);
+
+  const after = (await suggestions()).find((x) => x.exercise_name === 'Squat');
+  ok(after?.aim?.source === 'engine', 'once he lifts past it, the engine is back in charge', JSON.stringify(after?.aim));
+  ok(after?.superseded_note?.note_id === pinnedId, 'and the call is named as overtaken', JSON.stringify(after?.superseded_note));
+  ok(after?.superseded_note?.pinned_kg === 100 && after?.superseded_note?.lifted_kg === 105,
+    'with what it pinned and what he actually lifted', JSON.stringify(after?.superseded_note));
+  const cue = (after?.cues || []).find((c) => c.id === pinnedId);
+  ok(!!cue && !!cue.superseded, 'the note keeps its text as a cue rather than vanishing', JSON.stringify(after?.cues));
+
+  await db.query('UPDATE coach_notes SET resolved_at = NOW() WHERE id = $1', [pinnedId]);
+  const clean = (await suggestions()).find((x) => x.exercise_name === 'Squat');
+  ok(!clean?.superseded_note, 'a resolved note leaves nothing behind');
+
+  // A call written AFTER the heavier session is about that session — it stands.
+  const freshId = await note({ exercise_id: ex['Squat'], note: 'Back off to 100kg, the 105 was ugly.', aim_weight_kg: 100 });
+  const fresh = (await suggestions()).find((x) => x.exercise_name === 'Squat');
+  ok(fresh?.aim?.source === 'coach' && fresh.aim.weight_kg === 100, 'a call written after that session still sets the aim', JSON.stringify(fresh?.aim));
+  ok(!fresh?.superseded_note, 'and is not treated as overtaken by it');
+  await db.query('UPDATE coach_notes SET resolved_at = NOW() WHERE id = $1', [freshId]);
+
+  // A lighter session AFTER the heavier one must not resurrect the call: the question is
+  // asked of every session since the note, not just the most recent.
+  const againId = await note({ exercise_id: ex['Squat'], note: 'Hold 100kg.', aim_weight_kg: 100 });
+  await db.query("UPDATE coach_notes SET created_at = NOW() - INTERVAL '3 days' WHERE id = $1", [againId]);
+  const { body: light } = await api('POST', '/api/workouts', { routine_id: dayA });
+  await api('PUT', `/api/workouts/${light.id}`, {
+    exercises: [{ exercise_id: ex['Squat'], sets: [{ set_number: 1, reps: 5, weight_kg: 95 }] }],
+  });
+  await api('POST', `/api/workouts/${light.id}/complete`);
+  const afterLight = (await suggestions()).find((x) => x.exercise_name === 'Squat');
+  ok(afterLight?.superseded_note?.note_id === againId,
+    'a lighter day afterwards does not bring the call back', JSON.stringify(afterLight?.superseded_note));
+  ok(afterLight?.aim?.source === 'engine', 'and the engine still holds the aim', JSON.stringify(afterLight?.aim));
+  await db.query('UPDATE coach_notes SET resolved_at = NOW() WHERE id = $1', [againId]);
+}
+
 console.log('\n─── /coach/week carries the workout id on logged gym days ───');
 {
   const { body: week } = await api('GET', '/api/coach/week');
