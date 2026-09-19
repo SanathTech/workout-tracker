@@ -232,10 +232,13 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
   the session; Done navigates to the detail page. There is no `location.state.justFinished`
   any more and no dedicated PR endpoint — don't add either back.
 - **A coach call his own logs have passed steps aside** (2026-09-19). `util/aim.js`
-  `overtaken()`: a note pinning a weight stops being the aim once a session logged AFTER
+  `overtaken()`: a note pinning a weight stops being the aim once ANY session logged AFTER
   it used a heavier load (strictly heavier — repeating the pinned weight is the call being
   followed; same-day is not enough, since a call is usually written just after the session
-  it is about and a workout records only its date). The note is not deleted: it drops to a
+  it is about and a workout records only its date). The evidence is a query in
+  `progress.js` over every later session, NOT the engine's last-session snapshot: a
+  lighter day afterwards — a deload, a machine taken, a bad morning — must not resurrect a
+  call his history has already answered. The note is not deleted: it drops to a
   cue marked "Coach · set aside" and `superseded_note` says what it pinned against what he
   lifted, so the call still gets resolved or rewritten deliberately. This has bitten twice
   — the hip abduction aim read 36kg while he was pulling 43 (23 Aug), and the pull-up aim

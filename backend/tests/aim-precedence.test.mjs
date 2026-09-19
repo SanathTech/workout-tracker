@@ -216,6 +216,21 @@ console.log('\n─── a load call his own logs have passed steps aside ──
   ok(fresh?.aim?.source === 'coach' && fresh.aim.weight_kg === 100, 'a call written after that session still sets the aim', JSON.stringify(fresh?.aim));
   ok(!fresh?.superseded_note, 'and is not treated as overtaken by it');
   await db.query('UPDATE coach_notes SET resolved_at = NOW() WHERE id = $1', [freshId]);
+
+  // A lighter session AFTER the heavier one must not resurrect the call: the question is
+  // asked of every session since the note, not just the most recent.
+  const againId = await note({ exercise_id: ex['Squat'], note: 'Hold 100kg.', aim_weight_kg: 100 });
+  await db.query("UPDATE coach_notes SET created_at = NOW() - INTERVAL '3 days' WHERE id = $1", [againId]);
+  const { body: light } = await api('POST', '/api/workouts', { routine_id: dayA });
+  await api('PUT', `/api/workouts/${light.id}`, {
+    exercises: [{ exercise_id: ex['Squat'], sets: [{ set_number: 1, reps: 5, weight_kg: 95 }] }],
+  });
+  await api('POST', `/api/workouts/${light.id}/complete`);
+  const afterLight = (await suggestions()).find((x) => x.exercise_name === 'Squat');
+  ok(afterLight?.superseded_note?.note_id === againId,
+    'a lighter day afterwards does not bring the call back', JSON.stringify(afterLight?.superseded_note));
+  ok(afterLight?.aim?.source === 'engine', 'and the engine still holds the aim', JSON.stringify(afterLight?.aim));
+  await db.query('UPDATE coach_notes SET resolved_at = NOW() WHERE id = $1', [againId]);
 }
 
 console.log('\n─── /coach/week carries the workout id on logged gym days ───');

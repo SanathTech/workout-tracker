@@ -23,25 +23,30 @@
 // A note is never deleted by this. It steps aside, keeps its text as a cue, and says why —
 // the coach still resolves it, but the phone stops issuing a number his own history has
 // already answered.
-const { dayInAppTimezone } = require('./dates');
-
-function overtaken(call, engine) {
-  const pinned = call.aim_weight_kg != null ? Number(call.aim_weight_kg) : null;
-  if (pinned == null || !engine.last_date) return null;
-  const weights = (engine.last_sets || [])
-    .filter((s) => (s.set_type || 'working') === 'working' && s.reps != null)
-    .map((s) => (s.weight_kg == null ? null : Number(s.weight_kg)))
-    .filter((w) => w != null && Number.isFinite(w));
-  if (!weights.length) return null;
-  const lifted = Math.max(...weights);
-  // Strictly past it: lifting the pinned weight again is the call being followed.
-  if (!(lifted > pinned)) return null;
-  // And logged after the call was made. Same day is not enough: a call is usually written
-  // just after the session it is about, and a workout records only its date.
-  const noteDay = dayInAppTimezone(call.created_at);
-  const sessionDay = dayInAppTimezone(engine.last_date);
-  if (noteDay && sessionDay && sessionDay <= noteDay) return null;
-  return { note_id: call.id, pinned_kg: pinned, lifted_kg: lifted, on: engine.last_date };
+// A load call is overtaken when his own logs have moved past the weight it pins, in a
+// session logged AFTER the call was written. Both stale notes this has caught said the
+// same thing in prose — "stay at 36 until RIR 1", "do not drop assistance again until
+// RIR 0-1 at -18kg" — and in both cases he met the condition, moved up, and the note kept
+// pinning the old rung: the hip abduction aim read 36kg while he was pulling 43 (23 Aug),
+// and the pull-up aim read -18kg mid-session while he was at -14 (19 Sep).
+//
+// The evidence is gathered by the caller (progress.js), which asks the question of EVERY
+// session since the note rather than just the latest one: a lighter day afterwards — a
+// deload, a machine taken, a bad morning — must not resurrect a call his history has
+// already answered.
+//
+// A note is never deleted by this. It steps aside, keeps its text as a cue, and says why —
+// the coach still resolves it, but the phone stops issuing a number his own history has
+// already answered.
+function overtaken(call) {
+  const by = call.overtaken_by;
+  if (!by || call.aim_weight_kg == null) return null;
+  return {
+    note_id: call.id,
+    pinned_kg: Number(call.aim_weight_kg),
+    lifted_kg: Number(by.lifted_kg),
+    on: by.on,
+  };
 }
 
 function pickReps(engine) {
@@ -56,7 +61,7 @@ function resolveAim(engine, notes, targetRirPerSet) {
   const hasCall = (n) => n.aim_weight_kg != null || n.aim_reps != null || n.aim_rir != null;
   const newest = [...notes].reverse().find(hasCall) || null;
   // A call his logs have already passed does not get to issue a number.
-  const superseded = newest ? overtaken(newest, engine) : null;
+  const superseded = newest ? overtaken(newest) : null;
   const call = superseded ? null : newest;
   // Only number-free notes are cues. An older load call the newest one superseded is
   // dropped, not demoted — "back off to 95" under an aim of 100 is a contradiction, and
