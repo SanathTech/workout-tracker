@@ -481,7 +481,7 @@ router.get('/suggestions', async (req, res) => {
     const overtakenByNote = {};
     if (pinned.length) {
       const { rows: evidence } = await db.query(
-        `SELECT DISTINCT ON (n.id) n.id AS note_id, s.day::text AS on, s.lifted
+        `SELECT n.id AS note_id, s.day::text AS on, s.lifted
            FROM coach_notes n
            JOIN LATERAL (
              SELECT w.date AS day, MAX(ws.weight_kg)::float AS lifted

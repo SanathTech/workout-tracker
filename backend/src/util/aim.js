@@ -20,16 +20,6 @@
 // pinning the old rung: the hip abduction aim read 36kg while he was pulling 43 (23 Aug),
 // and the pull-up aim read -18kg mid-session while he was at -14 (19 Sep).
 //
-// A note is never deleted by this. It steps aside, keeps its text as a cue, and says why —
-// the coach still resolves it, but the phone stops issuing a number his own history has
-// already answered.
-// A load call is overtaken when his own logs have moved past the weight it pins, in a
-// session logged AFTER the call was written. Both stale notes this has caught said the
-// same thing in prose — "stay at 36 until RIR 1", "do not drop assistance again until
-// RIR 0-1 at -18kg" — and in both cases he met the condition, moved up, and the note kept
-// pinning the old rung: the hip abduction aim read 36kg while he was pulling 43 (23 Aug),
-// and the pull-up aim read -18kg mid-session while he was at -14 (19 Sep).
-//
 // The evidence is gathered by the caller (progress.js), which asks the question of EVERY
 // session since the note rather than just the latest one: a lighter day afterwards — a
 // deload, a machine taken, a bad morning — must not resurrect a call his history has
