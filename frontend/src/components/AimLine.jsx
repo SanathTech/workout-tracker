@@ -85,15 +85,17 @@ export default function AimLine({ aim, cues = [], onEdit, className = '' }) {
         </button>
       ))}
 
-      {openCue?.superseded && sheet === openCue.id && (
+      {openCue?.superseded && (
         <Sheet title="This call has been overtaken" onClose={() => setSheet(null)}>
-          <p className="text-sm text-neutral-300">{openCue.note}</p>
-          <p className="text-sm text-neutral-400 mt-3 tabular-nums">
-            It pinned {formatKg(openCue.superseded.pinned_kg)}, but you lifted{' '}
-            {formatKg(openCue.superseded.lifted_kg)} on{' '}
-            {formatDay(openCue.superseded.on, { day: 'numeric', month: 'short' })} — so it is no longer
-            setting the aim. The engine is back in charge until the call is rewritten or resolved.
-          </p>
+          <div className="p-4 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] space-y-3 overflow-y-auto">
+            <p className="text-sm text-neutral-300 whitespace-pre-line">{openCue.note}</p>
+            <p className="text-sm text-neutral-400 tabular-nums">
+              It pinned {formatKg(openCue.superseded.pinned_kg)}, but you lifted{' '}
+              {formatKg(openCue.superseded.lifted_kg)} on{' '}
+              {formatDay(openCue.superseded.on, { day: 'numeric', month: 'short' })} — so it is no longer
+              setting the aim. The engine is back in charge until the call is rewritten or resolved.
+            </p>
+          </div>
         </Sheet>
       )}
 
@@ -116,7 +118,8 @@ export default function AimLine({ aim, cues = [], onEdit, className = '' }) {
           </div>
         </Sheet>
       )}
-      {openCue && (
+      {/* A set-aside call has its own sheet above; without this the two would stack. */}
+      {openCue && !openCue.superseded && (
         <Sheet title="Coach" onClose={() => setSheet(null)}>
           <div className="p-4 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] overflow-y-auto">
             <p className="text-sm text-neutral-300 whitespace-pre-line">{openCue.note}</p>
