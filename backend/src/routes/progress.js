@@ -465,7 +465,8 @@ router.get('/suggestions', async (req, res) => {
     // routine shows only there; an unpinned one shows wherever the exercise appears.
     // Resolved here (see util/aim.js) so the client never has to weigh note against chip.
     const { rows: noteRows } = await db.query(
-      `SELECT id, exercise_id, routine_id, note, aim_weight_kg::float, aim_reps, aim_rir
+      `SELECT id, exercise_id, routine_id, note, aim_weight_kg::float, aim_reps, aim_rir,
+              created_at
          FROM coach_notes
         WHERE resolved_at IS NULL AND NOT internal AND exercise_id IS NOT NULL
           AND (routine_id IS NULL OR routine_id = $1::int)

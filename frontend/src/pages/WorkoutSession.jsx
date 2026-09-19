@@ -209,26 +209,6 @@ function SetRow({ set, previousSet, previousStraightSet, showPrev, targetRir, ai
     down: { glyph: '▼', cls: 'text-amber-400', word: 'Under last time' },
   };
 
-  // What the engine (or the coach) wants for the field being typed in, shown only while
-  // it is focused — the aim line above the ledger says it once for the exercise, this
-  // says it where the thumb is, and it costs no height at rest.
-  const [focusField, setFocusField] = useState(null);
-  const recommendation = (() => {
-    if (!focusField || set.set_type === 'warmup') return null;
-    if (focusField === 'rir') return targetRir != null ? `Target RIR ${targetRir}` : null;
-    if (focusField === 'weight') {
-      // 0 kg is a bodyweight lift, not a weight to aim for — AimLine suppresses it too.
-      if (ghostWeight == null || Number(ghostWeight) === 0) return null;
-      const kg = `${Math.round(ghostWeight * 100) / 100} kg`;
-      return aim?.source === 'coach' ? `Aim ${kg} — coach` : `Aim ${kg}`;
-    }
-    const low = ghostReps ?? aim?.reps ?? null;
-    if (low == null) return targetRir != null ? `Target RIR ${targetRir}` : null;
-    const high = aim?.reps_high != null && aim.reps_high !== low ? `–${aim.reps_high}` : '';
-    const rir = (aim?.rir ?? targetRir);
-    return `Aim ${low}${high} reps${rir != null ? ` at RIR ${rir}` : ''}`;
-  })();
-
   const typeLabel = SET_TYPE_LABEL[set.set_type || 'working'];
   const cellInput = 'w-full h-11 bg-transparent border-0 p-0 text-center text-base tabular-nums text-neutral-200 placeholder:text-neutral-600 focus:outline-none focus:bg-neutral-800/70 rounded-md transition-colors';
 
@@ -286,8 +266,7 @@ function SetRow({ set, previousSet, previousStraightSet, showPrev, targetRir, ai
           placeholder={ghostWeight != null ? `${ghostWeight}` : 'kg'}
           aria-label={`Set ${set.set_number} weight in kilograms`}
           value={set.weight_kg ?? ''}
-          onFocus={(e) => { setFocusField('weight'); selectOnFocus(e); }}
-          onBlur={() => setFocusField((f) => (f === 'weight' ? null : f))}
+          onFocus={selectOnFocus}
           onChange={(e) => onChange({ ...set, weight_kg: e.target.value })}
           className={cellInput}
         />
@@ -298,8 +277,7 @@ function SetRow({ set, previousSet, previousStraightSet, showPrev, targetRir, ai
           placeholder={ghostReps != null ? `${ghostReps}` : 'reps'}
           aria-label={`Set ${set.set_number} reps`}
           value={set.reps ?? ''}
-          onFocus={(e) => { setFocusField('reps'); selectOnFocus(e); }}
-          onBlur={() => setFocusField((f) => (f === 'reps' ? null : f))}
+          onFocus={selectOnFocus}
           onChange={(e) => onChange({ ...set, reps: e.target.value })}
           className={cellInput}
         />
@@ -313,8 +291,7 @@ function SetRow({ set, previousSet, previousStraightSet, showPrev, targetRir, ai
           value={set.rir ?? ''}
           onChange={(e) => onChange({ ...set, rir: e.target.value })}
           className={cellInput}
-          onFocus={(e) => { setFocusField('rir'); selectOnFocus(e); }}
-          onBlur={() => setFocusField((f) => (f === 'rir' ? null : f))}
+          onFocus={selectOnFocus}
         />
         {change && (
           <span
@@ -329,9 +306,6 @@ function SetRow({ set, previousSet, previousStraightSet, showPrev, targetRir, ai
           </span>
         )}
       </div>
-      {recommendation && (
-        <p className="px-2 pb-1 text-[11px] text-neutral-400 tabular-nums">{recommendation}</p>
-      )}
     </div>
   );
 }

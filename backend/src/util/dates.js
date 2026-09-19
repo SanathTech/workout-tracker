@@ -41,6 +41,19 @@ function currentWeekStart() {
   return today.toISOString().slice(0, 10);
 }
 
+// Any instant as the calendar day it fell on HERE. A timestamptz read back through pg is
+// a Date object, and String()-ing one gives "Thu Sep 17 2026 …" — which compares against
+// a workout's 'YYYY-MM-DD' as nonsense, silently and in the wrong direction.
+function dayInAppTimezone(value) {
+  if (value == null) return null;
+  if (typeof value === 'string' && ISO_DATE.test(value.slice(0, 10))) return value.slice(0, 10);
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: APP_TIMEZONE, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(d);
+}
+
 module.exports = {
-  APP_TIMEZONE, todayInAppTimezone, isValidDateString, resolveWorkoutDate, currentWeekStart,
+  APP_TIMEZONE, todayInAppTimezone, dayInAppTimezone, isValidDateString, resolveWorkoutDate, currentWeekStart,
 };

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Sheet } from './ui';
+import { formatDay, formatKg } from '../util/format';
 
 // One instruction per exercise. The server has already decided whose call it is
 // (backend/src/util/aim.js): a coach note that names a load is the aim and the engine's
@@ -73,12 +74,28 @@ export default function AimLine({ aim, cues = [], onEdit, className = '' }) {
           key={c.id}
           type="button"
           onClick={() => setSheet(c.id)}
-          className="block w-full text-left text-xs text-amber-400 line-clamp-2 py-1"
+          className={`block w-full text-left text-xs line-clamp-2 py-1 ${
+            c.superseded ? 'text-neutral-400' : 'text-amber-400'
+          }`}
         >
-          <span className="font-semibold uppercase tracking-wider text-[10.5px] mr-1.5">Coach</span>
+          <span className="font-semibold uppercase tracking-wider text-[10.5px] mr-1.5">
+            {c.superseded ? 'Coach · set aside' : 'Coach'}
+          </span>
           {c.note}
         </button>
       ))}
+
+      {openCue?.superseded && sheet === openCue.id && (
+        <Sheet title="This call has been overtaken" onClose={() => setSheet(null)}>
+          <p className="text-sm text-neutral-300">{openCue.note}</p>
+          <p className="text-sm text-neutral-400 mt-3 tabular-nums">
+            It pinned {formatKg(openCue.superseded.pinned_kg)}, but you lifted{' '}
+            {formatKg(openCue.superseded.lifted_kg)} on{' '}
+            {formatDay(openCue.superseded.on, { day: 'numeric', month: 'short' })} — so it is no longer
+            setting the aim. The engine is back in charge until the call is rewritten or resolved.
+          </p>
+        </Sheet>
+      )}
 
       {sheet === 'why' && aim && (
         <Sheet title="Why this aim" onClose={() => setSheet(null)}>
