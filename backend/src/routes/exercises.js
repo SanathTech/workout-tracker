@@ -74,11 +74,20 @@ router.post('/', async (req, res) => {
 // PUT /api/exercises/:id
 router.put('/:id', async (req, res) => {
   const { name, muscle_group, description } = req.body;
+  // The lift's own load step. Nullable and deliberately clearable — sending null means
+  // "back to the default rule", so it can't use COALESCE like the others.
+  const stepGiven = 'load_step_kg' in req.body;
+  const step = req.body.load_step_kg;
+  if (stepGiven && step != null && !(Number.isFinite(Number(step)) && Number(step) > 0)) {
+    return res.status(400).json({ error: 'load_step_kg must be a positive number, or null' });
+  }
   try {
     const { rows } = await db.query(
       `UPDATE exercises SET name = COALESCE($1, name), muscle_group = COALESCE($2, muscle_group),
-       description = COALESCE($3, description) WHERE id = $4 RETURNING *`,
-      [name, muscle_group, description, req.params.id]
+       description = COALESCE($3, description),
+       load_step_kg = CASE WHEN $5::boolean THEN $6::numeric ELSE load_step_kg END
+       WHERE id = $4 RETURNING *`,
+      [name, muscle_group, description, req.params.id, stepGiven, stepGiven && step != null ? Number(step) : null]
     );
     if (!rows.length) return res.status(404).json({ error: 'Exercise not found' });
     res.json(rows[0]);

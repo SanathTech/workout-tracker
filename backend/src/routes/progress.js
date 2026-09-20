@@ -374,7 +374,7 @@ router.get('/suggestions', async (req, res) => {
          SELECT DISTINCT ON (re.exercise_id)
                 re.exercise_id, re.rep_range_low, re.rep_range_high, re.target_sets,
                 re.rest_seconds, re.target_rir_per_set,
-                e.name AS exercise_name, e.is_bodyweight,
+                e.name AS exercise_name, e.is_bodyweight, e.load_step_kg::float,
                 COALESCE(pm.muscle, 'other') AS primary_muscle
            FROM routine_exercises re
            JOIN routines r ON r.id = re.routine_id AND r.deleted_at IS NULL
@@ -455,7 +455,7 @@ router.get('/suggestions', async (req, res) => {
          LEFT JOIN ranges rg ON rg.exercise_id = p.exercise_id
          LEFT JOIN sessions s ON s.exercise_id = p.exercise_id AND (s.pick <= 3 OR s.recency = 1)
         GROUP BY p.exercise_id, p.rep_range_low, p.rep_range_high, p.target_sets,
-                 p.rest_seconds, p.target_rir_per_set, p.exercise_name, p.is_bodyweight,
+                 p.rest_seconds, p.target_rir_per_set, p.exercise_name, p.is_bodyweight, p.load_step_kg,
                  p.primary_muscle, rg.prescriptions
         ORDER BY p.exercise_name`,
       [routineId]
@@ -616,7 +616,11 @@ function engineVerdict(r, routineId) {
   const weights = sets.map((s) => s.weight_kg).filter((w) => w != null);
   const workingWeight = weights.length ? Math.max(...weights) : null;
   const atTop = sets.every((s) => s.reps >= top);
-  const step = COMPOUND.has(r.primary_muscle) ? 2.5 : 1.25;
+  // The lift's own step when it has one — the plates he actually uses on it — else the
+  // muscle-group default.
+  const step = r.load_step_kg != null && Number(r.load_step_kg) > 0
+    ? Number(r.load_step_kg)
+    : COMPOUND.has(r.primary_muscle) ? 2.5 : 1.25;
 
   // Topped out is topped out — clearing the range on short rest is MORE convincing,
   // not less, so a compressed session never blocks an increase it earned.

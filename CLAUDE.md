@@ -364,6 +364,17 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
   that (a 25-rep 40kg set reported as a 73kg "one-rep max"). `/progress/one-rm` returns no
   point and `/progress/personal-bests` returns `est_1rm: null`. Personal bests are ranked on
   load, not on the estimate — ranking by 1RM let a lighter high-rep set outrank a heavier one.
+- **A lift can carry its own load step** (2026-09-21). `exercises.load_step_kg`, nullable:
+  set, the engine adds exactly that when the range is cleared; null, it falls back to the
+  muscle-group rule (2.5kg compound, 1.25kg isolation). Editable from Lifts ("Goes up in
+  … change"). It is a property of the LIFT, not a coaching call — the RDL moves 10kg
+  because he takes it in 5kg-plate steps, the squat stays small because it is the lift his
+  lower back objects to. Both used to need a standing coach note to override the engine
+  every session, which is the worst thing to use a standing note for: it suppresses the
+  engine while it stands and outlives the reason it was written (see the overtaken-call
+  rule in util/aim.js). A PUT that doesn't mention `load_step_kg` leaves it alone; sending
+  null clears it back to the default.
+
 - **Progression is double progression**, driven off the rep range and target RIR the program
   already stores: every working set at the top of the range means load is no longer the
   limiter → add weight (2.5kg compound, 1.25kg isolation) and drop back down the range.

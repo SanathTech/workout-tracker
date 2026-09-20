@@ -83,6 +83,7 @@ END $$`,
    )`,
   'CREATE INDEX IF NOT EXISTS idx_bodyweight_date ON bodyweight_logs(date DESC)',
   'ALTER TABLE exercises ADD COLUMN IF NOT EXISTS is_bodyweight BOOLEAN NOT NULL DEFAULT FALSE',
+  'ALTER TABLE exercises ADD COLUMN IF NOT EXISTS load_step_kg NUMERIC(5, 2)',
 
   // Phase 4: set types. Existing rows are working sets by definition — nothing else
   // could be logged before this column existed.
