@@ -156,3 +156,10 @@ CREATE TABLE IF NOT EXISTS bodyweight_logs (
 CREATE INDEX IF NOT EXISTS idx_bodyweight_date ON bodyweight_logs(date DESC);
 
 ALTER TABLE exercises ADD COLUMN IF NOT EXISTS is_bodyweight BOOLEAN NOT NULL DEFAULT FALSE;
+-- How much load this lift moves by when it earns an increase. NULL = the default rule
+-- (2.5kg compound, 1.25kg isolation). It is a property of the LIFT, not a coaching call:
+-- the RDL goes up in 10kg because he is happy to take it in 5kg-plate steps, the squat
+-- stays on small jumps because it is the lift his lower back objects to. Before this,
+-- each of those needed a standing coach note to override the engine every time — which
+-- is what standing notes are worst at (see the overtaken-call rule in util/aim.js).
+ALTER TABLE exercises ADD COLUMN IF NOT EXISTS load_step_kg NUMERIC(5, 2);

@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation } from 'react-router-dom';
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
-import { getStats, getVolumeProgress, getExerciseProgress, getPersonalBests, getExercises, getSuggestions, getCoachNotes } from '../api/client';
+import { getStats, getVolumeProgress, getExerciseProgress, getPersonalBests, getExercises, getSuggestions, getCoachNotes, updateExercise } from '../api/client';
 import { Skeleton } from '../components/Skeleton';
 import ExercisePickerSheet from '../components/ExercisePickerSheet';
 import AimLine from '../components/AimLine';
 import AimEditSheet from '../components/AimEditSheet';
-import { Page, Section, Disclosure } from '../components/ui';
+import { Page, Section, Disclosure, Sheet } from '../components/ui';
 import { Body, Engine, Protocol, useBodyData } from '../components/BodySections';
 import { ChevronIcon } from '../components/icons';
 import { formatDay, formatKg } from '../util/format';
@@ -60,6 +60,71 @@ function Best({ label, value, sub }) {
       <p className="font-semibold tabular-nums mt-0.5 truncate">{value}</p>
       {sub && <p className="text-xs text-neutral-400 truncate">{sub}</p>}
     </div>
+  );
+}
+
+// How much this lift moves when it earns an increase. A property of the lift, not a
+// coaching call: the RDL goes up in 10kg because he takes it in 5kg-plate steps, the squat
+// stays small because it is the lift his lower back objects to. Before this, each of those
+// needed a standing coach note to override the engine — which is what standing notes are
+// worst at, since they outlive the reason they were written.
+function LoadStep({ exercise }) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState('');
+  const save = useMutation({
+    mutationFn: (step) => updateExercise(exercise.id, { load_step_kg: step }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['exercises'] });
+      qc.invalidateQueries({ queryKey: ['suggestions'] });
+      setOpen(false);
+    },
+  });
+  const step = exercise.load_step_kg != null ? Number(exercise.load_step_kg) : null;
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => { setValue(step != null ? String(step) : ''); setOpen(true); }}
+        className="flex items-baseline gap-2 w-full text-left text-xs text-neutral-400 min-h-11 md:min-h-0"
+      >
+        <span>Goes up in</span>
+        <span className="text-neutral-200 tabular-nums">{step != null ? `${step} kg` : 'the usual step'}</span>
+        <span className="ml-auto">change ›</span>
+      </button>
+
+      {open && (
+        <Sheet title={`Load step · ${exercise.name}`} onClose={() => setOpen(false)}>
+          <div className="p-4 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] space-y-3">
+            <p className="text-sm text-neutral-400">
+              What this lift goes up by when it clears its rep range. Leave it empty for the default
+              (2.5 kg on a compound, 1.25 kg on an isolation).
+            </p>
+            <input
+              type="number" inputMode="decimal" min="0.25" step="0.25" autoFocus
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              placeholder="kg"
+              aria-label={`Load step for ${exercise.name} in kilograms`}
+              className="input w-32 tabular-nums"
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="btn-primary flex-1 justify-center"
+                disabled={save.isPending || (value.trim() !== '' && !(Number(value) > 0))}
+                onClick={() => save.mutate(value.trim() === '' ? null : Number(value))}
+              >
+                {save.isPending ? 'Saving…' : 'Save'}
+              </button>
+              <button type="button" className="btn-secondary px-4" onClick={() => setOpen(false)}>Cancel</button>
+            </div>
+            {save.isError && <p className="text-xs text-red-400">Couldn’t save that — try again.</p>}
+          </div>
+        </Sheet>
+      )}
+    </>
   );
 }
 
@@ -132,7 +197,10 @@ function ExerciseCard({ exercise, weeks, pb, onPick }) {
         aim ? (
           // A coach aim edits its note, so no edit until that note has loaded — otherwise
           // a fast tap would go down the create path and leave two calls in the ledger.
-          <AimLine aim={aim} cues={sug?.cues ?? []} onEdit={aim.source !== 'coach' || note ? () => setEditing(true) : undefined} />
+          <>
+            <AimLine aim={aim} cues={sug?.cues ?? []} onEdit={aim.source !== 'coach' || note ? () => setEditing(true) : undefined} />
+            <LoadStep exercise={exercise} />
+          </>
         ) : (
           <div className="flex items-center gap-2 text-sm min-h-11">
             <span className="text-neutral-400">No aim yet</span>
