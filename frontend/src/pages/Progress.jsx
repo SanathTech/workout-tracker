@@ -102,7 +102,7 @@ function LoadStep({ exercise }) {
               (2.5 kg on a compound, 1.25 kg on an isolation).
             </p>
             <input
-              type="number" inputMode="decimal" min="0" step="0.25" autoFocus
+              type="number" inputMode="decimal" min="0.25" step="0.25" autoFocus
               value={value}
               onChange={(e) => setValue(e.target.value)}
               placeholder="kg"
@@ -113,7 +113,7 @@ function LoadStep({ exercise }) {
               <button
                 type="button"
                 className="btn-primary flex-1 justify-center"
-                disabled={save.isPending}
+                disabled={save.isPending || (value.trim() !== '' && !(Number(value) > 0))}
                 onClick={() => save.mutate(value.trim() === '' ? null : Number(value))}
               >
                 {save.isPending ? 'Saving…' : 'Save'}
