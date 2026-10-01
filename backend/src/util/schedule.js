@@ -61,9 +61,10 @@ async function workoutDates(client, programId) {
 // session (or its start) up to yesterday. Today is never auto-skipped: the day isn't
 // over. Called on read by everything that names the next session, so there is no timer
 // to drift out of step with the app. The advisory lock stops two concurrent reads from
-// skipping the same day twice.
-async function reconcileMissed(programId) {
-  const client = await db.pool.connect();
+// skipping the same day twice. A caller already holding a client must pass it: the
+// serverless pool is `max: 1`, so a second connect would wait on itself forever.
+async function reconcileMissed(programId, held = null) {
+  const client = held || await db.pool.connect();
   try {
     await client.query('BEGIN');
     await client.query('SELECT pg_advisory_xact_lock(4207, $1)', [programId]);
@@ -110,7 +111,7 @@ async function reconcileMissed(programId) {
     await client.query('ROLLBACK');
     throw err;
   } finally {
-    client.release();
+    if (!held) client.release();
   }
 }
 

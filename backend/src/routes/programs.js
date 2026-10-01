@@ -258,7 +258,7 @@ router.get('/active', async (req, res) => {
     const activeRes = await client.query("SELECT id FROM programs WHERE status = 'active' LIMIT 1");
     if (!activeRes.rows.length) return res.json(null);
 
-    await reconcileMissed(activeRes.rows[0].id);
+    await reconcileMissed(activeRes.rows[0].id, client);
     const program = await fetchProgramTree(client, activeRes.rows[0].id);
     let scheduled;
     if (isScheduled(program.routines)) {
