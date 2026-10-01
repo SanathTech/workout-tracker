@@ -75,7 +75,9 @@ Program → Routines → Workouts (logged sessions). Set up once, follow forever
 - **workout_exercises** + **workout_sets** — the logged data. `POST /api/workouts/:id/complete` marks done and may auto-complete the program.
 
 ### "Next workout" logic
-Sequence-driven, no day-of-week binding. `next_routine = routines[(completed_count + skipped_count) % routines_per_cycle]`. Skip days freely; the sequence picks up where you left off. Computed server-side in `GET /api/programs/active` as `program.progress`.
+By default sequence-driven: `next_routine = routines[(completed_count + skipped_count) % routines_per_cycle]`. Skip days freely; the sequence picks up where you left off. Computed server-side in `GET /api/programs/active` as `program.progress`.
+
+**Weekday-bound mode (2026-10-01, `util/schedule.js`).** If ANY routine has `weekday` (0 = Sun … 6 = Sat), the modulo is replaced: `next_routine` is the routine of the next gym day still uncovered, with `progress.next_date`. A slot is *covered* by any workout dated after the previous slot up to the slot itself — so a session done early covers its day, and it's matched by DATE, not routine id, because editing a program re-inserts routines under new ids. `reconcileMissed()` turns every passed, uncovered slot (from the day after the program's last workout, never today) into a `skipped` row; it runs ON READ in `/programs/active`, `weekPlan()` and the coach's `nextSession()` — there is no timer — under an advisory lock so concurrent reads can't double-skip. His live program uses this; routines are named by weekday ("Thursday — Squat / Push"), so the week strip's gym letter is just `G`.
 
 ### Skipping a workout
 A skip is a real `workouts` row with `status = 'skipped'` and no logged sets — rows are what advance the sequence, so skipping "Lower 1" makes the next routine come up instead. Two entry points: `POST /api/workouts/skip { routine_id }` skips the upcoming session outright (Today only), `POST /api/workouts/:id/skip` bails out of a session already started (session page). Every stats query filters on `status = 'completed'`, so skips never touch volume, PRs, or counters. Deleting the skipped workout is the undo — it hands the slot back to that routine.
@@ -390,6 +392,11 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
   muscle sets, PRs, history). Unstamped sets (all history before 2026-08-24) mean rest is
   *unknown*, never compressed. A topped-out compressed session still earns its increase.
 
+- **The production pool is `max: 1` — never `pool.connect()` inside a handler that already
+  holds a client.** The second connect waits on the first forever and the route hangs. Pass
+  the held client down instead (`reconcileMissed(id, client)`). Locally the pool is 10, so
+  the suite can't see this unless run as **`VERCEL=1 npm test`** — do that for any change
+  touching connection handling (#148: 4 suites hung under VERCEL=1, all green without it).
 - **`npm test` truncates tables and refuses any non-local `DATABASE_URL`.** The suites seed
   their own programs, so each one starts from a reset database; the host allowlist in
   `tests/run.mjs` is what stops that from ever pointing at Neon. Don't relax it.
