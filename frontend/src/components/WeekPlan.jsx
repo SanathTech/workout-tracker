@@ -128,7 +128,7 @@ export function DayRow({ day }) {
   );
 }
 
-// The seven days as letters — the routine's letter on a gym day (A/B/C), R/S/W for run,
+// The seven days as letters — G on a gym day (the routine is named by its weekday), R/S/W for run,
 // swim and walk — so the strip says what each day IS, not just that it exists. Filled in
 // the kind's colour when done, dashed when skipped, a plain outline when a past day has
 // nothing logged. There is no red: the walkthrough (2026-09-15) was blunt that a red dot
@@ -150,10 +150,7 @@ const KIND_FILL = {
 export function dayLetter(day) {
   const { planned, actual } = day;
   const kind = (day.done && actual.find((a) => !a.skipped)?.kind) || planned.kind;
-  if (kind === 'gym') {
-    const title = actual.find((a) => a.kind === 'gym')?.label || planned.title || '';
-    return title.match(/^Day\s+([A-Z])\b/i)?.[1]?.toUpperCase() || 'G';
-  }
+  if (kind === 'gym') return 'G';
   return { run: 'R', swim: 'S', walk: 'W' }[kind] || '·';
 }
 

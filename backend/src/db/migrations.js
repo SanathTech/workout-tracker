@@ -66,6 +66,8 @@ END $$`,
     WHERE we.id = m.we_id`,
   'DROP INDEX IF EXISTS idx_routines_program',
   'CREATE INDEX IF NOT EXISTS idx_routines_program ON routines(program_id) WHERE deleted_at IS NULL',
+  // Weekday-bound programs (util/schedule.js).
+  'ALTER TABLE routines ADD COLUMN IF NOT EXISTS weekday SMALLINT CHECK (weekday BETWEEN 0 AND 6)',
   // Phase 3: per-muscle volume + bodyweight
   `CREATE TABLE IF NOT EXISTS exercise_muscles (
      exercise_id INTEGER NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,

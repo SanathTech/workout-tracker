@@ -19,6 +19,7 @@ export default function ProgramEditor({ initial, onCancel, onSaved }) {
       ? initial.routines.map((r) => ({
           client_id: genId(),
           name: r.name,
+          weekday: r.weekday ?? null,
           exercises: r.exercises.map((re) => {
             const sets = re.target_sets ?? 0;
             const incoming = Array.isArray(re.target_rir_per_set) ? re.target_rir_per_set : [];
@@ -71,8 +72,11 @@ export default function ProgramEditor({ initial, onCancel, onSaved }) {
     setError('');
     if (!name.trim()) return setError('Give the program a name.');
     if (!routines.length) return setError('Add at least one routine.');
+    const dated = routines.filter((r) => r.weekday != null).length;
+    if (dated && dated < routines.length) return setError('Give every routine a day, or set them all to Any day.');
     const cleaned = routines.map((r) => ({
       name: r.name || 'Untitled',
+      weekday: r.weekday ?? null,
       exercises: r.exercises
         .filter((ex) => ex.exercise_id)
         .map((ex) => {

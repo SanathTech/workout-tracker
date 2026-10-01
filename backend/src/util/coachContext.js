@@ -1,6 +1,7 @@
 const db = require('../db');
 const { todayInAppTimezone, currentWeekStart } = require('./dates');
 const { LOAD_JOINS, SET_VOLUME } = require('./volume');
+const { isScheduled, routineOn, covered, nextSlot, workoutDates, reconcileMissed } = require('./schedule');
 
 // Every context bundle the coach reasons over — daily, weekly, and chat — is built
 // here, from one set of query helpers. This file replaced coach_context.py on
@@ -20,20 +21,20 @@ const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frida
 // coach never has to infer the day of week from a bare ISO date — it got that wrong and
 // deferred a Saturday gym day to "Monday" (2026-08-15).
 const RHYTHM = {
-  Monday: 'gym (next in the B->A->C cycle)',
+  Monday: 'gym — Hinge / Row',
   Tuesday: 'recovery walk (office day)',
   Wednesday: 'swim — a fixture, plus sauna and dog walk',
-  Thursday: 'gym (next in the B->A->C cycle)',
+  Thursday: 'gym — Squat / Push (office day)',
   Friday: 'easy run (watch run/walk program), finishing with strides',
-  Saturday: 'gym (next in the B->A->C cycle)',
+  Saturday: 'gym — Overhead / Upper',
   Sunday: 'longer easy run 45-60min or a ride, no strides',
 };
 
 // The same template as RHYTHM, but structured — the app renders from this, the coach
 // reads the prose. `kind` drives the icon and the colour; `detail` is what he needs in
 // order to prepare the day (kit, timing, the HR lid) rather than a restatement of the
-// title. Gym days deliberately carry no detail here: which routine lands on Thursday
-// depends on where the A->B->C cycle stands, so it is resolved per-week in weekPlan().
+// title. Gym days carry no detail here: the routine (and its main lifts) comes off the
+// program in weekPlan(), so a program edit can't leave this table stale.
 const PLAN = {
   Monday:    { kind: 'gym',  title: 'Gym' },
   Tuesday:   { kind: 'walk', title: 'Recovery walk',
@@ -506,8 +507,9 @@ async function nextSession() {
   if (!program.rows.length) return null;
   const p = program.rows[0];
 
+  await reconcileMissed(p.id);
   const routines = await db.query(
-    `SELECT id, name FROM routines
+    `SELECT id, name, weekday FROM routines
       WHERE program_id = $1 AND deleted_at IS NULL ORDER BY sort_order, id`,
     [p.id]
   );
@@ -518,7 +520,10 @@ async function nextSession() {
       WHERE program_id = $1 AND status IN ('completed', 'skipped')`,
     [p.id]
   );
-  const nxt = routines.rows[done.rows[0].n % routines.rows.length];
+  const slot = isScheduled(routines.rows)
+    ? nextSlot(routines.rows, today(), await workoutDates(db, p.id))
+    : null;
+  const nxt = slot ? slot.routine : routines.rows[done.rows[0].n % routines.rows.length];
 
   const exercises = await db.query(
     `SELECT e.name, re.target_sets, re.rep_range_low, re.rep_range_high, re.is_main
@@ -531,6 +536,7 @@ async function nextSession() {
     program: p.name,
     total_weeks: p.total_weeks,
     next_routine: nxt.name,
+    next_date: slot ? whenLabel(slot.date) : null,
     sessions_logged: done.rows[0].n,
     cycle_length: routines.rows.length,
     exercises: exercises.rows,
@@ -679,7 +685,7 @@ const PROTOCOL_TARGETS = {
   caffeine_cutoff: 'none after 12:00 — decaf tea keeps the ritual (self-reported via no_caffeine_pm; missing = unknown)',
   screen_cutoff: 'screens down at the 21:30 wind-down cue (self-reported via screens_by_cutoff; missing = unknown)',
   daily_movement: '>=30 min deliberate movement every day; an evening walk counts; 8000+ steps also satisfies it (measured as >=25 recorded moving minutes — see MOVEMENT_MIN_SECONDS)',
-  weekly_gym_cycle: 'complete Day A, Day B and Day C each week',
+  weekly_gym_cycle: 'complete the Monday, Thursday and Saturday routines each week',
   weekly_endurance: '2 endurance sessions (swim/run/ride)',
   weight_trend: 'goal 93.5kg AS A WEEKLY MEAN, never a morning reading. Judge over a fortnight of weekly means; never faster than 0.4kg/week (quicker spends lean tissue); two consecutive flat weekly means is the signal to tighten a lever, and one high morning is noise.',
   watch_worn_nightly: 'sleep tracked every night — untracked nights blind the whole readiness picture',
@@ -968,6 +974,8 @@ async function enduranceSessions(days = 42) {
 async function weekPlan() {
   const start = currentWeekStart();
   const iso = today();
+  const active = await db.query(`SELECT id FROM programs WHERE status = 'active' LIMIT 1`);
+  if (active.rows.length) await reconcileMissed(active.rows[0].id);
 
   // The same per-activity figures twice: this week's, and the most recent run and swim
   // before today, so a plan card can say what last time looked like instead of carrying
@@ -1007,13 +1015,16 @@ async function weekPlan() {
     ),
   ]);
 
-  // Where the A->B->C cycle stands right now, and the ordered ring to walk forward.
+  // Where the rotation stands right now, and the ordered ring to walk forward. A
+  // weekday-bound program reads each day's routine off the day instead.
   let ring = [];
   let cursor = 0;
+  let scheduled = false;
+  let loggedDates = [];
   if (program.rows.length) {
     const [routines, done] = await Promise.all([
       db.query(
-        `SELECT id, name FROM routines WHERE program_id = $1 AND deleted_at IS NULL
+        `SELECT id, name, weekday FROM routines WHERE program_id = $1 AND deleted_at IS NULL
           ORDER BY sort_order, id`,
         [program.rows[0].id]
       ),
@@ -1025,6 +1036,8 @@ async function weekPlan() {
     ]);
     ring = routines.rows;
     cursor = ring.length ? done.rows[0].n % ring.length : 0;
+    scheduled = isScheduled(ring);
+    if (scheduled) loggedDates = await workoutDates(db, program.rows[0].id);
 
     // The main lifts, so a gym day says what he is actually walking in to do. This is
     // the whole point of looking at Thursday on Wednesday night.
@@ -1085,7 +1098,7 @@ async function weekPlan() {
     // at 7am on Thursday the session has not happened, so it is still the plan.
     let planned = { ...template };
     if (template.kind === 'gym') {
-      // Routine names already read "Day A — Squat / Push", so they are the title on
+      // Routine names already read "Thursday — Squat / Push", so they are the title on
       // their own; `kind` is what tells the UI it is a gym day.
       const named = sessions.length
         ? ring.find((r) => r.name === sessions[0].routine_name)
@@ -1095,6 +1108,14 @@ async function weekPlan() {
         planned.detail = named?.mains || null;
       } else if (state === 'past') {
         planned.title = 'Gym — not logged';
+      } else if (scheduled) {
+        const routine = routineOn(ring, date);
+        if (routine) {
+          const early = covered(ring, date, loggedDates);
+          planned.title = early ? `${routine.name} — done early` : routine.name;
+          planned.detail = early ? null : routine.mains || null;
+          if (!early) planned.routine_id = routine.id;
+        }
       } else if (ring.length) {
         const routine = ring[cursor % ring.length];
         cursor += 1;

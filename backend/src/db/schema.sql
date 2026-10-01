@@ -38,6 +38,9 @@ CREATE TABLE routines (
   program_id INTEGER NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
   name VARCHAR(255) NOT NULL,
   sort_order INTEGER NOT NULL DEFAULT 0,
+  -- 0 = Sunday … 6 = Saturday. Set on any routine and the program runs by weekday: each
+  -- routine owns its day and a missed day is auto-skipped (util/schedule.js).
+  weekday SMALLINT CHECK (weekday BETWEEN 0 AND 6),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   -- Editing a program retires its routines rather than deleting them. workouts.routine_id
   -- is ON DELETE SET NULL, so a hard delete would strip the prescribed sets/reps/RIR off
