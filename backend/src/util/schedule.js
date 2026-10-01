@@ -6,6 +6,7 @@
 // the app each time. A program with no weekdays set keeps the plain rotation.
 const db = require('../db');
 const { todayInAppTimezone, dayInAppTimezone } = require('./dates');
+const { maybeCompleteProgram } = require('./programCompletion');
 
 function addDays(iso, n) {
   const [y, m, d] = iso.split('-').map(Number);
@@ -14,8 +15,11 @@ function addDays(iso, n) {
 
 const weekdayOf = (iso) => new Date(`${iso}T00:00:00Z`).getUTCDay();
 
+// All or nothing: in a half-dated program the undated routines would never come up,
+// since weekday mode only offers a routine on its own day. The editor enforces the
+// same rule; a partial program falls back to the rotation.
 function isScheduled(routines) {
-  return routines.some((r) => r.weekday != null);
+  return routines.length > 0 && routines.every((r) => r.weekday != null);
 }
 
 function routineOn(routines, iso) {
@@ -73,7 +77,7 @@ async function reconcileMissed(programId, held = null) {
         'SELECT id, name, weekday FROM routines WHERE program_id = $1 AND deleted_at IS NULL',
         [programId]
       ),
-      client.query('SELECT started_at FROM programs WHERE id = $1', [programId]),
+      client.query('SELECT started_at, total_weeks FROM programs WHERE id = $1', [programId]),
     ]);
     const routines = routinesRes.rows;
     if (!isScheduled(routines) || !programRes.rows[0]?.started_at) {
@@ -92,8 +96,11 @@ async function reconcileMissed(programId, held = null) {
       [programId]
     );
     let sequenced = countRes.rows[0].n;
+    const target = programRes.rows[0].total_weeks == null
+      ? null
+      : programRes.rows[0].total_weeks * routines.length;
     let inserted = 0;
-    for (; day <= yesterday; day = addDays(day, 1)) {
+    for (; day <= yesterday && (target == null || sequenced < target); day = addDays(day, 1)) {
       const routine = routineOn(routines, day);
       if (!routine || covered(routines, day, dates)) continue;
       await client.query(
@@ -105,6 +112,7 @@ async function reconcileMissed(programId, held = null) {
       sequenced += 1;
       inserted += 1;
     }
+    if (inserted) await maybeCompleteProgram(client, programId);
     await client.query('COMMIT');
     return inserted;
   } catch (err) {

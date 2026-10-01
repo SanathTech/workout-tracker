@@ -8,17 +8,9 @@ const { LOAD_JOINS, SET_VOLUME } = require('../util/volume');
 // Only 'working' counts toward volume, 1RM estimates and personal bests. 'drop' and
 // 'failure' are working sets taken past the prescribed stopping point — they still count
 // as hard sets, so they're stored distinctly but not excluded anywhere.
+const { countSequencedWorkouts, maybeCompleteProgram } = require('../util/programCompletion');
 const SET_TYPES = new Set(['working', 'warmup', 'drop', 'failure']);
 
-// A skipped session logs nothing but still occupies its slot in the routine
-// sequence, so it counts alongside completed ones everywhere position is derived.
-async function countSequencedWorkouts(client, programId) {
-  const { rows } = await client.query(
-    "SELECT COUNT(*)::int AS n FROM workouts WHERE program_id = $1 AND status IN ('completed', 'skipped')",
-    [programId]
-  );
-  return rows[0].n;
-}
 
 // Resolves the snapshot fields a new workout row carries: the routine name, its
 // program, and which week of that program the session lands in. The routine owns
@@ -44,29 +36,6 @@ async function resolveRoutineContext(client, routineId) {
   return { routineName: rRes.rows[0].name, programId, programWeek };
 }
 
-async function maybeCompleteProgram(client, programId) {
-  if (!programId) return;
-  const pRes = await client.query('SELECT total_weeks, status FROM programs WHERE id = $1', [programId]);
-  if (!pRes.rows.length || pRes.rows[0].status !== 'active') return;
-
-  if (pRes.rows[0].total_weeks == null) return; // open-ended program never auto-completes
-
-  const rRes = await client.query(
-    'SELECT COUNT(*)::int AS n FROM routines WHERE program_id = $1 AND deleted_at IS NULL',
-    [programId]
-  );
-
-  const routinesPerCycle = rRes.rows[0].n;
-  if (!routinesPerCycle) return;
-  const targetWorkouts = pRes.rows[0].total_weeks * routinesPerCycle;
-
-  if ((await countSequencedWorkouts(client, programId)) >= targetWorkouts) {
-    await client.query(
-      "UPDATE programs SET status = 'completed', completed_at = NOW() WHERE id = $1",
-      [programId]
-    );
-  }
-}
 
 // The mirror of maybeCompleteProgram: deleting a workout frees its slot, so a
 // program that auto-completed on that session goes back to active. Left alone when

@@ -99,6 +99,34 @@ ok(active.routines.every((r) => r.weekday != null), 'weekdays survive a program 
 ok(active.progress.next_routine?.name === 'Missed Day', 'early session still counts after an edit',
   active.progress.next_routine?.name);
 
+// A half-dated program would never offer its undated routines, so it stays on the rotation.
+await api('POST', `/api/programs/${prog.id}/end`);
+await db.query(`UPDATE programs SET status = 'archived' WHERE id = $1`, [prog.id]);
+const { body: mixed } = await api('POST', '/api/programs', {
+  name: 'Mixed Block',
+  routines: [routine('Dated', ex['Squat'], wd(shift(today, 1))), routine('Undated', ex['Bench Press'], null)],
+});
+await api('POST', `/api/programs/${mixed.id}/start`);
+({ body: active } = await api('GET', '/api/programs/active'));
+ok(active.progress.next_routine?.name === 'Dated' && active.progress.next_date == null,
+  'a partly dated program falls back to the rotation', JSON.stringify(active.progress));
+await db.query(`UPDATE programs SET status = 'archived' WHERE id = $1`, [mixed.id]);
+
+// A finite program finishes when auto-skips fill its last slots, and stops skipping there.
+const { body: finite } = await api('POST', '/api/programs', {
+  name: 'Finite Block',
+  total_weeks: 1,
+  routines: [routine('Only Day', ex['Squat'], wd(shift(today, -3)))],
+});
+await api('POST', `/api/programs/${finite.id}/start`);
+await db.query(`UPDATE programs SET started_at = $2::date - 20 WHERE id = $1`, [finite.id, today]);
+await api('GET', '/api/programs/active');
+const { rows: [fin] } = await db.query(
+  `SELECT p.status, (SELECT COUNT(*)::int FROM workouts w WHERE w.program_id = p.id) AS n
+     FROM programs p WHERE p.id = $1`, [finite.id]);
+ok(fin.status === 'completed' && fin.n === 1, 'auto-skip completes a finite program and stops at its target',
+  JSON.stringify(fin));
+
 await db.end();
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

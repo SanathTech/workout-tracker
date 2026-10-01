@@ -72,6 +72,8 @@ export default function ProgramEditor({ initial, onCancel, onSaved }) {
     setError('');
     if (!name.trim()) return setError('Give the program a name.');
     if (!routines.length) return setError('Add at least one routine.');
+    const dated = routines.filter((r) => r.weekday != null).length;
+    if (dated && dated < routines.length) return setError('Give every routine a day, or set them all to Any day.');
     const cleaned = routines.map((r) => ({
       name: r.name || 'Untitled',
       weekday: r.weekday ?? null,
