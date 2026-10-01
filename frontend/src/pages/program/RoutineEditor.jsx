@@ -3,6 +3,10 @@ import { CloseIcon, ChevronIcon } from '../../components/icons';
 import ExerciseEditor from './ExerciseEditor';
 import { emptyExercise, dashedAddBtn, iconBtn } from './helpers';
 
+// Index = JS getUTCDay(), the same 0 = Sunday the server stores. Giving any routine a day
+// makes the program run by weekday, with a missed day skipped automatically.
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
 export default function RoutineEditor({ routine, allExercises, onChange, onRemove, onMoveUp, onMoveDown }) {
   const [expandedIdx, setExpandedIdx] = useState(() => {
     const i = routine.exercises.findIndex((ex) => !ex.exercise_id);
@@ -42,6 +46,15 @@ export default function RoutineEditor({ routine, allExercises, onChange, onRemov
           placeholder="Routine name (e.g. Upper 1)"
           onChange={(e) => onChange({ ...routine, name: e.target.value })}
         />
+        <select
+          className="input w-auto"
+          value={routine.weekday ?? ''}
+          aria-label="Day of the week"
+          onChange={(e) => onChange({ ...routine, weekday: e.target.value === '' ? null : Number(e.target.value) })}
+        >
+          <option value="">Any day</option>
+          {WEEKDAYS.map((d, i) => <option key={d} value={i}>{d}</option>)}
+        </select>
         <button
           type="button"
           onClick={onMoveUp}

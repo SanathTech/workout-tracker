@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const { serverError } = require('../util/errors');
+const { todayInAppTimezone } = require('../util/dates');
+const { isScheduled, nextSlot, workoutDates, reconcileMissed } = require('../util/schedule');
 
 // ─── Helpers ───────────────────────────────────────────────────────
 
@@ -85,10 +87,14 @@ async function writeRoutines(client, programId, routines) {
   if (!routines || !routines.length) return;
 
   // 1) Routines.
-  const routinePayload = routines.map((r, i) => ({ idx: i, name: r.name }));
+  const routinePayload = routines.map((r, i) => ({
+    idx: i,
+    name: r.name,
+    weekday: Number.isInteger(r.weekday) && r.weekday >= 0 && r.weekday <= 6 ? r.weekday : null,
+  }));
   const rRes = await client.query(
-    `INSERT INTO routines (program_id, name, sort_order)
-     SELECT $1, name, idx FROM jsonb_to_recordset($2::jsonb) AS x(idx int, name text)
+    `INSERT INTO routines (program_id, name, sort_order, weekday)
+     SELECT $1, name, idx, weekday FROM jsonb_to_recordset($2::jsonb) AS x(idx int, name text, weekday int)
      RETURNING id, sort_order`,
     [programId, JSON.stringify(routinePayload)]
   );
@@ -174,7 +180,8 @@ async function writeRoutines(client, programId, routines) {
 // Skipped sessions fill their slot in the sequence just like completed ones, so
 // position/week/next-routine run off the combined count while the completed count
 // stays a separate figure for display.
-function computeProgress(program, { completed, skipped }) {
+// `scheduled` is the weekday-bound answer ({ routine, date }), which replaces the modulo.
+function computeProgress(program, { completed, skipped }, scheduled) {
   const sequenced = completed + skipped;
   const routinesPerCycle = program.routines.length;
   if (!routinesPerCycle) {
@@ -192,7 +199,11 @@ function computeProgress(program, { completed, skipped }) {
   const week = Math.floor(sequenced / routinesPerCycle) + 1;
   const positionInCycle = (sequenced % routinesPerCycle) + 1;
   const finished = !openEnded && sequenced >= totalWorkouts;
-  const nextRoutine = finished ? null : program.routines[sequenced % routinesPerCycle];
+  const nextRoutine = finished
+    ? null
+    : scheduled !== undefined
+      ? scheduled?.routine ?? null
+      : program.routines[sequenced % routinesPerCycle];
   return {
     completed_workouts: completed,
     skipped_workouts: skipped,
@@ -200,6 +211,7 @@ function computeProgress(program, { completed, skipped }) {
     week,
     position_in_cycle: positionInCycle,
     next_routine: nextRoutine,
+    next_date: scheduled?.date ?? null,
   };
 }
 
@@ -246,14 +258,20 @@ router.get('/active', async (req, res) => {
     const activeRes = await client.query("SELECT id FROM programs WHERE status = 'active' LIMIT 1");
     if (!activeRes.rows.length) return res.json(null);
 
+    await reconcileMissed(activeRes.rows[0].id);
     const program = await fetchProgramTree(client, activeRes.rows[0].id);
+    let scheduled;
+    if (isScheduled(program.routines)) {
+      scheduled = nextSlot(program.routines, todayInAppTimezone(), await workoutDates(client, program.id));
+      if (scheduled) scheduled.routine = program.routines.find((r) => r.id === scheduled.routine.id);
+    }
     const countRes = await client.query(
       `SELECT COUNT(*) FILTER (WHERE status = 'completed')::int AS completed,
               COUNT(*) FILTER (WHERE status = 'skipped')::int AS skipped
          FROM workouts WHERE program_id = $1`,
       [program.id]
     );
-    res.json({ ...program, progress: computeProgress(program, countRes.rows[0]) });
+    res.json({ ...program, progress: computeProgress(program, countRes.rows[0], scheduled) });
   } catch (err) {
     serverError(res, err);
   } finally {

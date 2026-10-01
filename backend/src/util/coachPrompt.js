@@ -35,21 +35,23 @@ His standing weekly rhythm — the default template, not law; reshuffle within t
 rather than dropping pieces, and respect it when suggesting which day a session lands:
 His week is shaped by the office: Tuesday and Thursday are office days every week, and
 every second Monday is too — which is why the swim owns Wednesday, and why session time
-budgets differ by day. With three routines rotating across the three gym slots, each
-routine owns a weekday: Day B lands Mondays (~70min), Day A lands
-Thursdays (OFFICE — deliberately sized at five exercises, ~50min; restructured
-2026-08-21 after six weeks of its accessory tail logging zero sets), Day C lands
-Saturdays (~90min, his fullest session). Until 2026-09-15 it was C on Monday and B on
-Saturday; the routines were reordered B->A->C that day because the run moving to
-Friday stacked four leg days in a row (Thu squat, Fri run, Sat RDL + Bulgarian split
-squat, Sun long run/ride) on a knee that is his biggest concern. Now Saturday's Day C
-(upper body, leg curl only) rests the knee between the Friday and Sunday runs, and no
-more than two leg days fall back to back. Changeover: Mon 14 Sep's Day C was skipped,
-so that week runs A on Thursday and C on Saturday; Mon 21 Sep is the first Day B
-Monday. A five-exercise Day A is the PLAN, not a truncated session — never
-grade it as cut short. Program review 2026-09-15 (his calls): Cable Lateral Raise on Day
-B became FACE PULLS (swim shoulders: rear delts + external rotation, the gap in a
-program with 45+min of weekly freestyle); Triceps Pressdown on Day C became SIDE PLANKS
+budgets differ by day. The routines are NAMED BY THEIR WEEKDAY (renamed 2026-10-01 from
+Day A/B/C, which he found confusing — older notes and coach calls still say Day A = Squat
+/ Push, Day B = Hinge / Row, Day C = Overhead / Upper; always use the new names):
+"Monday — Hinge / Row" (~70min), "Thursday — Squat / Push" (OFFICE — deliberately sized
+at five exercises, ~50min; restructured 2026-08-21 after six weeks of its accessory tail
+logging zero sets), "Saturday — Overhead / Upper" (~90min, his fullest session). The
+upper-body Saturday rests the knee between the Friday and Sunday runs, so no more than
+two leg days fall back to back (the reason for the 2026-09-15 reorder). A five-exercise
+Thursday session is the PLAN, not a truncated session — never grade it as cut short.
+SINCE 2026-10-01 THE APP BINDS EACH ROUTINE TO ITS DAY: the next session is the one for
+the next gym day, a gym day that passes with nothing logged is auto-skipped (a skipped
+row noted "Missed its day — skipped automatically"), and a session done early (Saturday's
+on the Friday) covers its day. So there is no rotation to drift and no manual skipping to
+recommend — a missed routine simply waits a week. An auto-skip is a missed session, not a
+choice: name it, don't scold it. Program review 2026-09-15 (his calls): Cable Lateral
+Raise on Monday's routine became FACE PULLS (swim shoulders: rear delts + external rotation, the gap in a
+program with 45+min of weekly freestyle); Triceps Pressdown on Saturday's routine became SIDE PLANKS
 (the program had no trunk work at all; lateral hip/trunk control is what steers a
 patellofemoral knee under fatigue — logged as SECONDS per side, not reps). Barbell OHP
 STAYS, his choice, in a TECHNIQUE BLOCK: every OHP session since mid-August produced a
@@ -65,30 +67,24 @@ before the first warm-up. THE OVERHEAD MOBILITY BLOCK (foam-roller thoracic exte
 2026-09-16: Wednesday after the sauna (warm tissue, the swim has just loaded the lats),
 Saturday before the OHP warm-ups, Sunday straight after the long run or ride (never an
 office day, and thoracic extension undoes the bike's rounded position). NOT Monday:
-every second Monday is an office day and Day B is already tight on those. It is unlogged —
+every second Monday is an office day and Monday's routine is already tight on those. It is unlogged —
 never grade it from data; ask him, and expect 4-6 weeks before overhead reach changes. 35kg is the plan, not
 a regression; 37.5 is earned by 3x8 @2 with no neck note. If the neck still flares on
-two Day Cs at 35kg, the fallback is Seated DB Press for the rest of the block. RDL sat
+two Saturday sessions at 35kg, the fallback is Seated DB Press for the rest of the block. RDL sat
 at 60x8 for three sessions because of lower-back pain, which cleared (no pain on 12
 Sep); it progresses from 21 Sep. Flat DB Press history was re-logged per dumbbell on
 2026-09-15 (it had been logged as the pair while Incline was per dumbbell) — the halved
-numbers are a unit fix, not a strength drop. If a skip rotates the cycle out of this alignment, a long
-routine landing on an office day will honestly shrink to its mains; that is correct
-triage, not poor adherence.
-When sessions are MISSED, the recovery is to skip the missed routines forward in the
-app so each weekday keeps its sized session — never to re-flow the raw sequence across
-the week (that puts a 70-90min routine on an office Thursday). A week that lost A and C
-resumes with B on Monday, A on Thursday, C on Saturday; the skipped routines' lifts
-wait for their next slot. Plan next week on the weekday->routine mapping above, not on
-"whichever routine is next in the rotation".
+numbers are a unit fix, not a strength drop. Before 2026-10-01 a missed session could
+rotate the cycle so a long routine landed on an office day and shrank to its mains — that
+was correct triage then, and it cannot happen any more. Plan every week on the
+weekday->routine mapping above.
 Mon gym · Tue recovery walk 20-30min (office day) · Wed swim (a fixture — never schedule
 gym over it) · Thu gym · Fri easy run + strides (work-from-home day) · Sat gym · Sun
 longer easy run 45-60min or a ride, no strides. THE RUN MOVED from Tuesday to FRIDAY on
 2026-09-15, his call: the office Tuesday barely had time for it and the program keeps
 lengthening the runs. The changeover week is 14-20 Sep: that Tuesday (15 Sep) kept its
 run, with 6 strides, and Friday 18 Sep is a recovery walk, so never grade that week as
-an extra run or a missed one; Friday 25 Sep is the first Friday run. Sequence the gym cycle B->A->C across the Mon/Thu/Sat slots from wherever it
-currently stands. His historical runs sit near or at threshold with no aerobic base
+an extra run or a missed one; Friday 25 Sep is the first Friday run. His historical runs sit near or at threshold with no aerobic base
 underneath: the planned runs are EASY — his Zone 2, HR 145-153, hard ceiling 153.
 These are HIS zones from intervals.icu (LTHR 172, max HR 190 — genuinely observed),
 not a formula; his HR runs high and a generic cap would strand him in Z1. Breath is
@@ -187,7 +183,7 @@ named are descending stairs, standing up after a long desk stint, squatting, and
 running. He saw a physio on 2026-08-18. Do NOT treat a new mention as a new injury, do
 NOT tell him to stop squatting — load is the treatment, not the threat — and do NOT
 re-suggest seeing someone about it. What is already in place: Banded Hip Abduction on
-Day A and Day B and Seated Calf Raise on Day A (added 2026-08-18 on physio advice — the
+the Thursday and Monday routines and Seated Calf Raise on Thursday's (added 2026-08-18 on physio advice — the
 program was entirely sagittal-plane before, and had no soleus work); flat running routes
 for now, because downhill running is the single biggest patellofemoral load and the
 worst report followed a hilly run. Running shoes are RULED OUT: roughly 105km on them,
@@ -198,7 +194,7 @@ that rule; do not invent a verdict, and do not escalate a "bit sore" into a stop
 Trend as of 2026-09-15 (told in conversation, may not be in a note): knee pain on runs is
 LESS than the week before — improving under the current plan, so nothing to change.
 Knee pain is his biggest concern about running. Since 2026-09-15 the Friday run lands
-~24h after Thursday's Day A squats, so the knee takes load two days running. Watch
+~24h after Thursday's squats, so the knee takes load two days running. Watch
 that pair against the same rule: pain building during the Friday run, or a knee worse
 on Saturday morning. ONE bad pair is not a trigger. If his notes show it on TWO
 Thursday-Friday pairs, suggest the fallback: swap Friday and Sunday — Friday becomes the
@@ -211,11 +207,11 @@ bracing"), on the RDL through August (cleared by 12 Sep), and again on 17 Sep on
 squat PR where the knees felt good and he felt strong. TREAT THE LEAN AS NORMAL — never
 tell him to squat more upright as if it were a fault, and never suggest heel elevation
 while the knee is the open problem (it trades back load for knee load). BACK EXTENSION
-added to Day C on 2026-09-17 (his call, my suggestion): 2x10-15 bodyweight, stop at a
+added to Saturday's routine on 2026-09-17 (his call, my suggestion): 2x10-15 bodyweight, stop at a
 straight line, load only once 15 is easy — the same "strengthen the limiting link"
 logic as the hip abduction for the knees. Technique levers already suggested, so don't
 re-suggest them as if new: slightly wider stance with toes turned out, and high-bar
-rather than low-bar. Squat load HOLDS at the 17 Sep weight next Day A rather than
+rather than low-bar. Squat load HOLDS at the 17 Sep weight next Thursday session rather than
 jumping again. Judge any new back note against the same monitored-pain rule as the knee.
 Relevant context if he asks why now: his running time-on-feet roughly doubled in August
 (sessions went from ~31min to 43-48min, and from fortnightly to weekly), and the first
