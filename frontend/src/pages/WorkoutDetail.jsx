@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { getWorkout, deleteWorkout } from '../api/client';
+import { getWorkout, deleteWorkout, resumeWorkout } from '../api/client';
 import { Skeleton } from '../components/Skeleton';
 import MainBadge from '../components/MainBadge';
 import StatusBadge from '../components/StatusBadge';
@@ -72,6 +72,18 @@ export default function WorkoutDetail() {
     },
   });
 
+  const resume = useMutation({
+    mutationFn: () => resumeWorkout(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['workout', id] });
+      qc.invalidateQueries({ queryKey: ['in-progress-workout'] });
+      qc.invalidateQueries({ queryKey: ['active-program'] });
+      qc.invalidateQueries({ queryKey: ['programs'] });
+      qc.invalidateQueries({ queryKey: ['stats'] });
+      navigate(`/session/${id}`);
+    },
+  });
+
   if (isLoading) return <WorkoutDetailSkeleton />;
   if (!workout) return <p className="text-center text-neutral-400 py-20">Workout not found.</p>;
 
@@ -105,7 +117,17 @@ export default function WorkoutDetail() {
             <Link to={`/session/${id}`} className="btn-primary">Resume</Link>
           )}
           {workout.status === 'completed' && (
-            <Link to={`/session/${id}`} className="btn-secondary">Edit</Link>
+            <>
+              <button
+                type="button"
+                onClick={() => resume.mutate()}
+                disabled={resume.isPending}
+                className="btn-primary"
+              >
+                {resume.isPending ? '…' : 'Resume'}
+              </button>
+              <Link to={`/session/${id}`} className="btn-secondary">Edit</Link>
+            </>
           )}
           <MoreMenu
             label="Workout options"
@@ -117,6 +139,12 @@ export default function WorkoutDetail() {
           />
         </div>
       </div>
+
+      {resume.isError && (
+        <p className="text-xs text-red-400">
+          {resume.error?.response?.data?.error || 'Could not resume the workout.'}
+        </p>
+      )}
 
       {isSkipped && (
         <p className="text-sm text-neutral-400">

@@ -69,6 +69,43 @@ console.log('\n─── just inside the cap still records ───');
   ok(done.duration_minutes === 120, '2h session records 120 min', `got ${done.duration_minutes}`);
 }
 
+console.log('\n─── a resumed session adds its sitting, not the night between ───');
+{
+  const backdateResume = (id, minutes) =>
+    db.query(`UPDATE workouts SET resumed_at = NOW() - INTERVAL '${minutes} minutes' WHERE id = $1`, [id]);
+  const { body: w } = await api('POST', '/api/workouts', { routine_id: routineId });
+  await backdate(w.id, 0.5);
+  await api('POST', `/api/workouts/${w.id}/complete`);
+  // The next morning: created_at is now a day old, which alone would read as "forgotten".
+  await backdate(w.id, 24);
+  const resumed = await api('POST', `/api/workouts/${w.id}/resume`);
+  ok(resumed.status === 200 && resumed.body.status === 'in_progress', 'resume reopens it', `got ${resumed.status}`);
+  ok(resumed.body.duration_minutes === 30, 'first sitting kept while resumed', `got ${resumed.body.duration_minutes}`);
+  const again = await api('POST', `/api/workouts/${w.id}/resume`);
+  ok(again.status === 409, 'an open session cannot be resumed again', `got ${again.status}`);
+  const skipped = await api('POST', `/api/workouts/${w.id}/skip`);
+  ok(skipped.status === 404, 'a resumed session cannot be skipped away');
+  await backdateResume(w.id, 25);
+  const { body: done } = await api('POST', `/api/workouts/${w.id}/complete`);
+  ok(done.duration_minutes === 55, '30 + 25 = 55, overnight gap excluded', `got ${done.duration_minutes}`);
+  ok(done.resumed_at === null, 'resumed_at cleared on Finish');
+  const { body: other } = await api('POST', '/api/workouts', { routine_id: routineId });
+  const blocked = await api('POST', `/api/workouts/${w.id}/resume`);
+  ok(blocked.status === 409, 'not while another session is under way', `got ${blocked.status}`);
+  await api('POST', `/api/workouts/${other.id}/complete`);
+}
+
+console.log('\n─── a resumed sitting left open overnight adds nothing ───');
+{
+  const { body: w } = await api('POST', '/api/workouts', { routine_id: routineId });
+  await api('PUT', `/api/workouts/${w.id}`, { duration_minutes: 40 });
+  await api('POST', `/api/workouts/${w.id}/complete`);
+  await api('POST', `/api/workouts/${w.id}/resume`);
+  await db.query(`UPDATE workouts SET resumed_at = NOW() - INTERVAL '19 hours' WHERE id = $1`, [w.id]);
+  const { body: done } = await api('POST', `/api/workouts/${w.id}/complete`);
+  ok(done.duration_minutes === 40, 'earlier total stands', `got ${done.duration_minutes}`);
+}
+
 console.log('\n─────────────────────────────');
 console.log(`  ${pass} passed, ${fail} failed`);
 await db.end();

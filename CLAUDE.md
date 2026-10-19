@@ -82,6 +82,9 @@ By default sequence-driven: `next_routine = routines[(completed_count + skipped_
 ### Skipping a workout
 A skip is a real `workouts` row with `status = 'skipped'` and no logged sets — rows are what advance the sequence, so skipping "Lower 1" makes the next routine come up instead. Two entry points: `POST /api/workouts/skip { routine_id }` skips the upcoming session outright (Today only), `POST /api/workouts/:id/skip` bails out of a session already started (session page). Every stats query filters on `status = 'completed'`, so skips never touch volume, PRs, or counters. Deleting the skipped workout is the undo — it hands the slot back to that routine.
 
+### Resuming a finished workout
+Half one day, half the next: **Resume** (detail page, or ⋯ in the session's edit mode) is `POST /api/workouts/:id/resume`, which flips a `completed` workout back to `in_progress` and stamps `resumed_at`. Finish then ADDS that sitting (`NOW() - resumed_at`, same 6h cap) to `duration_minutes` — the night between isn't training. **Edit** still saves in place and times nothing. The workout keeps its original date; while resumed it can't be skipped (that would discard the first sitting) and another session can't be resumed or be open at once. Known gap: the second sitting's Garmin activity is on a different day, so the session's HR panel only covers the first.
+
 ### "Previous set" hint
 `GET /api/workouts/last-by-exercise/:id?exclude=<current_workout_id>` returns the most recent completed sets for an exercise. Shown under each set input as "prev 27.5kg x 8" — drives progressive overload.
 
