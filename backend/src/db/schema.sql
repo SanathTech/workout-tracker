@@ -89,6 +89,7 @@ CREATE TABLE workouts (
   notes TEXT,
   status VARCHAR(20) NOT NULL DEFAULT 'in_progress',  -- in_progress | completed | skipped
   completed_at TIMESTAMPTZ,
+  resumed_at TIMESTAMPTZ,          -- start of the current sitting when a finished session was reopened
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

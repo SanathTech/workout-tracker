@@ -602,16 +602,26 @@ router.post('/:id/complete', async (req, res) => {
     // Derive the session length from start to finish. Capped at 6 hours because the
     // common failure is forgetting to hit Finish until the next day — better to record
     // nothing than a 19-hour "workout". An explicit duration set via PUT always wins.
+    // A resumed session adds this sitting to what the earlier ones recorded; the gap
+    // between them (overnight, usually) is not training. An unknown earlier total stays
+    // unknown rather than becoming just the last sitting.
     const { rows } = await client.query(
       `UPDATE workouts
           SET status = 'completed',
               completed_at = NOW(),
-              duration_minutes = COALESCE(
-                duration_minutes,
-                CASE WHEN NOW() - created_at <= INTERVAL '6 hours'
-                     THEN GREATEST(1, ROUND(EXTRACT(EPOCH FROM (NOW() - created_at)) / 60))::int
+              resumed_at = NULL,
+              duration_minutes = CASE
+                WHEN resumed_at IS NULL THEN COALESCE(
+                  duration_minutes,
+                  CASE WHEN NOW() - created_at <= INTERVAL '6 hours'
+                       THEN GREATEST(1, ROUND(EXTRACT(EPOCH FROM (NOW() - created_at)) / 60))::int
+                  END
+                )
+                ELSE duration_minutes + CASE WHEN NOW() - resumed_at <= INTERVAL '6 hours'
+                  THEN GREATEST(1, ROUND(EXTRACT(EPOCH FROM (NOW() - resumed_at)) / 60))::int
+                  ELSE 0
                 END
-              )
+              END
         WHERE id = $1 AND status = 'in_progress' RETURNING *`,
       [req.params.id]
     );
@@ -630,15 +640,46 @@ router.post('/:id/complete', async (req, res) => {
   }
 });
 
+// POST /api/workouts/:id/resume — reopen a finished session to carry on with it later
+// (half today, half tomorrow). Unlike Edit, which saves in place, this times a new
+// sitting that Finish adds to the total. Keeps its date: it is still that day's session.
+router.post('/:id/resume', async (req, res) => {
+  const client = await db.pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query(
+      `UPDATE workouts SET status = 'in_progress', resumed_at = NOW()
+         WHERE id = $1 AND status = 'completed'
+           AND NOT EXISTS (SELECT 1 FROM workouts WHERE status = 'in_progress' AND id <> $1)
+       RETURNING *`,
+      [req.params.id]
+    );
+    if (!rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'Only a finished workout can be resumed, and not while another is under way' });
+    }
+    // It no longer counts toward the program, so one that auto-completed on it reopens.
+    await maybeReopenProgram(client, rows[0].program_id);
+    await client.query('COMMIT');
+    res.json(rows[0]);
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    serverError(res, err);
+  } finally {
+    client.release();
+  }
+});
+
 // POST /api/workouts/:id/skip — bail out of a session already under way. Anything
 // logged on it stays on the row but stops counting, since stats read completed only.
+// Not a resumed one: that would throw away the sitting already finished.
 router.post('/:id/skip', async (req, res) => {
   const client = await db.pool.connect();
   try {
     await client.query('BEGIN');
     const { rows } = await client.query(
       `UPDATE workouts SET status = 'skipped'
-         WHERE id = $1 AND status = 'in_progress' RETURNING *`,
+         WHERE id = $1 AND status = 'in_progress' AND resumed_at IS NULL RETURNING *`,
       [req.params.id]
     );
     if (!rows.length) {

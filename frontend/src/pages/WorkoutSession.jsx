@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate, Navigate } from 'react-router-dom';
-import { getWorkout, updateWorkout, completeWorkout, skipWorkout, getLastByExercise, getSuggestions, getCoachNotes, getPersonalBests, makeDefaultExercise } from '../api/client';
+import { getWorkout, updateWorkout, completeWorkout, resumeWorkout, skipWorkout, getLastByExercise, getSuggestions, getCoachNotes, getPersonalBests, makeDefaultExercise } from '../api/client';
 import { Skeleton } from '../components/Skeleton';
 import ExercisePickerSheet from '../components/ExercisePickerSheet';
 import MainBadge from '../components/MainBadge';
@@ -1199,6 +1199,22 @@ export default function WorkoutSession() {
     },
   });
 
+  // Edit saves in place; Resume makes this a new sitting that Finish adds to the total.
+  const resume = useMutation({
+    mutationFn: async () => {
+      await saveNow();
+      return resumeWorkout(id);
+    },
+    onSuccess: () => {
+      track('tap', 'resume', undefined, Number(id));
+      qc.invalidateQueries({ queryKey: ['workout', id] });
+      qc.invalidateQueries({ queryKey: ['in-progress-workout'] });
+      qc.invalidateQueries({ queryKey: ['active-program'] });
+      qc.invalidateQueries({ queryKey: ['programs'] });
+      qc.invalidateQueries({ queryKey: ['stats'] });
+    },
+  });
+
   if (isError && !workout) {
     return (
       <div className="py-20 text-center space-y-3">
@@ -1217,6 +1233,7 @@ export default function WorkoutSession() {
   // A completed workout can be reopened for editing (from its detail page). Edits
   // save in place without changing its completed status or the program sequence.
   const isCompleted = workout.status === 'completed';
+  const isResumed = !isCompleted && !!workout.resumed_at;
   const doneEditing = async () => {
     setDoneError('');
     await saveNow();
@@ -1265,6 +1282,7 @@ export default function WorkoutSession() {
 
   const finishError = doneError
     || (skip.isError ? 'Could not skip the workout.' : null)
+    || (resume.isError ? (resume.error?.response?.data?.error || 'Could not resume the workout.') : null)
     || (finish.isError ? (finish.error?.message || 'Could not finish the workout.') : null);
   const progress = plannedSets > 0 ? Math.min(100, Math.round((loggedSets / plannedSets) * 100)) : 0;
 
@@ -1304,7 +1322,9 @@ export default function WorkoutSession() {
               <span>{loggedSets}/{plannedSets} sets</span>
               {isCompleted
                 ? workout.duration_minutes && <span>·&nbsp;{workout.duration_minutes} min</span>
-                : <span>·&nbsp;<Elapsed since={workout.created_at} /></span>}
+                : isResumed
+                  ? <span>·&nbsp;{workout.duration_minutes != null && `${workout.duration_minutes} min + `}<Elapsed since={workout.resumed_at} /></span>
+                  : <span>·&nbsp;<Elapsed since={workout.created_at} /></span>}
               <SaveStatus status={autosave} staleMinutes={staleMinutes} onRetry={() => saveNow()} />
             </p>
           </div>
@@ -1330,7 +1350,11 @@ export default function WorkoutSession() {
             items={[
               { label: 'Add exercise', onSelect: () => { track('tap', 'add-exercise'); setPicker({ mode: 'add' }); } },
               { label: notes ? 'Workout notes' : 'Add workout notes', onSelect: () => setNotesOpen(true) },
-              !isCompleted && {
+              isCompleted && {
+                label: 'Resume — time another sitting',
+                onSelect: () => { if (!resume.isPending) resume.mutate(); },
+              },
+              !isCompleted && !isResumed && {
                 label: 'Skip this workout',
                 confirm: 'Skip — sure?',
                 danger: true,

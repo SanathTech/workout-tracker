@@ -94,6 +94,7 @@ END $$`,
   // Rest tracking: when a set was first logged, stamped client-side the first time reps
   // land on the row. Rests are derived from the gaps. Nullable — history has no stamps.
   'ALTER TABLE workout_sets ADD COLUMN IF NOT EXISTS logged_at TIMESTAMPTZ',
+  'ALTER TABLE workouts ADD COLUMN IF NOT EXISTS resumed_at TIMESTAMPTZ',
 ];
 
 // Applies all migrations atomically on the given client (BEGIN/COMMIT, ROLLBACK on error).

@@ -79,7 +79,7 @@ function InProgressBlock({ workout }) {
         <h2 className="text-xl font-semibold tracking-tight">{workout.routine_name || 'Workout'}</h2>
         <p className="text-sm text-neutral-400 mt-0.5 tabular-nums">
           {planned > 0 && <>{logged}/{planned} sets · </>}
-          started {new Date(workout.created_at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
+          {workout.resumed_at ? 'resumed' : 'started'} {new Date(workout.resumed_at || workout.created_at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
         </p>
       </div>
       <Link to={`/session/${workout.id}`} className="btn-primary w-full justify-center py-3">Continue</Link>
