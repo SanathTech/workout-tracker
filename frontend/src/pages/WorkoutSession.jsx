@@ -1199,14 +1199,6 @@ export default function WorkoutSession() {
     },
   });
 
-  if (isError && !workout) {
-    return (
-      <div className="py-20 text-center space-y-3">
-        <p className="text-neutral-400">Couldn’t load this workout. Check your connection and try again.</p>
-        <button onClick={() => navigate(-1)} className="btn-secondary">← Back</button>
-      </div>
-    );
-  }
   // Edit saves in place; Resume makes this a new sitting that Finish adds to the total.
   const resume = useMutation({
     mutationFn: async () => {
@@ -1223,6 +1215,14 @@ export default function WorkoutSession() {
     },
   });
 
+  if (isError && !workout) {
+    return (
+      <div className="py-20 text-center space-y-3">
+        <p className="text-neutral-400">Couldn’t load this workout. Check your connection and try again.</p>
+        <button onClick={() => navigate(-1)} className="btn-secondary">← Back</button>
+      </div>
+    );
+  }
   if (isLoading || !workout) return <WorkoutSessionSkeleton />;
   if (!hydrated) return <WorkoutSessionSkeleton />;
 
