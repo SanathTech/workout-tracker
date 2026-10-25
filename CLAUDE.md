@@ -50,7 +50,7 @@ frontend/
     pages/
       Dashboard.jsx          Today, day-first: week strip · Now slot (check-in half that's due) · today's card (plan → result) · last-night tiles · progress · Tomorrow (one line)
       Progress.jsx           The one trending tab (2026-09-17 merge): Lifts (exercise picker, remembered → chart · bests · aim line with edit; muscle sets, totals, weekly volume, all PBs) then Body · Engine · Protocol from `components/BodySections.jsx`. Anchors #lifts/#body/#engine/#protocol for Home's glance rows
-      Train.jsx              This week (DayRows) · Program (ProgramView: name, week, the one Start, routines) · History (infinite); Exercises is a link
+      Train.jsx              This week (DayRows) · Program (ProgramView: name, week, Start next, routines each startable) · History (infinite); Exercises is a link
       ProgramEdit.jsx        /program/new and /program/:id/edit — ProgramEditor as a route (back gesture works, nav hides)
       WorkoutSession.jsx     /session/:id — sticky header + progress bar, 3-state exercise list, ledger
       WorkoutDetail.jsx      /workouts/:id — read-only past workout, plus the session's heart rate (avg/max, minutes over 153, HRR60, load) when the watch recorded one
@@ -217,8 +217,9 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
   The 2026-09-08 redesign (PR 4) folded Program + History + More into **Train** on the same
   evidence: 30 days of nav enters put Program+Exercises+History+More (43) above Lifts (25),
   so Train is the third tab and Lifts the fourth. `/program`, `/history`, `/more` redirect
-  to `/train`. Train has **the only Start outside Today and no Skip** — skipping lives on
-  Today alone. The program editor is a route (`/program/new`, `/program/:id/edit`), never a
+  to `/train`. Train has **the only Starts outside Today and no Skip** — skipping lives on
+  Today alone. Besides the next session's Start, each expanded routine offers "Start … today
+  instead" (2026-10-26): a skipped day had no way back otherwise, and it covers the next slot. The program editor is a route (`/program/new`, `/program/:id/edit`), never a
   mode of a page. PR 5 renamed Trends to Health and regrouped it by question —
   review first, then Recovery / Protocol / Endurance — without moving anything between tabs;
   the one exception is the bodyweight logger, which left Lifts: **a weigh-in is typed in on

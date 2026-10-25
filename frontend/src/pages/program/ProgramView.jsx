@@ -7,8 +7,8 @@ import { ChevronIcon } from '../../components/icons';
 import MainBadge from '../../components/MainBadge';
 import MoreMenu from '../../components/MoreMenu';
 
-// The Program section of Train (2026-09-08): name, where the cycle stands, the one Start
-// outside Today, and the routines expandable to their exercises. Edit is a route
+// The Program section of Train (2026-09-08): name, where the cycle stands, Start for the next
+// session, and the routines (each startable off its day) expandable to their exercises. Edit is a route
 // (/program/:id/edit) so back works and the nav hides itself properly.
 export default function ProgramView({ program, onDeleted }) {
   const qc = useQueryClient();
@@ -93,7 +93,7 @@ export default function ProgramView({ program, onDeleted }) {
           {program.description && <ClampedDescription text={program.description} />}
         </div>
 
-        {/* The one Start outside Today. Skip lives on Today only — it was here too until
+        {/* Start for the next session. Skip lives on Today only — it was here too until
             2026-09-08, and two places to skip a session is one too many. */}
         {isActive && nextRoutine && (
           <button
@@ -143,6 +143,21 @@ export default function ProgramView({ program, onDeleted }) {
             </button>
             {open && (
               <div className="space-y-2 mt-1 mb-3">
+                {/* Any routine can be started off its day (2026-10-26): a missed Saturday
+                    done on the Monday had no button anywhere, since Start only ever
+                    offers the next slot. Doing it covers the next gym day, as an early
+                    session does — the scheduler matches by date, not routine. */}
+                {isActive && !isNext && (
+                  <button
+                    onClick={() => startWorkoutMut.mutate(r.id)}
+                    disabled={startWorkoutMut.isPending}
+                    className="btn-secondary w-full justify-center"
+                  >
+                    {startWorkoutMut.isPending && startWorkoutMut.variables === r.id
+                      ? 'Starting…'
+                      : `Start ${r.name.split(' — ')[0]} today instead`}
+                  </button>
+                )}
                 {r.exercises.map((ex) => {
                   const warmup = formatWarmup(ex.warmup_sets_low, ex.warmup_sets_high);
                   return (
