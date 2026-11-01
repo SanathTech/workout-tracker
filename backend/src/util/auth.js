@@ -2,6 +2,11 @@ const crypto = require('crypto');
 
 const COOKIE_NAME = 'wt_session';
 const SESSION_DAYS = 90;
+const DAY_MS = 24 * 60 * 60 * 1000;
+// A session older than this is reissued on its next request, so 90 days means 90 days
+// of NOT using the app. Once a day rather than every request: the save loop fires
+// constantly and there's no reason for each response to carry a Set-Cookie.
+const RENEW_AFTER_MS = DAY_MS;
 
 // scrypt parameters. N=2^15 costs ~100ms per verify, which is the actual brute-force
 // defence here — per-instance rate limiting is close to worthless on serverless, where
@@ -47,28 +52,31 @@ function sign(payloadB64, secret) {
 }
 
 function issueToken(secret) {
-  const expiresAt = Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000;
+  const expiresAt = Date.now() + SESSION_DAYS * DAY_MS;
   const payload = b64url(JSON.stringify({ exp: expiresAt }));
   return `${payload}.${sign(payload, secret)}`;
 }
 
-function verifyToken(token, secret) {
-  if (typeof token !== 'string') return false;
+// The token's expiry if it is genuine and unexpired, else null.
+function tokenExpiry(token, secret) {
+  if (typeof token !== 'string') return null;
   const dot = token.lastIndexOf('.');
-  if (dot < 1) return false;
+  if (dot < 1) return null;
   const payload = token.slice(0, dot);
   const provided = Buffer.from(token.slice(dot + 1));
   const expected = Buffer.from(sign(payload, secret));
   // timingSafeEqual throws on a length mismatch, so check that first.
-  if (provided.length !== expected.length) return false;
-  if (!crypto.timingSafeEqual(provided, expected)) return false;
+  if (provided.length !== expected.length) return null;
+  if (!crypto.timingSafeEqual(provided, expected)) return null;
   try {
     const { exp } = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
-    return typeof exp === 'number' && Date.now() < exp;
+    return typeof exp === 'number' && Date.now() < exp ? exp : null;
   } catch {
-    return false;
+    return null;
   }
 }
+
+const verifyToken = (token, secret) => tokenExpiry(token, secret) !== null;
 
 // Minimal cookie header parse — avoids a dependency for one header.
 function readCookie(req, name) {
@@ -109,6 +117,18 @@ function isAuthed(req) {
   return verifyToken(readCookie(req, COOKIE_NAME), process.env.SESSION_SECRET);
 }
 
+// Reissue a valid session that's been alive longer than RENEW_AFTER_MS. Without this the
+// cookie lapsed exactly 90 days after login however often he used the app — which is how
+// the first one ran out (Nov 2026) mid-use. An invalid or expired token is left alone:
+// renewal extends a session, it never creates one.
+function renewSession(req, res) {
+  if (!isConfigured()) return;
+  const exp = tokenExpiry(readCookie(req, COOKIE_NAME), process.env.SESSION_SECRET);
+  if (exp === null) return;
+  const issuedAt = exp - SESSION_DAYS * DAY_MS;
+  if (Date.now() - issuedAt >= RENEW_AFTER_MS) setSession(res, issueToken(process.env.SESSION_SECRET));
+}
+
 let warned = false;
 
 // Fails OPEN when unconfigured, and loudly. The alternative — refusing every request
@@ -123,7 +143,10 @@ function requireAuth(req, res, next) {
     }
     return next();
   }
-  if (isAuthed(req)) return next();
+  if (isAuthed(req)) {
+    renewSession(req, res);
+    return next();
+  }
   res.status(401).json({ error: 'Not authenticated' });
 }
 
@@ -138,5 +161,6 @@ module.exports = {
   clearSession,
   isConfigured,
   isAuthed,
+  renewSession,
   requireAuth,
 };
