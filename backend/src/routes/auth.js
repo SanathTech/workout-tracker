@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { verifyPassword, issueToken, setSession, clearSession, isConfigured, isAuthed } = require('../util/auth');
+const { verifyPassword, issueToken, setSession, clearSession, isConfigured, isAuthed, renewSession } = require('../util/auth');
 const { serverError } = require('../util/errors');
 
 // Per-instance throttle. On serverless this only slows a burst that happens to land on
@@ -20,7 +20,9 @@ function throttled(ip) {
   return rec.count > MAX_ATTEMPTS;
 }
 
+// /me is what the app asks on every load, and it sits outside requireAuth — so it renews too.
 router.get('/me', (req, res) => {
+  renewSession(req, res);
   res.json({ authenticated: isAuthed(req), required: isConfigured() });
 });
 
