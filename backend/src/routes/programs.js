@@ -173,8 +173,8 @@ async function writeRoutines(client, programId, routines) {
   }
 }
 
-// Week and position come off the combined count, so a finite program still knows how far
-// along it is; the routine offered next comes from the rotation (util/rotation.js).
+// Counts for a finite program's completion; the routine offered next comes from the
+// rotation (util/rotation.js), so there is no "position in the cycle" to report.
 function computeProgress(program, { completed, skipped }, next) {
   const sequenced = completed + skipped;
   const routinesPerCycle = program.routines.length;
@@ -185,8 +185,6 @@ function computeProgress(program, { completed, skipped }, next) {
     completed_workouts: completed,
     skipped_workouts: skipped,
     total_workouts: totalWorkouts,
-    week: routinesPerCycle ? Math.floor(sequenced / routinesPerCycle) + 1 : null,
-    position_in_cycle: routinesPerCycle ? (sequenced % routinesPerCycle) + 1 : null,
     next_routine: finished ? null : next,
   };
 }

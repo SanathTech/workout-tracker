@@ -5,7 +5,6 @@ import { Skeleton } from '../components/Skeleton';
 import MainBadge from '../components/MainBadge';
 import StatusBadge from '../components/StatusBadge';
 import MoreMenu from '../components/MoreMenu';
-import SessionFeel from '../components/SessionFeel';
 import { useSmartBack } from '../hooks/useSmartBack';
 import { formatDay, formatKg } from '../util/format';
 
@@ -68,7 +67,7 @@ export default function WorkoutDetail() {
       // and a program that auto-completed on that session becomes active again.
       qc.invalidateQueries({ queryKey: ['active-program'] });
       qc.invalidateQueries({ queryKey: ['programs'] });
-      navigate('/dashboard');
+      navigate('/');
     },
   });
 
@@ -148,17 +147,8 @@ export default function WorkoutDetail() {
 
       {isSkipped && (
         <p className="text-sm text-neutral-400">
-          You skipped this session. It holds its place in the program sequence but counts toward no stats.
+          You skipped this session. It counts toward no stats.
         </p>
-      )}
-
-      {/* The rating is asked for on Finish now, in a sheet that cannot be scrolled past.
-          This is the fallback for a session that was skipped or rated on another device:
-          it shows for any completed workout, and flags itself when there is no rating
-          yet — the old band rendered only on the just-finished view, so a missed rating
-          could never be filled in afterwards. */}
-      {isCompleted && !isSkipped && (
-        <SessionFeel workoutId={id} workoutNotes={workout.notes} />
       )}
 
       {hasExercises && !isSkipped && (
