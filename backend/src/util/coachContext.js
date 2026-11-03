@@ -1,7 +1,7 @@
 const db = require('../db');
 const { todayInAppTimezone, currentWeekStart } = require('./dates');
 const { LOAD_JOINS, SET_VOLUME } = require('./volume');
-const { isScheduled, routineOn, covered, nextSlot, workoutDates, reconcileMissed } = require('./schedule');
+const { rotation } = require('./rotation');
 
 // Every context bundle the coach reasons over — daily, weekly, and chat — is built
 // here, from one set of query helpers. This file replaced coach_context.py on
@@ -497,9 +497,7 @@ async function weekVsRhythm() {
   };
 }
 
-// Mirror of the app's sequence rule: routines[(completed + skipped) % cycle_length].
-// Duplicated from GET /api/programs/active rather than importing it, because that
-// route returns a hydrated payload; this needs four fields.
+// The same rotation GET /api/programs/active offers: the routine done longest ago.
 async function nextSession() {
   const program = await db.query(
     `SELECT id, name, total_weeks FROM programs WHERE status = 'active' LIMIT 1`
@@ -507,23 +505,18 @@ async function nextSession() {
   if (!program.rows.length) return null;
   const p = program.rows[0];
 
-  await reconcileMissed(p.id);
   const routines = await db.query(
-    `SELECT id, name, weekday FROM routines
+    `SELECT id, name FROM routines
       WHERE program_id = $1 AND deleted_at IS NULL ORDER BY sort_order, id`,
     [p.id]
   );
   if (!routines.rows.length) return { program: p.name, next_routine: null };
 
   const done = await db.query(
-    `SELECT COUNT(*)::int AS n FROM workouts
-      WHERE program_id = $1 AND status IN ('completed', 'skipped')`,
+    `SELECT COUNT(*)::int AS n FROM workouts WHERE program_id = $1 AND status = 'completed'`,
     [p.id]
   );
-  const slot = isScheduled(routines.rows)
-    ? nextSlot(routines.rows, today(), await workoutDates(db, p.id))
-    : null;
-  const nxt = slot ? slot.routine : routines.rows[done.rows[0].n % routines.rows.length];
+  const { byRoutine, next: nxt } = await rotation(db, p.id, routines.rows, today());
 
   const exercises = await db.query(
     `SELECT e.name, re.target_sets, re.rep_range_low, re.rep_range_high, re.is_main
@@ -536,7 +529,7 @@ async function nextSession() {
     program: p.name,
     total_weeks: p.total_weeks,
     next_routine: nxt.name,
-    next_date: slot ? whenLabel(slot.date) : null,
+    next_last_done: byRoutine.get(nxt.id).last_done,
     sessions_logged: done.rows[0].n,
     cycle_length: routines.rows.length,
     exercises: exercises.rows,
@@ -974,8 +967,6 @@ async function enduranceSessions(days = 42) {
 async function weekPlan() {
   const start = currentWeekStart();
   const iso = today();
-  const active = await db.query(`SELECT id FROM programs WHERE status = 'active' LIMIT 1`);
-  if (active.rows.length) await reconcileMissed(active.rows[0].id);
 
   // The same per-activity figures twice: this week's, and the most recent run and swim
   // before today, so a plan card can say what last time looked like instead of carrying
@@ -1015,16 +1006,13 @@ async function weekPlan() {
     ),
   ]);
 
-  // Where the rotation stands right now, and the ordered ring to walk forward. A
-  // weekday-bound program reads each day's routine off the day instead.
+  // Where the rotation stands right now, and the ordered ring to walk forward.
   let ring = [];
   let cursor = 0;
-  let scheduled = false;
-  let loggedDates = [];
   if (program.rows.length) {
     const [routines, done] = await Promise.all([
       db.query(
-        `SELECT id, name, weekday FROM routines WHERE program_id = $1 AND deleted_at IS NULL
+        `SELECT id, name FROM routines WHERE program_id = $1 AND deleted_at IS NULL
           ORDER BY sort_order, id`,
         [program.rows[0].id]
       ),
@@ -1036,8 +1024,6 @@ async function weekPlan() {
     ]);
     ring = routines.rows;
     cursor = ring.length ? done.rows[0].n % ring.length : 0;
-    scheduled = isScheduled(ring);
-    if (scheduled) loggedDates = await workoutDates(db, program.rows[0].id);
 
     // The main lifts, so a gym day says what he is actually walking in to do. This is
     // the whole point of looking at Thursday on Wednesday night.
@@ -1108,14 +1094,6 @@ async function weekPlan() {
         planned.detail = named?.mains || null;
       } else if (state === 'past') {
         planned.title = 'Gym — not logged';
-      } else if (scheduled) {
-        const routine = routineOn(ring, date);
-        if (routine) {
-          const early = covered(ring, date, loggedDates);
-          planned.title = early ? `${routine.name} — done early` : routine.name;
-          planned.detail = early ? null : routine.mains || null;
-          if (!early) planned.routine_id = routine.id;
-        }
       } else if (ring.length) {
         const routine = ring[cursor % ring.length];
         cursor += 1;
