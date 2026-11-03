@@ -65,7 +65,9 @@ function OpenSession({ workout }) {
   const finish = useMutation({
     mutationFn: async () => {
       const draft = readDraft(workout.id);
-      if (draft?.payload) await updateWorkout(workout.id, JSON.parse(draft.payload));
+      let payload = null;
+      try { payload = draft?.payload ? JSON.parse(draft.payload) : null; } catch { /* unreadable: nothing to push */ }
+      if (payload) await updateWorkout(workout.id, payload);
       return completeWorkout(workout.id);
     },
     onSuccess: () => {

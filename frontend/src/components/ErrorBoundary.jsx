@@ -39,7 +39,7 @@ export default class ErrorBoundary extends Component {
               onClick={() => { window.location.href = '/'; }}
               className="btn-secondary flex-1 justify-center"
             >
-              Dashboard
+              Home
             </button>
           </div>
         </div>
