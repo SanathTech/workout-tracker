@@ -43,11 +43,12 @@ let { body: active } = await api('GET', '/api/programs/active');
 ok(active.progress.total_workouts === 9, '3 weeks x 3 routines = 9 total', `got ${active.progress.total_workouts}`);
 ok(active.progress.next_routine.name === 'Day A', 'starts on Day A');
 
-// Skip Day A — a skipped row must advance the sequence to Day B.
+// Skip Day A. The rotation offers whatever was done longest ago, and a skip isn't done,
+// so Day A stays up next.
 const skip = await api('POST', '/api/workouts/skip', { routine_id: active.progress.next_routine.id });
 ok(skip.status < 300, `skip upcoming accepted (${skip.status})`);
 ({ body: active } = await api('GET', '/api/programs/active'));
-ok(active.progress.next_routine.name === 'Day B', 'skip advanced sequence to Day B', `got ${active.progress.next_routine?.name}`);
+ok(active.progress.next_routine.name === 'Day A', 'a skip does not move the rotation', `got ${active.progress.next_routine?.name}`);
 ok(active.progress.skipped_workouts === 1, 'skipped counted separately', JSON.stringify(active.progress));
 const melToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Melbourne', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 ok(skip.body?.date === melToday, 'skip dated in Melbourne, not UTC', `got ${skip.body?.date} want ${melToday}`);
