@@ -55,9 +55,9 @@ app.use('/api', (req, res, next) => {
 // rather than inferred — it reads "off" until both auth env vars are set.
 app.get('/health', (req, res) => res.json({ status: 'ok', auth: isConfigured() ? 'on' : 'off' }));
 
-// Login/logout are the only session-unauthenticated API routes.
+// Mounted before requireAuth: login/logout, and the claude.ai connector, which carries
+// its own capability token in the path instead of a session.
 app.use('/api/auth', authRouter);
-// The claude.ai MCP connector — capability-URL auth (token in path), not session auth.
 app.use('/api/mcp/:token', mcpRouter);
 
 // Everything below requires a valid session cookie once auth is configured.
