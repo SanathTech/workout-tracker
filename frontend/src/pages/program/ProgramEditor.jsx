@@ -10,16 +10,12 @@ export default function ProgramEditor({ initial, onCancel, onSaved }) {
   const qc = useQueryClient();
   const [name, setName] = useState(initial?.name || '');
   const [description, setDescription] = useState(initial?.description || '');
-  const [totalWeeks, setTotalWeeks] = useState(
-    initial?.total_weeks === undefined ? 12 : (initial.total_weeks ?? '')
-  );
   const [error, setError] = useState('');
   const [routines, setRoutines] = useState(
     initial?.routines?.length
       ? initial.routines.map((r) => ({
           client_id: genId(),
           name: r.name,
-          weekday: r.weekday ?? null,
           exercises: r.exercises.map((re) => {
             const sets = re.target_sets ?? 0;
             const incoming = Array.isArray(re.target_rir_per_set) ? re.target_rir_per_set : [];
@@ -61,8 +57,6 @@ export default function ProgramEditor({ initial, onCancel, onSaved }) {
       qc.invalidateQueries({ queryKey: ['active-program'] });
       qc.invalidateQueries({ queryKey: ['programs'] });
       qc.invalidateQueries({ queryKey: ['program', data.id] });
-      // The week's gym rows name the main lifts, which the editor may have changed.
-      qc.invalidateQueries({ queryKey: ['week'] });
       onSaved(data);
     },
   });
@@ -72,11 +66,8 @@ export default function ProgramEditor({ initial, onCancel, onSaved }) {
     setError('');
     if (!name.trim()) return setError('Give the program a name.');
     if (!routines.length) return setError('Add at least one routine.');
-    const dated = routines.filter((r) => r.weekday != null).length;
-    if (dated && dated < routines.length) return setError('Give every routine a day, or set them all to Any day.');
     const cleaned = routines.map((r) => ({
       name: r.name || 'Untitled',
-      weekday: r.weekday ?? null,
       exercises: r.exercises
         .filter((ex) => ex.exercise_id)
         .map((ex) => {
@@ -104,15 +95,9 @@ export default function ProgramEditor({ initial, onCancel, onSaved }) {
           };
         }),
     }));
-    let weeks = null;
-    if (totalWeeks !== '' && totalWeeks != null) {
-      const n = Number(totalWeeks);
-      if (!Number.isInteger(n) || n < 1) {
-        return setError('Total weeks must be a whole number ≥ 1, or blank for ongoing.');
-      }
-      weeks = n;
-    }
-    save.mutate({ name, description, total_weeks: weeks, routines: cleaned });
+    // Open-ended, always: no blocks or deloads until he trains consistently enough to
+    // want one (2026-11-03).
+    save.mutate({ name, description, total_weeks: null, routines: cleaned });
   };
 
   return (
@@ -123,19 +108,12 @@ export default function ProgramEditor({ initial, onCancel, onSaved }) {
         <div>
           <label className="label">Program name</label>
           <input className="input" value={name} onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Phase 2 Min-Max, 5x/week" required />
+            placeholder="e.g. Full body, 3 routines" required />
         </div>
         <div>
           <label className="label">Description</label>
           <textarea className="input resize-none" rows={2} value={description}
             onChange={(e) => setDescription(e.target.value)} />
-        </div>
-        <div className="w-40">
-          <label className="label">Total weeks</label>
-          <input type="number" min="1" step="1" className="input" value={totalWeeks}
-            placeholder="ongoing"
-            onChange={(e) => setTotalWeeks(e.target.value)} />
-          <p className="text-xs text-neutral-400 mt-1">Leave blank for an ongoing program.</p>
         </div>
       </section>
 
@@ -168,14 +146,14 @@ export default function ProgramEditor({ initial, onCancel, onSaved }) {
         <div className="max-w-2xl mx-auto px-4">
           {(error || save.isError) && (
             <p className="pt-2 text-xs text-red-400" role="alert">
-              {error || 'Could not save the program — try again.'}
+              {error || 'Could not save — try again.'}
             </p>
           )}
         </div>
         <div className="max-w-2xl mx-auto px-4 py-3 flex gap-2">
           <button type="button" onClick={onCancel} className="btn-secondary flex-1 justify-center">Cancel</button>
           <button type="submit" disabled={save.isPending} className="btn-primary flex-1 justify-center">
-            {save.isPending ? 'Saving…' : initial?.id ? 'Save changes' : 'Create program'}
+            {save.isPending ? 'Saving…' : initial?.id ? 'Save changes' : 'Create'}
           </button>
         </div>
       </div>

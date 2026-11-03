@@ -71,7 +71,6 @@ ok(active.routines.length === 3, 'still exactly 3 live routines after edit', `go
 // The load-bearing assertion: 6 rows exist, only 3 are live. If the count ignored
 // deleted_at, per-cycle would be 6 and total would jump to 18.
 ok(active.progress.total_workouts === 9, 'total STILL 9 — retired routines not counted', `got ${active.progress.total_workouts}`);
-ok(active.progress.week === 1, 'still week 1 — retired routines did not deflate the week', `got ${active.progress.week}`);
 ok(active.progress.skipped_workouts === 1, 'skip survived the program edit');
 
 // Start + complete a real workout on the post-edit routine set.

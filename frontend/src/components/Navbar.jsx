@@ -11,32 +11,20 @@ function HomeIcon(props) {
     </svg>
   );
 }
-function ProgramIcon(props) {
+function HistoryIcon(props) {
   return (
     <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true" {...props}>
-      <rect x="4" y="4" width="16" height="17" rx="2" />
-      <path d="M8 3v3M16 3v3M8 11h8M8 15.5h5" strokeLinecap="round" />
+      <path d="M3.5 12a8.5 8.5 0 1 0 2.5-6" strokeLinecap="round" />
+      <path d="M3 3.5V8h4.5M12 7.5V12l3 2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
-function ProgressIcon(props) {
-  return (
-    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true" {...props}>
-      <path d="M4 20V10M10 20V4M16 20v-7M21 20H3.5" strokeLinecap="round" />
-    </svg>
-  );
-}
-// Three tabs, from four (2026-09-17). The history: six tabs until 2026-09-05, when two
-// weeks of app_events showed Home, Week and Trends were one nightly corridor to the
-// check-in and Program, Progress and Exercises got a ~1-second tap each on the way round
-// the bar; four after the 2026-09-08 redesign folded Program, History and Exercises into
-// Train. Health and Lifts then merged into Progress, because they answered one question
-// between them — "am I getting anywhere" — and he was flicking between the two looking
-// for lifts, weight, engine and streaks. Desktop shows the same three.
+// Two tabs (2026-11-03 strip-back). The app is one job, logging a session, and the
+// telemetry said so: the session screen took the visits and the time, and every other
+// tab was passed through in seconds.
 const links = [
-  { to: '/dashboard', label: 'Today', Icon: HomeIcon },
-  { to: '/progress', label: 'Progress', Icon: ProgressIcon },
-  { to: '/train', label: 'Train', Icon: ProgramIcon },
+  { to: '/', label: 'Home', Icon: HomeIcon, end: true },
+  { to: '/history', label: 'History', Icon: HistoryIcon },
 ];
 
 function SyncingDot() {
@@ -118,6 +106,7 @@ export default function Navbar() {
               <NavLink
                 key={l.to}
                 to={l.to}
+                end={l.end}
                 className={({ isActive }) =>
                   `px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
                     isActive
@@ -140,11 +129,12 @@ export default function Navbar() {
       {/* Bottom tab bar — mobile only, hidden during a workout session or when an editor explicitly hides it */}
       {showBottomNav && (
         <nav aria-label="Main" className="md:hidden fixed bottom-0 inset-x-0 z-20 border-t bg-neutral-950 border-neutral-800 pb-[env(safe-area-inset-bottom)]">
-          <div className="grid grid-cols-3">
+          <div className="grid grid-cols-2">
             {links.map((l) => (
               <NavLink
                 key={l.to}
                 to={l.to}
+                end={l.end}
                 className={({ isActive }) =>
                   `flex flex-col items-center justify-center gap-0.5 h-14 text-[11px] font-medium transition-colors ${
                     isActive

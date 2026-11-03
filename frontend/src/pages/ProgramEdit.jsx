@@ -1,6 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
-import { getProgram } from '../api/client';
+import { getProgram, startProgram } from '../api/client';
 import { Skeleton } from '../components/Skeleton';
 import { Page } from '../components/ui';
 import { useSmartBack } from '../hooks/useSmartBack';
@@ -9,10 +9,12 @@ import ProgramEditor from './program/ProgramEditor';
 // The program editor as a real route (/program/new, /program/:id/edit) rather than a
 // mode of the Program page, so the phone's back gesture leaves the editor instead of
 // the app, and the bottom bar can hide itself per route. Saving and cancelling both go
-// back to wherever the editor was opened from — Train, normally.
+// back to wherever the editor was opened from — Home, normally. A new program starts on
+// save: there is no program list any more to start it from.
 export default function ProgramEdit() {
   const { id: param } = useParams();
-  const goBack = useSmartBack('/train');
+  const qc = useQueryClient();
+  const goBack = useSmartBack('/');
   const isNew = !param;
   // Numeric so the key matches what Train and the editor's invalidation use.
   const id = isNew ? null : Number(param);
@@ -27,7 +29,7 @@ export default function ProgramEdit() {
   return (
     <Page>
       <button type="button" onClick={goBack} className="text-sm text-neutral-400 hover:text-neutral-200 inline-flex items-center min-h-11 md:min-h-0 -ml-1 pl-1">← Back</button>
-      <h1 className="text-2xl font-semibold tracking-tight">{isNew ? 'New program' : 'Edit program'}</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">{isNew ? 'Set up routines' : 'Edit routines'}</h1>
       {!isNew && isLoading && (
         <div className="space-y-3">
           <Skeleton className="h-11 w-full" />
@@ -40,7 +42,13 @@ export default function ProgramEdit() {
         <ProgramEditor
           initial={isNew ? null : program}
           onCancel={goBack}
-          onSaved={goBack}
+          onSaved={async (saved) => {
+            if (isNew) {
+              await startProgram(saved.id).catch(() => {});
+              qc.invalidateQueries({ queryKey: ['active-program'] });
+            }
+            goBack();
+          }}
         />
       )}
     </Page>

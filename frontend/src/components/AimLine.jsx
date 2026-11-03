@@ -1,20 +1,9 @@
 import { useState } from 'react';
 import { Sheet } from './ui';
-import { formatDay, formatKg } from '../util/format';
 
-// One instruction per exercise. The server has already decided whose call it is
-// (backend/src/util/aim.js): a coach note that names a load is the aim and the engine's
-// number is suppressed; otherwise the engine's. This renders what it is handed and
-// nothing else — the four-voices problem (chip + ghosts + reason + amber note, all
-// disagreeing on the pull-up card on 2026-09-07) was a client that merged them itself.
-//
-// Shared with Lifts, where the same line sits above the chart and `onEdit` opens the
-// coach-note editor (the session never edits). Keep it free of session state.
-
-const SOURCE_TAG = {
-  engine: 'bg-emerald-400/15 text-emerald-400',
-  coach: 'bg-amber-400/15 text-amber-400',
-};
+// One instruction per exercise: the progression engine's aim (backend/src/util/aim.js),
+// with its reason behind "why". Coach notes used to compete for this line; they went in
+// the 2026-11-03 strip-back.
 
 // "52.5 kg × 6 · RIR 1". Any part may be missing; a reps-only aim on a hold logged in
 // seconds still reads as "45 reps", which is the least-wrong option without a unit on
@@ -33,96 +22,28 @@ export function formatAim(aim) {
   return parts.join(' · ');
 }
 
-export default function AimLine({ aim, cues = [], onEdit, className = '' }) {
-  const [sheet, setSheet] = useState(null); // 'why' | cue id
-  if (!aim && cues.length === 0) return null;
+export default function AimLine({ aim, className = '' }) {
+  const [open, setOpen] = useState(false);
+  if (!aim) return null;
   const text = formatAim(aim);
-  const openCue = cues.find((c) => c.id === sheet) || null;
   return (
     <div className={className}>
-      {aim && (
-        <div className="flex items-center gap-2 text-sm tabular-nums min-h-11">
-          <span className="text-neutral-400 shrink-0">Aim</span>
-          <span className="font-semibold text-neutral-200 min-w-0 truncate">{text || '—'}</span>
-          <span className={`shrink-0 text-[10.5px] leading-4 uppercase tracking-wider px-1.5 rounded ${SOURCE_TAG[aim.source]}`}>
-            {aim.source}
-          </span>
-          <span className="ml-auto shrink-0 flex items-center -mr-2">
-            <button
-              type="button"
-              onClick={() => setSheet('why')}
-              className="h-11 px-2 text-xs text-neutral-400 hover:text-neutral-200"
-            >
-              why ›
-            </button>
-            {onEdit && (
-              <button
-                type="button"
-                onClick={onEdit}
-                className="h-11 px-2 text-xs text-neutral-400 hover:text-neutral-200"
-              >
-                edit ›
-              </button>
-            )}
-          </span>
-        </div>
-      )}
-      {/* Cues: standing coach notes with no load call. Two lines on the card, the
-          rest in the sheet — note 9 runs to a paragraph. */}
-      {cues.map((c) => (
+      <div className="flex items-center gap-2 text-sm tabular-nums min-h-11">
+        <span className="text-neutral-400 shrink-0">Aim</span>
+        <span className="font-semibold text-neutral-200 min-w-0 truncate">{text || '—'}</span>
         <button
-          key={c.id}
           type="button"
-          onClick={() => setSheet(c.id)}
-          className={`block w-full text-left text-xs line-clamp-2 py-1 ${
-            c.superseded ? 'text-neutral-400' : 'text-amber-400'
-          }`}
+          onClick={() => setOpen(true)}
+          className="ml-auto -mr-2 shrink-0 h-11 px-2 text-xs text-neutral-400 hover:text-neutral-200"
         >
-          <span className="font-semibold uppercase tracking-wider text-[10.5px] mr-1.5">
-            {c.superseded ? 'Coach · set aside' : 'Coach'}
-          </span>
-          {c.note}
+          why ›
         </button>
-      ))}
-
-      {openCue?.superseded && (
-        <Sheet title="This call has been overtaken" onClose={() => setSheet(null)}>
+      </div>
+      {open && (
+        <Sheet title="Why this aim" onClose={() => setOpen(false)}>
           <div className="p-4 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] space-y-3 overflow-y-auto">
-            <p className="text-sm text-neutral-300 whitespace-pre-line">{openCue.note}</p>
-            <p className="text-sm text-neutral-400 tabular-nums">
-              It pinned {formatKg(openCue.superseded.pinned_kg)}, but you lifted{' '}
-              {formatKg(openCue.superseded.lifted_kg)} on{' '}
-              {formatDay(openCue.superseded.on, { day: 'numeric', month: 'short' })} — so it is no longer
-              setting the aim. The engine is back in charge until the call is rewritten or resolved.
-            </p>
-          </div>
-        </Sheet>
-      )}
-
-      {sheet === 'why' && aim && (
-        <Sheet title="Why this aim" onClose={() => setSheet(null)}>
-          <div className="p-4 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] space-y-3 overflow-y-auto">
-            <div className="flex items-center gap-2 text-base tabular-nums">
-              <span className="font-semibold text-neutral-200">{text || '—'}</span>
-              <span className={`text-[10.5px] leading-4 uppercase tracking-wider px-1.5 rounded ${SOURCE_TAG[aim.source]}`}>
-                {aim.source}
-              </span>
-            </div>
+            <p className="text-base font-semibold text-neutral-200 tabular-nums">{text || '—'}</p>
             <p className="text-sm text-neutral-300 whitespace-pre-line">{aim.why}</p>
-            {aim.engine_reason && (
-              <p className="text-xs text-neutral-400">
-                <span className="section-label mr-1.5">Engine would say</span>
-                {aim.engine_reason}
-              </p>
-            )}
-          </div>
-        </Sheet>
-      )}
-      {/* A set-aside call has its own sheet above; without this the two would stack. */}
-      {openCue && !openCue.superseded && (
-        <Sheet title="Coach" onClose={() => setSheet(null)}>
-          <div className="p-4 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] overflow-y-auto">
-            <p className="text-sm text-neutral-300 whitespace-pre-line">{openCue.note}</p>
           </div>
         </Sheet>
       )}

@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate, Navigate } from 'react-router-dom';
-import { getWorkout, updateWorkout, completeWorkout, resumeWorkout, skipWorkout, getLastByExercise, getSuggestions, getCoachNotes, getPersonalBests, makeDefaultExercise } from '../api/client';
+import { getWorkout, updateWorkout, completeWorkout, resumeWorkout, skipWorkout, getLastByExercise, getSuggestions, getPersonalBests, makeDefaultExercise } from '../api/client';
 import { Skeleton } from '../components/Skeleton';
 import ExercisePickerSheet from '../components/ExercisePickerSheet';
 import MainBadge from '../components/MainBadge';
@@ -176,8 +176,7 @@ function SetRow({ set, previousSet, previousStraightSet, showPrev, targetRir, ai
   // reps by one, capped at the top of the range — but only when last time's row was at
   // the SAME load. A session that ramped (45x12, then 50x8) has a working weight of 50
   // and a first row of 12 reps, and pairing them ghosted "50 x 12", a combination he
-  // had never done. A coach aim is flat across the rows: "cut every set at 6" means 6,
-  // not 9/8/7.
+  // had never done.
   const ghostWeight = aim?.weight_kg ?? null;
   const prevAtGhostWeight = previousSet?.weight_kg != null && ghostWeight != null
     && Number(previousSet.weight_kg) === ghostWeight;
@@ -459,7 +458,6 @@ function ExerciseBlock({ block, workoutId, state, onToggle, onOpenPicker, onChan
   if (warmupLabel) prescription.push(warmupLabel);
 
   const aim = suggestion?.aim ?? null;
-  const cues = suggestion?.cues ?? [];
 
   const addSet = () => {
     track('tap', 'add-set', { exercise_id: block.exercise_id });
@@ -598,7 +596,7 @@ function ExerciseBlock({ block, workoutId, state, onToggle, onOpenPicker, onChan
         />
       </div>
 
-      <AimLine aim={aim} cues={cues} />
+      <AimLine aim={aim} />
       {prescription.length > 0 && (
         <p className="text-xs text-neutral-400 tabular-nums mb-1.5">{prescription.join(' · ')}</p>
       )}
@@ -644,11 +642,7 @@ function ExerciseBlock({ block, workoutId, state, onToggle, onOpenPicker, onChan
             previousSet={prevBySet[s.set_number]}
             previousStraightSet={straightIndex.has(s) ? prevStraight[straightIndex.get(s)] : undefined}
             showPrev={hasPrev}
-            // The RIR ghost echoes the aim when the coach set one ("take it to RIR 1"
-            // beats the program's 2); otherwise the program's per-set target.
-            targetRir={aim?.source === 'coach' && aim.rir != null
-              ? aim.rir
-              : Array.isArray(target?.target_rir_per_set) ? target.target_rir_per_set[i] ?? null : null}
+            targetRir={Array.isArray(target?.target_rir_per_set) ? target.target_rir_per_set[i] ?? null : null}
             aim={s.set_type === 'warmup' ? null : aim}
             onChange={(u) => updateSet(i, u)}
             onRemove={() => removeSet(i)}
@@ -825,20 +819,6 @@ export default function WorkoutSession() {
     enabled: hydrated,
     staleTime: 5 * 60_000,
   });
-  // Session-wide coach guidance (no exercise attached). Per-exercise notes no longer
-  // come from here: /suggestions folds them into each exercise's `aim` and `cues`, so
-  // the precedence between note and engine is decided once, on the server.
-  const { data: coachNotes = [] } = useQuery({
-    queryKey: ['coach-notes'],
-    queryFn: getCoachNotes,
-    staleTime: 5 * 60_000,
-  });
-  const generalNotes = useMemo(
-    () => coachNotes.filter((n) => n.exercise_id == null
-      && (n.routine_id == null || n.routine_id === workout?.routine_id)),
-    [coachNotes, workout?.routine_id]
-  );
-
   const suggestionByExercise = useMemo(
     () => Object.fromEntries((suggestions || []).map((s) => [s.exercise_id, s])),
     [suggestions]
@@ -1195,7 +1175,7 @@ export default function WorkoutSession() {
       qc.invalidateQueries({ queryKey: ['workouts-history'] });
       qc.invalidateQueries({ queryKey: ['in-progress-workout'] });
       qc.invalidateQueries({ queryKey: ['workout', id] });
-      navigate('/dashboard');
+      navigate('/');
     },
   });
 
@@ -1290,7 +1270,6 @@ export default function WorkoutSession() {
     <div className="space-y-4">
       {finished && (
         <FinishSheet
-          workoutId={id}
           {...finished}
           onDone={() => {
             setFinished(null);
@@ -1355,8 +1334,8 @@ export default function WorkoutSession() {
                 onSelect: () => { if (!resume.isPending) resume.mutate(); },
               },
               !isCompleted && !isResumed && {
-                label: 'Skip this workout',
-                confirm: 'Skip — sure?',
+                label: 'Discard this workout',
+                confirm: 'Discard — sure?',
                 danger: true,
                 onSelect: () => { if (!skip.isPending && !finish.isPending) skip.mutate(); },
               },
@@ -1412,13 +1391,6 @@ export default function WorkoutSession() {
         </div>
       )}
 
-      {/* Session-wide coach guidance (no exercise attached) sits above the ledger,
-          where the session-level facts live. Two lines here, the rest in a sheet. */}
-      {generalNotes.length > 0 && (
-        <div>
-          {generalNotes.map((n) => <GeneralNote key={n.id} note={n.note} />)}
-        </div>
-      )}
       {/* Hairline dividers between exercises instead of card borders — the ledger gets
           its structure from alignment, not boxes. */}
       <div className="divide-y divide-neutral-800" data-editor-root onKeyDown={onLedgerEnter}>
@@ -1470,30 +1442,6 @@ export default function WorkoutSession() {
         {...pickerProps}
       />
     </div>
-  );
-}
-
-// A session-level coach note: two lines on the page, the whole thing on tap.
-function GeneralNote({ note }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="w-full text-left text-xs text-amber-400 line-clamp-2 py-1"
-      >
-        <span className="font-semibold uppercase tracking-wider text-[10.5px] mr-1.5">Coach</span>
-        {note}
-      </button>
-      {open && (
-        <Sheet title="Coach" onClose={() => setOpen(false)}>
-          <div className="p-4 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] overflow-y-auto">
-            <p className="text-sm text-neutral-300 whitespace-pre-line">{note}</p>
-          </div>
-        </Sheet>
-      )}
-    </>
   );
 }
 

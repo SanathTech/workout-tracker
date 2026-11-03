@@ -43,24 +43,19 @@ export const logout = () => api.post('/auth/logout').then((r) => r.data);
 // ── Exercises ───────────────────────────────────────────────
 export const getExercises = (params) => api.get('/exercises', { params }).then((r) => r.data);
 export const getExerciseGroups = () => api.get('/exercises/groups').then((r) => r.data);
-export const getExercise = (id) => api.get(`/exercises/${id}`).then((r) => r.data);
 export const createExercise = (data) => api.post('/exercises', data).then((r) => r.data);
 export const updateExercise = (id, data) => api.put(`/exercises/${id}`, data).then((r) => r.data);
 export const deleteExercise = (id) => api.delete(`/exercises/${id}`).then((r) => r.data);
 
 // ── Programs ─────────────────────────────────────────────────
-export const getPrograms = () => api.get('/programs').then((r) => r.data);
 export const getActiveProgram = () => api.get('/programs/active').then((r) => r.data);
 export const getProgram = (id) => api.get(`/programs/${id}`).then((r) => r.data);
 export const createProgram = (data) => api.post('/programs', data).then((r) => r.data);
 export const updateProgram = (id, data) => api.put(`/programs/${id}`, data).then((r) => r.data);
-export const deleteProgram = (id) => api.delete(`/programs/${id}`).then((r) => r.data);
 export const startProgram = (id) => api.post(`/programs/${id}/start`).then((r) => r.data);
-export const endProgram = (id) => api.post(`/programs/${id}/end`).then((r) => r.data);
 
 // ── Workouts ─────────────────────────────────────────────────
 export const getWorkouts = (params) => api.get('/workouts', { params }).then((r) => r.data);
-export const getRecentWorkouts = () => api.get('/workouts/recent').then((r) => r.data);
 export const getInProgressWorkout = () => api.get('/workouts/in-progress').then((r) => r.data);
 export const getWorkout = (id) => api.get(`/workouts/${id}`).then((r) => r.data);
 export const startWorkout = (data) =>
@@ -71,68 +66,17 @@ export const completeWorkout = (id) => api.post(`/workouts/${id}/complete`).then
 export const resumeWorkout = (id) => api.post(`/workouts/${id}/resume`).then((r) => r.data);
 export const makeDefaultExercise = (id, data) =>
   api.post(`/workouts/${id}/default-exercise`, data).then((r) => r.data);
-export const skipUpcomingWorkout = (data) =>
-  api.post('/workouts/skip', { date: localDate(), ...data }).then((r) => r.data);
 export const skipWorkout = (id) => api.post(`/workouts/${id}/skip`).then((r) => r.data);
 export const deleteWorkout = (id) => api.delete(`/workouts/${id}`).then((r) => r.data);
 export const getLastByExercise = (exerciseId, params) =>
   api.get(`/workouts/last-by-exercise/${exerciseId}`, { params }).then((r) => r.data);
 
 // ── Progress ─────────────────────────────────────────────────
-export const getStats = () => api.get('/progress/stats').then((r) => r.data);
-export const getVolumeProgress = (params) => api.get('/progress/volume', { params }).then((r) => r.data);
-export const getLastSession = () => api.get('/progress/last-session').then((r) => r.data);
-export const getExerciseProgress = (id, params) =>
-  api.get(`/progress/exercise/${id}`, { params }).then((r) => r.data);
 export const getPersonalBests = () => api.get('/progress/personal-bests').then((r) => r.data);
 
-// ── Training intelligence (Phase 3) ─────────────────────────
-export const getMuscleVolume = (params) =>
-  api.get('/progress/muscle-volume', { params }).then((r) => r.data);
 // routineId scopes both the rep range and the history to the routine being trained.
 // Without it the server has to pick one prescription per exercise for the whole program,
 // which is how Day A came to be progressed against Day C's rep range.
 export const getSuggestions = (routineId) =>
   api.get('/progress/suggestions', { params: routineId ? { routine_id: routineId } : undefined })
     .then((r) => r.data);
-export const getOneRm = (exerciseId, params) =>
-  api.get(`/progress/one-rm/${exerciseId}`, { params }).then((r) => r.data);
-export const getBodyweight = (params) =>
-  api.get('/progress/bodyweight', { params }).then((r) => r.data);
-export const logBodyweight = (data) =>
-  api.post('/progress/bodyweight', { date: localDate(), ...data }).then((r) => r.data);
-export const deleteBodyweight = (id) =>
-  api.delete(`/progress/bodyweight/${id}`).then((r) => r.data);
-
-// ── Coach ────────────────────────────────────────────────────
-export const getCoachHistory = (params) =>
-  api.get('/coach/history', { params }).then((r) => r.data);
-export const getReadiness = () => api.get('/coach/readiness').then((r) => r.data);
-export const getCheckin = (date = localDate()) =>
-  api.get('/coach/checkin', { params: { date } }).then((r) => r.data);
-export const getCheckins = (params) =>
-  api.get('/coach/checkins', { params }).then((r) => r.data);
-export const saveCheckin = (data) =>
-  api.post('/coach/checkin', { date: localDate(), ...data }).then((r) => r.data);
-export const getSessionFeel = (workoutId) =>
-  api.get(`/coach/session-feel/${workoutId}`).then((r) => r.data);
-export const saveSessionFeel = (data) =>
-  api.post('/coach/session-feel', data).then((r) => r.data);
-export const getAdherence = (params) =>
-  api.get('/coach/adherence', { params }).then((r) => r.data);
-export const getWeek = () => api.get('/coach/week').then((r) => r.data);
-
-export const getCoachNotes = () => api.get('/coach/notes').then((r) => r.data);
-// Lifts writes the exercise-scoped load calls (2026-09-08). Resolve = { resolved: true }.
-export const createCoachNote = (data) => api.post('/coach/notes', data).then((r) => r.data);
-export const updateCoachNote = (id, data) => api.patch(`/coach/notes/${id}`, data).then((r) => r.data);
-
-export const getTrends = (params) =>
-  api.get('/coach/trends', { params }).then((r) => r.data);
-export const getLoadHistory = (params) =>
-  api.get('/coach/load-history', { params }).then((r) => r.data);
-export const getMetric = (field, params) =>
-  api.get(`/coach/metric/${encodeURIComponent(field)}`, { params }).then((r) => r.data);
-export const getActivity = (id) => api.get(`/coach/activity/${encodeURIComponent(id)}`).then((r) => r.data);
-export const getEndurance = (params) =>
-  api.get('/coach/endurance', { params }).then((r) => r.data);

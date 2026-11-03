@@ -6,7 +6,7 @@ A personal workout-tracking PWA deployed at **workout.sanathtech.com**. Single-u
 
 | Piece | Tech |
 | --- | --- |
-| Frontend | Vite + React 18, React Router, React Query, Tailwind CSS, Axios, Recharts |
+| Frontend | Vite + React 18, React Router, React Query, Tailwind CSS, Axios |
 | Backend | Express on Vercel serverless (`backend/src/index.js` exports the `app`) |
 | DB | Neon Postgres |
 | Hosting | Two separate Vercel projects (see Deployment) |
@@ -36,26 +36,16 @@ frontend/
   src/
     api/client.js            All HTTP calls (axios). Single source for endpoint URLs.
     components/
-      Layout.jsx / Navbar.jsx  Bottom bar = THREE tabs: Today, Progress, Train (same three on desktop)
-      Checkin.jsx            Check-in pieces: useCheckin(date), Ratings (mood/energy/soreness), Ramp (evening Kept/Broke), NoteField — Home asks each half when it can be answered
-      WeekPlan.jsx           WeekStrip (7 lettered days — A/B/C, R, S, W; filled done, dashed skipped, never red; a Link to /train) from /api/coach/week; exports DayRow + useWeek
-      TodayTiles.jsx         Sleep · Battery · RHR · Weight (vs usual / to goal) with a 7-night line, each linking to /metric/:field (opens that row)
-      ProgressGlance.jsx     Home's four progress rows: lifts up last session (/progress/last-session), weight avg, fitness + easy pace, bedtime hits
-      BodySections.jsx       Body (last-night tiles + 30-day sparkline rows LINKING to /metric/:field) · Engine (fitness chart, then Runs|Swims chips over `EnduranceTrends.jsx` and that discipline's rows → /activity/:id) · Protocol (bedtime dots, ramp, weight + THE weigh-in logger, check-in history) + `useBodyData()`
-      AimLine.jsx            The ONE "Aim 52.5 kg × 6 · RIR 1 · ENGINE|COACH · why ›" line + sheets (`onEdit` adds "edit ›" — Lifts only)
-      AimEditSheet.jsx       Writes/edits/resolves the coach_notes row behind an aim (POST/PATCH /api/coach/notes)
-      WorkoutRow.jsx         The one row for a logged workout (Train's history)
-      FinishSheet.jsx        Post-Finish summary (duration/sets/volume/↑/★) + RPE grid
-      EnduranceTrends.jsx    Runs: weekly km · pace vs HR (pace reversed, ceiling line) · drift; Swims: weekly min · pace vs wall rest · m/stroke. Series shaped in `util/endurance.js` (pure, tested; scraps <2 km / <200 m dropped, Monday weeks, zero weeks kept)
+      Layout.jsx / Navbar.jsx  Bottom bar = TWO tabs: Home, History (same two on desktop)
+      AimLine.jsx            The ONE "Aim 52.5 kg × 6 · RIR 1 · why ›" line per exercise (engine only)
+      WorkoutRow.jsx         The one row for a logged workout (History)
+      FinishSheet.jsx        Post-Finish summary (duration/sets/volume/↑/★). No rating.
     pages/
-      Dashboard.jsx          Today, day-first: week strip · Now slot (check-in half that's due) · today's card (plan → result) · last-night tiles · progress · Tomorrow (one line)
-      Progress.jsx           The one trending tab (2026-09-17 merge): Lifts (exercise picker, remembered → chart · bests · aim line with edit; muscle sets, totals, weekly volume, all PBs) then Body · Engine · Protocol from `components/BodySections.jsx`. Anchors #lifts/#body/#engine/#protocol for Home's glance rows
-      Train.jsx              This week (DayRows) · Program (ProgramView: name, week, Start next, routines each startable) · History (infinite); Exercises is a link
-      ProgramEdit.jsx        /program/new and /program/:id/edit — ProgramEditor as a route (back gesture works, nav hides)
+      Home.jsx               Open session → Resume | Finish; else Next up (rotation) + "Or pick another" (each one tap) · last session line · Edit routines / Exercises links. Handles /?start=next
+      History.jsx            Completed sessions, newest first, paged. Skips hidden
+      ProgramEdit.jsx        /program/new and /program/:id/edit ("Edit routines"). No weekday, no week count; a new program starts on save
       WorkoutSession.jsx     /session/:id — sticky header + progress bar, 3-state exercise list, ledger
       WorkoutDetail.jsx      /workouts/:id — read-only past workout, plus the session's heart rate (avg/max, minutes over 153, HRR60, load) when the watch recorded one
-      Metric.jsx             /metric/:field — one number: Day (battery/stress only) · Week/Month/3M/Year, line with gaps, usual + goal lines, average/best/worst; sleep adds last night's stages and the week's bedtimes
-      ActivityDetail.jsx     /activity/:id — one run or swim: stats, HR vs the 153 ceiling with walk breaks, zones, splits, strides, drift (swims: per-100 m, no wrist HR)
       ExerciseLibrary.jsx    Browse/add exercises
     components/ui.jsx        Page / Section / Disclosure / Sheet primitives (2026-09-08)
     index.css                Tailwind layers + the shared component classes (dark only)
@@ -78,7 +68,7 @@ Program → Routines → Workouts (logged sessions). Set up once, follow forever
 **A rotation, never a calendar (2026-11-03, `util/rotation.js`).** `progress.next_routine` is the routine done longest ago: never-done first, ties in program order. An open session counts as today's, so the routine already under way isn't also offered. Skips don't count as done. Past sessions match a routine by id OR name, because the editor re-inserts routines under new ids. Each routine in `GET /api/programs/active` carries `last_done` + `in_progress`. Any routine can be started on any day, and nothing is ever banked as missed. The weekday schedule it replaced (Oct 2026) auto-skipped every day he couldn't make, and his weeks stopped having fixed gym days. Don't bring back days, weeks-behind or missed-day logic. `routines.weekday` is a dead column.
 
 ### Skipping a workout
-A skip is a real `workouts` row with `status = 'skipped'` and no logged sets. It doesn't move the rotation. Two entry points: `POST /api/workouts/skip { routine_id }` skips the upcoming session outright (Today only), `POST /api/workouts/:id/skip` bails out of a session already started (session page). Every stats query filters on `status = 'completed'`, so skips never touch volume, PRs, or counters. Deleting the skipped workout is the undo — it hands the slot back to that routine.
+A skip is a real `workouts` row with `status = 'skipped'` and no logged sets. It doesn't move the rotation. The app's one entry point is the session's ⋯ → "Discard this workout" (`POST /api/workouts/:id/skip`). `POST /api/workouts/skip { routine_id }` has no caller since Today went. Every stats query filters on `status = 'completed'`, so skips never touch volume, PRs, or counters. Deleting the skipped workout is the undo — it hands the slot back to that routine.
 
 ### Resuming a finished workout
 Half one day, half the next: **Resume** (detail page, or ⋯ in the session's edit mode) is `POST /api/workouts/:id/resume`, which flips a `completed` workout back to `in_progress` and stamps `resumed_at`. Finish then ADDS that sitting (`NOW() - resumed_at`, same 6h cap) to `duration_minutes` — the night between isn't training. **Edit** still saves in place and times nothing. The workout keeps its original date; while resumed it can't be skipped (that would discard the first sitting), and it can't be resumed while another session is open. Known gap: the second sitting's Garmin activity is on a different day, so the session's HR panel only covers the first.
@@ -141,7 +131,7 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
   title `neutral-200` · body `neutral-300` · muted `neutral-400` · ghost/placeholder
   `neutral-600` · accent text `emerald-400`, primary action `emerald-700` · coach/warning
   `amber-400` · danger `red-400`. Chart ink is the same ramp as hex (see `CHART` in
-  `Progress.jsx`). Don't introduce a neighbouring shade because it "looks close".
+  the retired `Progress.jsx`). Don't introduce a neighbouring shade because it "looks close".
 - **Primitives in `components/ui.jsx`**: `Page` (one column rhythm), `Section` (hairline +
   `.section-label` + optional action), `Disclosure` (the one expand glyph — `ChevronIcon`,
   never ▲▼/→), `Sheet` (the one bottom sheet: backdrop, Escape, body scroll lock, safe
@@ -208,31 +198,14 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
   API stays public and logs a warning; `GET /health` reports `auth: "on" | "off"`. That's
   deliberate — refusing everything would brick the live app on deploy, before there's any way
   to log in. Check `/health` after changing env vars.
-- **Layout is informed by `app_events`, and decided by watching him use it.** Telemetry says where he goes, never why: three weeks of dwell times missed every problem one spoken walkthrough found (2026-09-15). Ask for a walkthrough before a layout change; use telemetry to check it afterwards. The 2026-09-05 consolidation (6 tabs → 4;
-  check-in + week plan onto Home) came from two weeks of nav dwell times: sub-2s visits mean
-  the tab was passed through, not used. Query telemetry before moving anything again.
-  `/week`, `/coach` and `/trends` stay as redirects — installed PWAs keep old routes in their history.
-  The 2026-09-08 redesign (PR 4) folded Program + History + More into **Train** on the same
-  evidence: 30 days of nav enters put Program+Exercises+History+More (43) above Lifts (25),
-  so Train is the third tab and Lifts the fourth. `/program`, `/history`, `/more` redirect
-  to `/train`. Train has **the only Starts outside Today and no Skip** — skipping lives on
-  Today alone. Besides the next session's Start, each expanded routine offers "Start … today
-  instead" (2026-10-26): a skipped day had no way back otherwise, and it covers the next slot. The program editor is a route (`/program/new`, `/program/:id/edit`), never a
-  mode of a page. PR 5 renamed Trends to Health and regrouped it by question —
-  review first, then Recovery / Protocol / Endurance — without moving anything between tabs;
-  the one exception is the bodyweight logger, which left Lifts: **a weigh-in is typed in on
-  Progress and nowhere else**. Explainer prose sits behind ⓘ toggles, not under every block.
-  **2026-09-17: Health and Lifts merged into `/progress`** — they answered one question
-  between them and he was flicking between the two. Three tabs now; `/health`, `/coach`
-  and `/trends` all redirect to `/progress`, and the sections carry anchors so a glance
-  row lands on the section it named.
+- **Layout is informed by `app_events`, and decided by watching him use it.** Telemetry says where he goes, never why: three weeks of dwell times missed every problem one spoken walkthrough found (2026-09-15). Sub-2s visits mean a screen was passed through, not used. Query telemetry before moving anything. The 2026-11-03 strip-back came from it: since the September rethink the session screen took 313 of ~600 visits and every other tab got seconds. The program editor is a route (`/program/new`, `/program/:id/edit`), never a mode of a page.
 - Locale is never hardcoded. Pass `undefined` to `toLocale*String` so it follows the device.
 - **Back buttons use `useSmartBack(fallback)`**, never a hard-coded Link — a workout opened
   from History must return to History. The hook falls back when the tab has no in-app
   history (deep link / PWA cold start).
 - **Finish ends in a sheet, not a banner.** `FinishSheet` (duration · sets · volume,
   progressions ↑ from the cached `last-by-exercise` rows, PRs ★ from `/progress/personal-bests`
-  filtered to today's date, RPE grid) is built client-side in `buildSummary` and shown over
+  filtered to today's date) is built client-side in `buildSummary` and shown over
   the session; Done navigates to the detail page. There is no `location.state.justFinished`
   any more and no dedicated PR endpoint — don't add either back.
 - **A coach call his own logs have passed steps aside** (2026-09-19). `util/aim.js`
@@ -275,52 +248,8 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
   is what collapses it. `+ Add exercise`, workout notes and Skip live in
   the header's ⋯ menu; there is no bottom bar and no save sentence in the body (the dot in the
   header sub-line is the save status; a red one is a retry button).
-- **Today is day-first (2026-09-15 rethink, from his own walkthrough).** Fixed order: week
-  strip · Now · today's card · Last night tiles · Progress · Tomorrow. Rules that came from
-  what he said, and are easy to undo by accident:
-  - **Tapping a thing opens that thing.** Tiles and Progress's Body rows go to `/metric/<field>`,
-    runs and swims to `/activity/:id`. A link that lands on an overview repeating what was
-    tapped is the bug, not a shortcut.
-  - **A metric page owns its range.** Week/Month/3M/Year off one endpoint
-    (`/coach/metric/:field`, fields whitelisted in `METRICS` because the name reaches SQL);
-    "usual" is always the trailing 30 days ending yesterday, the same window the tiles
-    compare against. Untracked days stay gaps. The Night view (intraday battery and stress)
-    is now live for battery and stress: nas-laptop's `intraday-sync.py` pulls Garmin's
-    dailyStress endpoint (both series, 3-min samples, downsampled to 6) into
-    `wellness_intraday`, and `?day=1` on the metric route returns that day plus the night
-    that ended it, so the chart shades the sleep. Metrics without a shape (weight, sleep
-    score) never show the chip — `has_intraday` says which do.
-  - **Today gets the space; tomorrow gets one line.** `week.tomorrow` comes off the
-    weekday map (eight-day walk in `weekPlan`, so Sunday → Monday works). Never label
-    anything with `progress.next_routine` without a day on it — "Up next: Day A" on a
-    Tuesday made him read Thursday's session as Wednesday's.
-  - **Show what happened, not plan prose.** Non-gym days show the slot title plus last
-    time's figures (`week.previous`), then the day's activity once it syncs. `PLAN.detail`
-    text is not rendered on Today — it went stale ("30-45min" while he ran 68).
-  - **No red for choices.** A skipped day is dashed; a past day with nothing is a plain
-    outline.
-  - **The check-in comes to him, and it is never asked twice.** Two pushes, both decided
-    server-side in `routes/nudge.js`: the morning one is TRIGGERED BY THE GARMIN SYNC and
-    holds off until a night actually exists (a 06:30 "how did you sleep" before the watch
-    uploads is the nag he was already ignoring); the evening one is 21:15, fifteen minutes
-    before the screens-down cue it asks about. `checkin_nudges` claims the slot BEFORE the
-    push, so the half-hourly morning trigger can only buzz once, and an answered half is
-    never nudged. Tapping a push lands on `/dashboard?checkin=morning|evening`, which opens
-    that half whatever the clock says — the param is deliberately NOT stripped, because the
-    double-mount raced it and the decision was gone by the second mount.
-  - **A missed evening is asked once the next morning** (`Last night's wind-down`, before
-    noon, with Skip) and then dropped. Missed is missed; nothing piles up.
-  - **The Now slot only holds what can be answered now**: ratings before 21:00 (on a gym
-    day they sit above Start instead), the ramp from 21:00 to 04:00, dated to the evening
-    it describes. A half that was answered in this visit stays as its own confirmation;
-    one already complete on arrival isn't shown.
-  - **Runs and swims open their activity page.** Today's result card, Progress's Engine
-    rows and Train's week rows all link to `/activity/:id`. Streams are fetched from
-    intervals.icu on open (it holds the GPS- and phantom-length-corrected versions) and
-    cached in `activity_streams`, invalidated by `activities.synced_at` — never stored at
-    sync time, and never a second copy of the stream_summary figures streams.py computes.
-  - **No coach output on screens.** The weekly review and coach card are gone; coaching
-    happens in chat. Coach notes inside the session stay.
+- **The app is stripped back (2026-11-03), and stays that way until he asks.** Two tabs. No ratings anywhere (daily check-in, evening ramp and RPE all went: no check-ins since 5 Oct, RPE read 8 nearly every time). No dashboards, Garmin tiles, progress or metric pages, and no coach output or coach notes. Their tables and the claude.ai MCP connector still exist; only the screens went. **Add a screen or input only when he names the need.** Speculative "might be useful" UI is exactly what was removed. Retired routes redirect to `/` and keep the query string, because installed PWAs remember old URLs (and the old `/dashboard?start=next` shortcut).
+- **Home never blocks a choice.** Next up is a suggestion; every other routine is one tap away. While a session is open, Home offers only Resume or Finish. Finish from Home pushes any surviving `util/draft.js` payload before completing, because the draft may be the only copy of the last sets typed.
 - **The session's unsaved edits live in `localStorage`, not the query cache.** `util/draft.js`
   writes the pending payload *and* a snapshot of the workout shape on every edit, and clears
   it only when the server confirms that exact payload. A surviving draft therefore means
@@ -351,10 +280,6 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
 - **Cache-affecting fixes can't be verified by curling production.** The origin serving new
   bytes says nothing about what an installed client is running. Check the asset hash in the
   page, not just the deploy.
-- **Don't add `manualChunks` for Recharts.** Naming it makes Vite treat it as an entry
-  dependency and emit a `modulepreload`, so the 525kB downloads on first paint anyway. The
-  `React.lazy` import of `/progress` in `App.jsx` is what does the split.
-
 - **`exercises.muscle_group` is the coarse label; `exercise_muscles` is the analytical one.**
   The six groups (Chest/Back/Legs/…) are what the library UI groups and filters by and are
   staying. Volume analysis reads `exercise_muscles`, which credits a set 1.0 to what it
@@ -370,8 +295,7 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
   load, not on the estimate — ranking by 1RM let a lighter high-rep set outrank a heavier one.
 - **A lift can carry its own load step** (2026-09-21). `exercises.load_step_kg`, nullable:
   set, the engine adds exactly that when the range is cleared; null, it falls back to the
-  muscle-group rule (2.5kg compound, 1.25kg isolation). Editable from Lifts ("Goes up in
-  … change"). It is a property of the LIFT, not a coaching call — the RDL moves 10kg
+  muscle-group rule (2.5kg compound, 1.25kg isolation). It had an editor on Lifts, which went in the 2026-11-03 strip-back; set it in SQL until he asks for one back. It is a property of the LIFT, not a coaching call — the RDL moves 10kg
   because he takes it in 5kg-plate steps, the squat stays small because it is the lift his
   lower back objects to. Both used to need a standing coach note to override the engine
   every session, which is the worst thing to use a standing note for: it suppresses the

@@ -36,7 +36,7 @@ export default class ErrorBoundary extends Component {
               Reload
             </button>
             <button
-              onClick={() => { window.location.href = '/dashboard'; }}
+              onClick={() => { window.location.href = '/'; }}
               className="btn-secondary flex-1 justify-center"
             >
               Dashboard
