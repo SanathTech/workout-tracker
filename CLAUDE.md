@@ -26,11 +26,10 @@ backend/
       programs.js            Programs CRUD + /start /end /active
       workouts.js            Workouts (start from routine, update, complete, history)
       progress.js            Stats, weekly volume, per-exercise progress, PRs, /suggestions
-      coach.js               Hub reads + coach_notes (GET list, POST create, PATCH edit/resolve)
-      nudge.js               POST /coach/nudge?kind=morning|evening — the check-in pushes, machine-authed, one per day per kind
-    util/aim.js              Aim precedence for /suggestions: coach load-call beats the engine
-    util/machineAuth.js      Shared secret gate for the endpoints the nas-laptop timers call (/coach/run, /coach/nudge)
-    util/activityStreams.js  intervals.icu stream fetch + presentation shaping (15 s buckets, walk breaks, km / 100 m splits) for the activity page
+      mcp.js                 The claude.ai connector (read-only, capability URL) — see "The claude.ai connector"
+    util/aim.js              The engine verdict shaped as the session's one Aim line
+    util/rotation.js         Next up = the routine done longest ago
+    util/coachContext.js     The connector's reads (readiness, load, activities, gym sessions, bodyweight, next up)
   vercel.json                Legacy v2 config (see Deployment — don't "modernize")
 frontend/
   src/
@@ -89,7 +88,7 @@ npm run db:seed                              # seed exercise library
 npm run db:backfill-dates                    # one-shot date repair; dry run. add `-- --apply` to write
 npm run auth:hash                            # generate AUTH_PASSWORD_HASH + SESSION_SECRET (reads stdin)
 npm run db:apply-muscles                     # populate exercise_muscles from muscles.js; dry run. add `-- --apply`
-npm test                                     # 12 suites. DATABASE_URL must be LOCAL — it truncates
+npm test                                     # 13 suites. DATABASE_URL must be LOCAL — it truncates
 npm run test:setup                           # schema + seed + muscle mapping for a fresh test database
 
 # Frontend
@@ -108,7 +107,7 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
 - `workout-tracker-frontend` — Root Directory: `frontend`. Vite framework preset.
 
 **Env vars:**
-- Backend: `APP_BASE_URL` (where a push's tap lands; defaults to the live domain), `INTERVALS_API_KEY` (activity page streams; without it the page shows stored figures only), `DATABASE_URL` (Neon — use the **pooled** `-pooler` host; the pool is capped at
+- Backend: `MCP_TOKEN` (the connector's capability URL), `DATABASE_URL` (Neon — use the **pooled** `-pooler` host; the pool is capped at
   `max: 1` per lambda), `NODE_ENV=production`, `AUTH_PASSWORD_HASH`, `SESSION_SECRET`,
   optional `APP_TIMEZONE` (defaults to `Australia/Melbourne`)
 - Frontend: `VITE_API_URL` must be **empty** in production. `frontend/vercel.json` rewrites
@@ -208,99 +207,20 @@ After any schema change in `backend/src/db/schema.sql`, apply it to the producti
   filtered to today's date) is built client-side in `buildSummary` and shown over
   the session; Done navigates to the detail page. There is no `location.state.justFinished`
   any more and no dedicated PR endpoint — don't add either back.
-- **A coach call his own logs have passed steps aside** (2026-09-19). `util/aim.js`
-  `overtaken()`: a note pinning a weight stops being the aim once ANY session logged AFTER
-  it used a heavier load (strictly heavier — repeating the pinned weight is the call being
-  followed; same-day is not enough, since a call is usually written just after the session
-  it is about and a workout records only its date). The evidence is a query in
-  `progress.js` over every later session, NOT the engine's last-session snapshot: a
-  lighter day afterwards — a deload, a machine taken, a bad morning — must not resurrect a
-  call his history has already answered. The note is not deleted: it drops to a
-  cue marked "Coach · set aside" and `superseded_note` says what it pinned against what he
-  lifted, so the call still gets resolved or rewritten deliberately. This has bitten twice
-  — the hip abduction aim read 36kg while he was pulling 43 (23 Aug), and the pull-up aim
-  read -18kg mid-session while he was at -14 (19 Sep), both notes whose own prose said
-  "hold until X" after X had happened.
+- **The session has ONE aim line per exercise, and it is the engine's.** `/suggestions` returns
+  the engine verdict plus `aim {weight_kg, reps, reps_high, rir, why, action}`
+  (`backend/src/util/aim.js`); the ledger ghosts come from it. Coach notes used to override
+  it (and grew an "overtaken call" rule because stale notes kept pinning old weights); they
+  went in the 2026-11-03 strip-back. The `coach_notes` table still holds the old rows, and
+  nothing reads it.
   ⚠ `created_at` comes back from pg as a Date; `String()`-ing one gives "Thu Sep 17 2026",
   which compares against a 'YYYY-MM-DD' workout date as nonsense and silently in the wrong
   direction. Use `dayInAppTimezone()` (util/dates.js) for any instant-vs-workout-day test.
-
-- **The session has ONE aim line per exercise, resolved server-side.** `/suggestions` returns
-  the engine verdict plus `aim {source: 'engine'|'coach', weight_kg, reps, reps_high, rir, why,
-  action, engine_reason, note_id}` and `cues [{id, note}]` (`backend/src/util/aim.js`). A coach
-  note with any of `aim_weight_kg / aim_reps / aim_rir` set IS the aim and suppresses the engine
-  number (its reason rides along as `engine_reason` for the why-sheet); notes without numbers
-  are cues. Newest aim-carrying note wins. The ledger ghosts come from `aim`, so a coach call
-  changes what the empty cells show. `coach_notes.internal = true` hides coach-to-coach memos
-  from both `/coach/notes` and `/suggestions` — set it rather than deleting the memo.
-  **Lifts is where a call gets written from the phone**: `AimEditSheet` POSTs a note for the
-  exercise (or PATCHes the one behind a COACH aim; `resolved: true` stamps `resolved_at` and
-  hands the aim back to the engine). A note needs text or a number; aim weight may be negative
-  (assisted pull-ups are logged at -18). Saving invalidates the `['suggestions']` prefix so
-  the session's routine-scoped query and Lifts' unscoped one both refetch.
-- **Exercise blocks have three states, decided by the page, not the block.** `done` (every
-  set has reps) collapses to `✓ name · 40 × 8 · 7 · 6`; `next` is a muted one-liner with the
-  prescription and aim weight; exactly one block is `open` — the pinned one if the user tapped,
-  otherwise the first not-done. The pin clears itself when that exercise becomes done, so
-  logging flows down the list without taps — but a done block stays open while the keyboard
-  is in it (`typingIn`, focus-within): reps is the field before RIR, and collapsing on the
-  last set's reps took the RIR field away mid-entry (2026-09-10). Focus leaving the block
-  is what collapses it. `+ Add exercise`, workout notes and Skip live in
-  the header's ⋯ menu; there is no bottom bar and no save sentence in the body (the dot in the
-  header sub-line is the save status; a red one is a retry button).
-- **The app is stripped back (2026-11-03), and stays that way until he asks.** Two tabs. No ratings anywhere (daily check-in, evening ramp and RPE all went: no check-ins since 5 Oct, RPE read 8 nearly every time). No dashboards, Garmin tiles, progress or metric pages, and no coach output or coach notes. Their tables and the claude.ai MCP connector still exist; only the screens went. **Add a screen or input only when he names the need.** Speculative "might be useful" UI is exactly what was removed. Retired routes redirect to `/` and keep the query string, because installed PWAs remember old URLs (and the old `/dashboard?start=next` shortcut).
-- **Home never blocks a choice.** Next up is a suggestion; every other routine is one tap away. While a session is open, Home offers only Resume or Finish. Finish from Home pushes any surviving `util/draft.js` payload before completing, because the draft may be the only copy of the last sets typed.
-- **The session's unsaved edits live in `localStorage`, not the query cache.** `util/draft.js`
-  writes the pending payload *and* a snapshot of the workout shape on every edit, and clears
-  it only when the server confirms that exact payload. A surviving draft therefore means
-  unsaved work. `['workout', id]` stays out of the persisted query cache (see `main.jsx`) so
-  stale server data can't land on live edits — the draft is what makes a cold offline reload
-  render, so don't "simplify" by persisting the query instead.
-- **The service worker must never auto-reload, but it must not go quiet either.** A worker
-  taking over on its own would remount the page and drop anything typed inside the 1200ms
-  autosave debounce. Waiting for every client to close instead means an installed PWA sits on
-  stale code indefinitely — that is how a deployed auth fix reached the server and never
-  reached the phone, and the symptom ("nothing happens until I refresh") looks exactly like
-  the bug it was meant to fix. `sw-update.js` installs quietly and `UpdatePrompt` offers the
-  reload, so the choice is explicit.
-- **The frontend's `ignoreCommand` compares against `$VERCEL_GIT_PREVIOUS_SHA`, not `HEAD^`.**
-  The project skips builds when nothing under `frontend/` changed. With `HEAD^` that only
-  inspects the *last* commit, so fast-forwarding several commits onto `main` at once skipped
-  a build whose frontend changes were in an earlier commit of the same push — Phase 3's UI
-  never deployed while its API did. `$VERCEL_GIT_PREVIOUS_SHA` is the last *successfully
-  deployed* SHA, which is the correct baseline. The `[ -n ... ] &&` guard makes an absent
-  variable build rather than skip. **The baseline can also be missing from the shallow
-  clone**: after enough correctly-skipped backend-only merges, the last-deployed SHA falls
-  outside Vercel's clone depth, `git diff` exits 128 ("bad object"), and Vercel marks the
-  deployment ERROR instead of building — production silently froze at an old frontend for
-  a day while previews and CI stayed green (2026-08-13). Hence the `git cat-file -e` check
-  and the if/else that maps every non-skip outcome to exit 1 (= build): when the baseline
-  is unknowable, building is the only safe answer. Watch the exit codes if editing this:
-  Vercel only understands 0 (skip) and 1 (build); a 128 is a failed deploy.
-- **Cache-affecting fixes can't be verified by curling production.** The origin serving new
-  bytes says nothing about what an installed client is running. Check the asset hash in the
-  page, not just the deploy.
-- **`exercises.muscle_group` is the coarse label; `exercise_muscles` is the analytical one.**
-  The six groups (Chest/Back/Legs/…) are what the library UI groups and filters by and are
-  staying. Volume analysis reads `exercise_muscles`, which credits a set 1.0 to what it
-  primarily trains and 0.5 to what it assists — "Legs: 20 sets" can't tell you whether that's
-  18 quad sets and 2 hamstring, which is the only version of the question worth asking.
-  The mapping lives in `src/db/muscles.js`; edit it and re-run `db:apply-muscles -- --apply`,
-  which rewrites each exercise's rows. The script reports anything it matched by keyword or
-  fell back to a coarse group — those are guesses, and a wrong one silently skews every
-  weekly total that muscle appears in.
-- **Estimated 1RM is omitted above 12 reps, never extrapolated.** Epley inflates badly past
-  that (a 25-rep 40kg set reported as a 73kg "one-rep max"). `/progress/one-rm` returns no
-  point and `/progress/personal-bests` returns `est_1rm: null`. Personal bests are ranked on
-  load, not on the estimate — ranking by 1RM let a lighter high-rep set outrank a heavier one.
 - **A lift can carry its own load step** (2026-09-21). `exercises.load_step_kg`, nullable:
   set, the engine adds exactly that when the range is cleared; null, it falls back to the
-  muscle-group rule (2.5kg compound, 1.25kg isolation). It had an editor on Lifts, which went in the 2026-11-03 strip-back; set it in SQL until he asks for one back. It is a property of the LIFT, not a coaching call — the RDL moves 10kg
+  muscle-group rule (2.5kg compound, 1.25kg isolation). It had an editor on Lifts, which went in the 2026-11-03 strip-back; set it in SQL until he asks for one back. It is a property of the LIFT — the RDL moves 10kg
   because he takes it in 5kg-plate steps, the squat stays small because it is the lift his
-  lower back objects to. Both used to need a standing coach note to override the engine
-  every session, which is the worst thing to use a standing note for: it suppresses the
-  engine while it stands and outlives the reason it was written (see the overtaken-call
-  rule in util/aim.js). A PUT that doesn't mention `load_step_kg` leaves it alone; sending
+  lower back objects to. A PUT that doesn't mention `load_step_kg` leaves it alone; sending
   null clears it back to the default.
 
 - **Progression is double progression**, driven off the rep range and target RIR the program
@@ -362,28 +282,20 @@ keeps the original. Gym HR is still indicative, never ground truth — the logge
 - Substitutes: preset list per exercise + fall back to the full library.
 - Wiping was OK when we restructured — the old `workout_plans`/`plan_exercises`/`workouts` shape was dropped in the Programs rebuild.
 
-## The coach
+## The claude.ai connector
 
-The daily run is a **brief, not a call** (2026-08-15): it reports last night's protocol
-figures, readiness numbers, today's rhythm slot and any unsettled niggle, and is
-explicitly forbidden to prescribe, adjust or decide anything — coaching judgement
-happens in conversation with Claude, which can interrogate the data. The Sunday weekly
-review's timer (`coach-weekly.timer` on nas-laptop) was disabled on 2026-09-15 — he
-never read it, and no screen shows coach output any more. Rows written before that change carry the old
-`call`/`why`/`session_guidance` shape; the Coach tab renders both.
-
-The AI coach's brain lives entirely in this repo: persona and prompts
-(`src/util/coachPrompt.js`), all three context bundles (`src/util/coachContext.js`),
-pricing/budget (`src/util/coachSpend.js`), and the generation endpoint
-(`src/routes/coachRun.js`, machine-authed via `COACH_RUN_SECRET`, mounted before
-`requireAuth`). The nas-laptop timers are dumb triggers — they pull Garmin and curl
-`POST /api/coach/run?kind=daily|weekly`. Data ingest (garth/intervals.icu syncs) stays
-on nas-laptop; it only writes rows. There is deliberately no prompt text outside this
-repo — that was tried and the two copies drifted. Hub tables come from
-`src/db/schema_hub.sql` (additive-only, own `db:init-hub`; never merge into schema.sql,
-which wipes). Backend env vars: `ANTHROPIC_API_KEY`, `COACH_RUN_SECRET`,
-`COACH_NTFY_URL`. Anchor any hub date window to `todayInAppTimezone()`, never Postgres
-`CURRENT_DATE` — Neon is UTC and a Melbourne morning is still "yesterday" there.
+The AI coach is gone (2026-11-03): no scheduled daily/weekly calls, no prompts, no
+spend tracking, no coach notes, no check-in pushes. What stays is `routes/mcp.js`, a
+read-only MCP server at `/api/mcp/<MCP_TOKEN>` that claude.ai uses to read live training
+data when he asks Claude something. Six tools (`get_briefing` first; readiness, training
+load, activities, strength sessions, bodyweight), all reading `util/coachContext.js`.
+Data ingest (garth/intervals.icu syncs) stays on nas-laptop; it only writes rows. Hub
+tables come from `src/db/schema_hub.sql` (additive-only, own `db:init-hub`; never merge
+into schema.sql, which wipes). The retired features' tables (`coach_advice`,
+`coach_notes`, `coach_messages`, `checkins`, `session_feel`, `checkin_nudges`) are kept
+with their data and read by nothing except `get_strength_sessions`' historical RPE.
+Anchor any hub date window to `todayInAppTimezone()`, never Postgres `CURRENT_DATE` —
+Neon is UTC and a Melbourne morning is still "yesterday" there.
 
 ## Known quirks / open follow-ups
 

@@ -119,16 +119,16 @@ console.log('\n─── the body counts, and assistance subtracts from it ─�
     `got ${perEx[0]?.max_weight}`);
 }
 
-// The number the coach reasons over is the one that was wrong, so assert the bundle
-// itself rather than trusting that the shared expression reached it.
-console.log('\n─── and the coach reads the same number ───');
+// The claude.ai connector reads the same figure, so assert it directly rather than
+// trusting that the shared expression reached it.
+console.log('\n─── and the connector reads the same number ───');
 {
   const { default: ctx } = await import('../src/util/coachContext.js');
   const sessions = await ctx.strengthSessions(7);
   const session = sessions.find((s) => s.date === today);
-  ok(session != null, 'the session is in the coach bundle', JSON.stringify(sessions));
+  ok(session != null, 'the session is in the connector data', JSON.stringify(sessions));
   ok(Number(session?.volume_kg) === EXPECTED,
-    'the coach sees the same volume as the app', `got ${session?.volume_kg}`);
+    'the connector sees the same volume as the app', `got ${session?.volume_kg}`);
 }
 
 // Assistance heavier than he is would otherwise drive the total below zero and eat into

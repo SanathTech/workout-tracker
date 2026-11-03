@@ -6,9 +6,6 @@ const exercisesRouter = require('./routes/exercises');
 const programsRouter = require('./routes/programs');
 const workoutsRouter = require('./routes/workouts');
 const progressRouter = require('./routes/progress');
-const coachRouter = require('./routes/coach');
-const coachRunRouter = require('./routes/coachRun');
-const nudgeRouter = require('./routes/nudge');
 const mcpRouter = require('./routes/mcp');
 const authRouter = require('./routes/auth');
 const eventsRouter = require('./routes/events');
@@ -58,14 +55,9 @@ app.use('/api', (req, res, next) => {
 // rather than inferred — it reads "off" until both auth env vars are set.
 app.get('/health', (req, res) => res.json({ status: 'ok', auth: isConfigured() ? 'on' : 'off' }));
 
-// Login/logout are the only session-unauthenticated API routes — plus the coach run
-// endpoint, which is machine-to-machine: the nas-laptop timers have no browser
-// session, so it authenticates with its own shared secret instead.
+// Mounted before requireAuth: login/logout, and the claude.ai connector, which carries
+// its own capability token in the path instead of a session.
 app.use('/api/auth', authRouter);
-app.use('/api/coach/run', coachRunRouter);
-// Machine-authed like /coach/run, so it too is mounted before requireAuth.
-app.use('/api/coach/nudge', nudgeRouter);
-// The claude.ai MCP connector — capability-URL auth (token in path), not session auth.
 app.use('/api/mcp/:token', mcpRouter);
 
 // Everything below requires a valid session cookie once auth is configured.
@@ -79,7 +71,6 @@ app.use('/api/exercises', exercisesRouter);
 app.use('/api/programs', programsRouter);
 app.use('/api/workouts', workoutsRouter);
 app.use('/api/progress', progressRouter);
-app.use('/api/coach', coachRouter);
 
 // 404 handler
 app.use((req, res) => res.status(404).json({ error: 'Route not found' }));

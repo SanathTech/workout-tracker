@@ -182,7 +182,7 @@ function SetRow({ set, previousSet, previousStraightSet, showPrev, targetRir, ai
     && Number(previousSet.weight_kg) === ghostWeight;
   const ghostReps = aim == null
     ? null
-    : aim.source === 'engine' && aim.action === 'hold' && prevAtGhostWeight && previousSet?.reps != null
+    : aim.action === 'hold' && prevAtGhostWeight && previousSet?.reps != null
       ? Math.min(previousSet.reps + 1, aim.reps_high ?? previousSet.reps + 1)
       : aim.reps ?? null;
 
