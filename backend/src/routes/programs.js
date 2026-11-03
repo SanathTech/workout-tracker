@@ -235,7 +235,7 @@ router.get('/active', async (req, res) => {
     if (!activeRes.rows.length) return res.json(null);
 
     const program = await fetchProgramTree(client, activeRes.rows[0].id);
-    const { byRoutine, next } = await rotation(client, program.routines, todayInAppTimezone());
+    const { byRoutine, next } = await rotation(client, program.id, program.routines, todayInAppTimezone());
     for (const r of program.routines) Object.assign(r, byRoutine.get(r.id));
     const countRes = await client.query(
       `SELECT COUNT(*) FILTER (WHERE status = 'completed')::int AS completed,

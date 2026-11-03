@@ -2,22 +2,23 @@
 // it replaced banked every day he couldn't make as a skip, and his weeks stopped having
 // fixed gym days. Picking any routine is always allowed; this only orders the offer.
 //
-// A routine counts as done by any completed session under its id OR its name: saving the
-// program editor re-inserts routines under new ids, and a rename keeps the id. Skipped
+// A routine counts as done by any completed session in this program under its id OR its
+// name: saving the program editor re-inserts routines under new ids, and a rename keeps
+// the id. Scoped to the program so an old one's "Day A" can't stand in for this one's. Skipped
 // rows don't count. An open session counts as today's, so the routine already under way
 // isn't also offered as next. Never-done routines come first, ties go to program order.
 
 // `routines` is the active program's, in display order. Returns a map of routine id →
 // { last_done: 'YYYY-MM-DD' | null, in_progress } and the suggested routine.
-async function rotation(client, routines, today) {
+async function rotation(client, programId, routines, today) {
   if (!routines.length) return { byRoutine: new Map(), next: null };
   const { rows } = await client.query(
     `SELECT routine_id, routine_name, status, MAX(date) AS last
        FROM workouts
-      WHERE status IN ('completed', 'in_progress')
-        AND (routine_id = ANY($1::int[]) OR routine_name = ANY($2::text[]))
+      WHERE program_id = $1 AND status IN ('completed', 'in_progress')
+        AND (routine_id = ANY($2::int[]) OR routine_name = ANY($3::text[]))
       GROUP BY routine_id, routine_name, status`,
-    [routines.map((r) => r.id), routines.map((r) => r.name)]
+    [programId, routines.map((r) => r.id), routines.map((r) => r.name)]
   );
 
   const byRoutine = new Map();

@@ -94,5 +94,16 @@ console.log('\n─── nothing is ever auto-skipped ───');
   ok(!rows.some((w) => /skipped automatically/.test(w.notes || '')), 'no auto-skip rows after gaps of days');
 }
 
+console.log('\n─── another program\'s same-named routine doesn\'t count ───');
+{
+  const { body: other } = await api('POST', '/api/programs', { name: 'Old block', total_weeks: null, routines: [routine('Hinge', ex['Deadlift'])] });
+  const { body: w } = await api('POST', '/api/workouts', { routine_id: other.routines[0].id, date: melToday });
+  await api('POST', `/api/workouts/${w.id}/complete`);
+  const p = await active();
+  ok(p.id === prog.id, 'the rotation program is still the active one');
+  ok(byName(p).Hinge.last_done === daysAgo(3), 'Hinge keeps its own last-done date', byName(p).Hinge.last_done);
+  ok(p.progress.next_routine?.name === 'Hinge', 'and is still up next', p.progress.next_routine?.name);
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

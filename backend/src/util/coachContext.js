@@ -516,7 +516,7 @@ async function nextSession() {
     `SELECT COUNT(*)::int AS n FROM workouts WHERE program_id = $1 AND status = 'completed'`,
     [p.id]
   );
-  const { byRoutine, next: nxt } = await rotation(db, routines.rows, today());
+  const { byRoutine, next: nxt } = await rotation(db, p.id, routines.rows, today());
 
   const exercises = await db.query(
     `SELECT e.name, re.target_sets, re.rep_range_low, re.rep_range_high, re.is_main
