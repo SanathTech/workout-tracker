@@ -4,7 +4,7 @@ const db = require('../db');
 const { resolveAim } = require('../util/aim');
 const { serverError } = require('../util/errors');
 const { LANDMARKS } = require('../db/muscles');
-const { resolveWorkoutDate, currentWeekStart, APP_TIMEZONE } = require('../util/dates');
+const { resolveWorkoutDate, currentWeekStart } = require('../util/dates');
 const { LOAD_JOINS, SET_VOLUME } = require('../util/volume');
 
 // GET /api/progress/exercise/:exerciseId — per-date max weight and volume
@@ -461,54 +461,9 @@ router.get('/suggestions', async (req, res) => {
       [routineId]
     );
 
-    // Standing coach calls, scoped the way the session scopes them: a note pinned to a
-    // routine shows only there; an unpinned one shows wherever the exercise appears.
-    // Resolved here (see util/aim.js) so the client never has to weigh note against chip.
-    const { rows: noteRows } = await db.query(
-      `SELECT id, exercise_id, routine_id, note, aim_weight_kg::float, aim_reps, aim_rir,
-              created_at
-         FROM coach_notes
-        WHERE resolved_at IS NULL AND NOT internal AND exercise_id IS NOT NULL
-          AND (routine_id IS NULL OR routine_id = $1::int)
-        ORDER BY created_at`,
-      [routineId]
-    );
-    // Has he already lifted past what a pinned call names? Asked of every session since
-    // the call was written, not just the latest — see util/aim.js. Same-day is excluded:
-    // a call is usually written just after the session it is about, and a workout records
-    // only its date.
-    const pinned = noteRows.filter((n) => n.aim_weight_kg != null).map((n) => n.id);
-    const overtakenByNote = {};
-    if (pinned.length) {
-      const { rows: evidence } = await db.query(
-        `SELECT n.id AS note_id, s.day::text AS on, s.lifted
-           FROM coach_notes n
-           JOIN LATERAL (
-             SELECT w.date AS day, MAX(ws.weight_kg)::float AS lifted
-               FROM workout_exercises we
-               JOIN workouts w ON w.id = we.workout_id AND w.status = 'completed'
-               JOIN workout_sets ws ON ws.workout_exercise_id = we.id
-                AND ws.set_type <> 'warmup' AND ws.reps > 0
-              WHERE we.exercise_id = n.exercise_id
-                AND w.date > (n.created_at AT TIME ZONE $2)::date
-              GROUP BY w.id, w.date
-             HAVING MAX(ws.weight_kg) > n.aim_weight_kg
-              ORDER BY w.date DESC
-              LIMIT 1
-           ) s ON true
-          WHERE n.id = ANY($1::int[])`,
-        [pinned, APP_TIMEZONE]
-      );
-      for (const e of evidence) overtakenByNote[e.note_id] = { lifted_kg: e.lifted, on: e.on };
-    }
-    for (const n of noteRows) n.overtaken_by = overtakenByNote[n.id] || null;
-
-    const notesByExercise = {};
-    for (const n of noteRows) (notesByExercise[n.exercise_id] = notesByExercise[n.exercise_id] || []).push(n);
-
     const suggestions = rows.map((r) => {
       const engine = engineVerdict(r, routineId);
-      return { ...engine, ...resolveAim(engine, notesByExercise[r.exercise_id] || [], r.target_rir_per_set) };
+      return { ...engine, ...resolveAim(engine, r.target_rir_per_set) };
     });
 
     res.json(suggestions);

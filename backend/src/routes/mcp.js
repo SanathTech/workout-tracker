@@ -4,22 +4,14 @@ const { z } = require('zod');
 const { McpServer } = require('@modelcontextprotocol/sdk/server/mcp.js');
 const { StreamableHTTPServerTransport } = require('@modelcontextprotocol/sdk/server/streamableHttp.js');
 const ctx = require('../util/coachContext');
-const { ATHLETE } = require('../util/coachPrompt');
-const { MONTHLY_BUDGET_USD, monthlySpend } = require('../util/coachSpend');
 
 const router = express.Router({ mergeParams: true });
 
-// Remote MCP server for claude.ai — the interactive surface of the coach.
+// Remote MCP server for claude.ai: a Claude conversation pulls LIVE training data
+// itself. The only coaching surface left after the 2026-11-03 strip-back removed the
+// scheduled coach, its notes and the check-ins.
 //
-// The in-app chat was retired 2026-08-12: talking to Claude (plan allowance, stronger
-// models, real tools) replaced it entirely. This server lets a Claude conversation
-// pull LIVE hub data itself. Every tool calls the same coachContext helpers the
-// scheduled runs use, so Claude sees exactly what the coach sees — by construction,
-// not by discipline.
-//
-// Read-only on purpose. Nothing here writes: a claude.ai session can analyse and
-// advise, but advice rows, check-ins and messages are only written by the surfaces
-// that own them.
+// Read-only on purpose. Nothing here writes.
 //
 // Auth is a capability URL: /api/mcp/<token>, constant-time compared against
 // MCP_TOKEN. claude.ai custom connectors support OAuth or unauthenticated servers;
@@ -45,37 +37,41 @@ function jsonResult(data) {
 const DAYS = (max, fallback) =>
   z.number().int().min(1).max(max).default(fallback).describe(`Window in days (max ${max})`);
 
+// Who he is and what the data can say. Kept short and factual: anything about plans or
+// targets goes stale, and Claude can read the current state from the tools.
+const ATHLETE = `Sanath trains for an Ironman 70.3 (swim/bike/run) alongside a gym program of
+three full-body routines done in rotation, on whatever days his schedule allows — there
+are no fixed gym days, and the app suggests the routine done longest ago. He logs
+strength in his own app and endurance via a Garmin vívosmart 5.
+
+His watch does NOT measure HRV, so Garmin's Training Readiness is unavailable. Never ask
+for HRV or hedge around its absence. Readiness = Body Battery at wake, sleep score and
+stages, resting-HR trend, average stress, and TSB (form) from intervals.icu.
+
+Garmin's gym recordings are approximate (he sometimes forgets to start or stop them); the
+app's logged sets are the ground truth for what happened in the gym. He stopped logging
+daily check-ins and post-session RPE in October 2026, and the app no longer asks for them,
+so their absence says nothing.`;
+
 function buildServer() {
   const server = new McpServer(
     { name: 'fitness-coach', version: '1.0.0' },
     {
       instructions:
         'Live training data for Sanath. Call get_briefing first: it returns who the ' +
-        'athlete is, what the data can and cannot say (no HRV — hardware limit), and ' +
-        'what the scheduled coach has already told him, so your advice stays ' +
-        'consistent with the calls he has received.',
+        'athlete is, what the data can and cannot say (no HRV — hardware limit), the ' +
+        'next routine in his rotation, and how fresh each data feed is.',
     }
   );
 
   server.registerTool('get_briefing', {
     description:
-      'The coach briefing: athlete profile, data caveats, current program position, ' +
-      'recent scheduled-coach calls, and feed freshness. Call this first in any ' +
-      'coaching conversation.',
+      'Athlete profile, data caveats, the next routine in his gym rotation, and feed ' +
+      'freshness. Call this first in any training conversation.',
     inputSchema: {},
   }, async () => {
-    const [next, advice, fresh, spent] = await Promise.all([
-      ctx.nextSession(), ctx.pastAdvice('daily', 3), ctx.dataFreshness(), monthlySpend(),
-    ]);
-    const weekly = await ctx.pastAdvice('weekly', 1);
-    return jsonResult({
-      athlete: ATHLETE,
-      next_session: next,
-      recent_daily_calls: advice,
-      last_weekly_review: weekly[0] || null,
-      data_freshness: fresh,
-      coach_api_spend_this_month: { usd: spent, cap: MONTHLY_BUDGET_USD },
-    });
+    const [next, fresh] = await Promise.all([ctx.nextSession(), ctx.dataFreshness()]);
+    return jsonResult({ athlete: ATHLETE, next_session: next, data_freshness: fresh });
   });
 
   server.registerTool('get_readiness', {
@@ -104,14 +100,9 @@ function buildServer() {
   server.registerTool('get_strength_sessions', {
     description:
       'Gym sessions: working sets, tonnage, Garmin HR load for the same day, and ' +
-      'post-session RPE where logged.',
+      'post-session RPE where logged (only before Nov 2026).',
     inputSchema: { days: DAYS(365, 42) },
   }, async ({ days }) => jsonResult(await ctx.strengthSessions(days)));
-
-  server.registerTool('get_checkins', {
-    description: 'Daily subjective check-ins: mood, energy, soreness (1–5) and notes.',
-    inputSchema: { days: DAYS(120, 28) },
-  }, async ({ days }) => jsonResult(await ctx.checkins(days)));
 
   server.registerTool('get_bodyweight', {
     description:
@@ -119,23 +110,6 @@ function buildServer() {
       'carries forward between real weigh-ins; each row is tagged with its source.',
     inputSchema: { days: DAYS(365, 90) },
   }, async ({ days }) => jsonResult(await ctx.bodyweight(days)));
-
-  server.registerTool('get_coach_advice', {
-    description:
-      'What the scheduled coach has already said: daily readiness calls and weekly ' +
-      'reviews, as structured advice.',
-    inputSchema: {
-      kind: z.enum(['daily', 'weekly']).default('daily'),
-      limit: z.number().int().min(1).max(30).default(7),
-    },
-  }, async ({ kind, limit }) => jsonResult(await ctx.pastAdvice(kind, limit)));
-
-  server.registerTool('get_adherence', {
-    description:
-      'Each past daily call paired with what he actually did that day — activities, ' +
-      'gym session, RPE. The honesty check on the coaching.',
-    inputSchema: { days: DAYS(120, 28) },
-  }, async ({ days }) => jsonResult(await ctx.buildAdherence(days)));
 
   return server;
 }
